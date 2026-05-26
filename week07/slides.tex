@@ -1,0 +1,162 @@
+\documentclass[aspectratio=169,xcolor=dvipsnames]{beamer}
+\usetheme{Madrid}\usecolortheme{seahorse}
+\usepackage{amsmath,amssymb,listings,tikz,booktabs,hyperref}
+\usetikzlibrary{arrows.meta,positioning,shapes}
+\lstset{language=Python,basicstyle=\small\ttfamily,keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{OliveGreen},stringstyle=\color{red},frame=single,breaklines=true}
+
+\title[Algorithms -- Week 7]{\textbf{Thiết kế và Phân tích Thuật toán}\\
+  \large Week 7: Dynamic Programming I}
+\subtitle{Introduction, Knapsack, LCS, Memoisation \\ TOAE209/TOAH209 -- Foreign Trade University}
+\author{Department of Technology \& Data Science}
+\date{Semester 2024--2025}
+\AtBeginSection[]{\begin{frame}<beamer>{Outline}\tableofcontents[currentsection]\end{frame}}
+
+\begin{document}
+\begin{frame}\titlepage\end{frame}
+\begin{frame}{Outline}\tableofcontents\end{frame}
+
+\section{Motivation}
+\begin{frame}{Why Dynamic Programming?}
+  \begin{columns}
+    \column{0.55\textwidth}
+    \begin{alertblock}{The Problem with Naive Recursion}
+      Fibonacci: $T(n) = T(n-1)+T(n-2)+1$\\
+      $\Rightarrow T(n) = \Theta(2^n)$\\[4pt]
+      $\text{fib}(5) = \text{fib}(4)+\text{fib}(3)$\\
+      $\text{fib}(4) = \text{fib}(3)+\text{fib}(2)$\\
+      $\text{fib}(3)$ computed \textbf{twice!}
+    \end{alertblock}
+    \column{0.4\textwidth}
+    \begin{exampleblock}{DP Solution}
+      Store computed results.\\
+      Each subproblem solved \textbf{once}.\\
+      $\Theta(n)$ time, $\Theta(n)$ space.
+    \end{exampleblock}
+  \end{columns}
+  \vspace{0.5em}
+  \begin{block}{Two Key Properties for DP}
+    \begin{enumerate}
+      \item \textbf{Overlapping subproblems}: same subproblems recur many times
+      \item \textbf{Optimal substructure}: optimal solution built from optimal sub-solutions
+    \end{enumerate}
+  \end{block}
+\end{frame}
+
+\section{Historical Context}
+\begin{frame}{History of Dynamic Programming}
+  \begin{description}
+    \item[1950s] Richard Bellman coins ``dynamic programming'' (intentionally vague name!)
+    \item[1953] Bellman's principle of optimality
+    \item[1957] Floyd-Warshall all-pairs shortest paths
+    \item[1965] Needleman-Wunsch sequence alignment (bioinformatics)
+    \item[1970s] DP used in compiler design (CYK parsing)
+    \item[1990s] DP in speech recognition (HMMs), finance (options pricing)
+    \item[2010s] Deep Reinforcement Learning = DP on massive state spaces
+  \end{description}
+\end{frame}
+
+\section{Memoisation vs Tabulation}
+\begin{frame}[fragile]{Top-Down: Memoisation}
+  \begin{lstlisting}
+# Memoised Fibonacci: O(n) time, O(n) space
+def fib(n, memo={}):
+    if n in memo: return memo[n]     # Cache hit
+    if n <= 1: return n
+    memo[n] = fib(n-1, memo) + fib(n-2, memo)
+    return memo[n]
+  \end{lstlisting}
+  \begin{block}{Key Points}
+    \begin{itemize}
+      \item Recursive structure preserved (natural to write)
+      \item Only computes subproblems actually needed
+      \item Risk: stack overflow for large $n$
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Bottom-Up: Tabulation}
+  \begin{lstlisting}
+# Tabulation Fibonacci: O(n) time, O(1) space
+def fib_tab(n):
+    if n <= 1: return n
+    a, b = 0, 1
+    for _ in range(2, n+1):
+        a, b = b, a + b
+    return b
+  \end{lstlisting}
+  \begin{block}{Key Points}
+    \begin{itemize}
+      \item Fill table in bottom-up order (base cases first)
+      \item Often more efficient (no function call overhead)
+      \item Can optimise space by only keeping needed rows
+    \end{itemize}
+  \end{block}
+\end{frame}
+
+\section{Classic DP Problems}
+\begin{frame}[fragile]{0/1 Knapsack Problem}
+  \textbf{Problem:} Given $n$ items with weights $w_i$ and values $v_i$, and capacity $W$,
+  find the maximum value subset with total weight $\le W$.\\[6pt]
+  \textbf{Subproblem:} $dp[i][w]$ = max value using items $1..i$ with capacity $w$.\\[6pt]
+  \textbf{Recurrence:}
+  $$dp[i][w] = \begin{cases}
+    dp[i-1][w] & \text{if } w_i > w \text{ (can't include)} \\
+    \max(dp[i-1][w],\; dp[i-1][w-w_i]+v_i) & \text{otherwise}
+  \end{cases}$$
+  \textbf{Complexity:} $\Theta(nW)$ time, $\Theta(nW)$ space
+  \begin{alertblock}{Note}
+    This is \textbf{pseudo-polynomial}: depends on the value $W$, not $\log W$.
+    The 0/1 knapsack is NP-hard in general!
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Longest Common Subsequence (LCS)}
+  \textbf{Recurrence:}
+  $$dp[i][j] = \begin{cases}
+    0 & \text{if } i=0 \text{ or } j=0 \\
+    dp[i-1][j-1]+1 & \text{if } s[i] = t[j] \\
+    \max(dp[i-1][j], dp[i][j-1]) & \text{otherwise}
+  \end{cases}$$
+  \textbf{Example:} LCS(``ABCBDAB'', ``BDCAB'') = ``BCAB'' (length 4)\\[6pt]
+  \begin{block}{LCS Table Fragment}
+    \begin{tabular}{c|ccccc}
+      & B & D & C & A & B \\ \hline
+      A & 0 & 0 & 0 & 1 & 1 \\
+      B & 1 & 1 & 1 & 1 & 2 \\
+      C & 1 & 1 & 2 & 2 & 2 \\
+    \end{tabular}
+  \end{block}
+\end{frame}
+
+\section{Further Reading}
+\begin{frame}{Further Reading \& Advanced Topics}
+  \begin{block}{References}
+    \begin{itemize}
+      \item CLRS Ch. 15: Dynamic Programming (full treatment)
+      \item MIT 6.006 Lecture Notes on DP
+    \end{itemize}
+  \end{block}
+  \begin{exampleblock}{Applications}
+    \begin{itemize}
+      \item Bioinformatics: sequence alignment (Smith-Waterman)
+      \item Natural Language Processing: CYK parsing, Viterbi algorithm
+      \item Computer Vision: Viterbi HMM, CRF inference
+      \item Finance: Black-Scholes option pricing via DP
+      \item Reinforcement Learning: value iteration, Q-learning
+    \end{itemize}
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Week 7 Summary}
+  Review the lecture notes, complete \texttt{starter.py}, and read the assigned chapters.\\[6pt]
+  \begin{block}{Self-Check Questions}
+    \begin{enumerate}
+      \item Can you implement the key algorithms from scratch?
+      \item Can you prove correctness using a loop invariant?
+      \item Can you derive and solve the time complexity recurrence?
+      \item Can you identify the best and worst case inputs?
+    \end{enumerate}
+  \end{block}
+\end{frame}
+\end{document}
