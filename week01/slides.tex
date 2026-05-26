@@ -146,6 +146,62 @@
   \end{alertblock}
 \end{frame}
 
+\begin{frame}{Worked Example: School Multiplication}
+  Multiply
+  \[
+    1234 \times 5678
+  \]
+  using the standard method.
+
+  \vspace{0.4em}
+  Split by place value:
+  \[
+    1234 = 1000 + 200 + 30 + 4,\quad
+    5678 = 5000 + 600 + 70 + 8
+  \]
+
+  \vspace{0.4em}
+  The school method computes every digit pair:
+  \[
+    4 \times 4 = 16
+  \]
+  single-digit products, plus additions and carries.
+
+  \vspace{0.4em}
+  \begin{block}{Output}
+    \[
+      1234 \times 5678 = 7,006,652
+    \]
+  \end{block}
+\end{frame}
+
+\begin{frame}{Worked Example: Karatsuba on the Same Numbers}
+  Split both numbers into two halves:
+  \[
+    1234 = 12 \cdot 100 + 34,\quad 5678 = 56 \cdot 100 + 78
+  \]
+
+  Karatsuba computes three products instead of four:
+  \[
+    z_2 = 12 \times 56 = 672,\quad
+    z_0 = 34 \times 78 = 2652
+  \]
+  \[
+    z_1 = (12 + 34)(56 + 78) - z_2 - z_0
+  \]
+  \[
+    z_1 = 46 \times 134 - 672 - 2652 = 2840
+  \]
+
+  Recombine:
+  \[
+    1234 \times 5678 = z_2 \cdot 100^2 + z_1 \cdot 100 + z_0
+  \]
+  \[
+    = 672 \cdot 10^4 + 2840 \cdot 10^2 + 2652 = 7,006,652
+  \]
+\end{frame}
+
 \begin{frame}{School Multiplication vs Karatsuba}
   \begin{columns}
     \column{0.48\textwidth}
@@ -166,8 +222,8 @@
     \end{exampleblock}
   \end{columns}
   \vspace{0.7em}
-  \begin{block}{Why mention this in Week 1?}
-    It shows the course theme: clever structure can beat the obvious method.
+  \begin{block}{What the example shows}
+    For 4-digit numbers, the school method needs 16 digit products. Karatsuba reduces that recursive structure to 3 half-size multiplications instead of 4.
   \end{block}
 \end{frame}
 
@@ -343,6 +399,27 @@ def binary_search(arr, target):
   \vspace{0.6em}
   \begin{block}{Interpretation}
     The sorted structure is information. Binary search exploits that information.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Worked Example: Binary Search}
+  Search for `23` in the sorted list:
+  \[
+    [3,\ 8,\ 12,\ 19,\ 23,\ 31,\ 45,\ 50]
+  \]
+
+  \vspace{0.4em}
+  \begin{enumerate}
+    \item Check the middle element `19`. Since `23 > 19`, discard the left half.
+    \item Now search in `[23, 31, 45, 50]`.
+    \item Check the new middle element `31`. Since `23 < 31`, discard the right half.
+    \item Now search in `[23, 31]`.
+    \item Check the middle element `23`. Found.
+  \end{enumerate}
+
+  \vspace{0.4em}
+  \begin{block}{What changed?}
+    Instead of checking every element, we used the sorted order to eliminate half the remaining list at each step.
   \end{block}
 \end{frame}
 

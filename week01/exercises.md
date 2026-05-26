@@ -300,6 +300,17 @@ School multiplication of two `n`-digit integers uses about `n^2` single-digit pr
 3. Where might huge integer multiplication appear in practice?
 4. Why is Karatsuba a good example of algorithm design even before we study divide and conquer formally?
 
+**Exercise 1.15 - Hand calculation**
+
+Work through the product `1234 x 5678` in two ways.
+
+1. Write the school-method partial products.
+2. Count how many single-digit multiplications are used by the school method.
+3. Split the numbers as `1234 = 12 x 100 + 34` and `5678 = 56 x 100 + 78`.
+4. Compute Karatsuba's three subproducts.
+5. Recombine them to get the final answer.
+6. Compare the number of multiplications and additions.
+
 ---
 
 ## Part F - Starter Code Assignment
@@ -328,17 +339,17 @@ Submit:
 
 ## Challenge Problems
 
-**Exercise 1.15** Binary search runs in `O(log n)`. If a sorted array has `10^9` elements:
+**Exercise 1.16** Binary search runs in `O(log n)`. If a sorted array has `10^9` elements:
 
 1. What is the maximum number of comparisons needed?
 2. If one server can run `10^6` binary searches per second, how long does it take to process `10^12` queries?
 3. How many such servers are needed to finish in one hour?
 
-**Exercise 1.16** Prove or disprove: if `f(n) = O(g(n))` and `f(n) = Omega(g(n))`, then `f(n) = Theta(g(n))`.
+**Exercise 1.17** Prove or disprove: if `f(n) = O(g(n))` and `f(n) = Omega(g(n))`, then `f(n) = Theta(g(n))`.
 
-**Exercise 1.17** Design an algorithm that finds both the minimum and maximum of an array using fewer than `2(n - 1)` comparisons. Hint: compare elements in pairs first.
+**Exercise 1.18** Design an algorithm that finds both the minimum and maximum of an array using fewer than `2(n - 1)` comparisons. Hint: compare elements in pairs first.
 
-**Exercise 1.18** Suppose algorithm A takes `1000n` operations and algorithm B takes `n^2` operations.
+**Exercise 1.19** Suppose algorithm A takes `1000n` operations and algorithm B takes `n^2` operations.
 
 1. For which values of `n` is A faster?
 2. For which values of `n` is B faster?
