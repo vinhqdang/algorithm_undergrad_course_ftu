@@ -5,334 +5,757 @@
 \usetikzlibrary{arrows.meta,positioning,shapes}
 \pgfplotsset{compat=1.18}
 
-\lstset{language=Python,basicstyle=\small\ttfamily,keywordstyle=\color{blue}\bfseries,
-  commentstyle=\color{OliveGreen},stringstyle=\color{red},
-  frame=single,breaklines=true,showstringspaces=false}
+\lstset{
+  language=Python,
+  basicstyle=\small\ttfamily,
+  keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{OliveGreen},
+  stringstyle=\color{red},
+  frame=single,
+  breaklines=true,
+  showstringspaces=false
+}
 
-\title[Algorithms -- Week 1]{\textbf{Thiết kế và Phân tích Thuật toán}\\
-  \large Week 1: Introduction to Algorithms \& Efficiency Analysis}
-\subtitle{TOAE209/TOAH209 -- Foreign Trade University}
+\title[Algorithms -- Week 1]{Design and Analysis of Algorithms}
+\subtitle{Week 1: Why Algorithms Matter and How We Measure Efficiency}
 \author{Department of Technology \& Data Science}
-\date{Semester 2024--2025}
 \institute{Foreign Trade University}
+\date{Semester 2024--2025}
 
-\AtBeginSection[]{\begin{frame}<beamer>{Outline}\tableofcontents[currentsection]\end{frame}}
+\AtBeginSection[]{
+  \begin{frame}<beamer>{Where We Are}
+    \tableofcontents[currentsection]
+  \end{frame}
+}
 
 \begin{document}
 
-% ── Title ────────────────────────────────────────────────────────────────────
-\begin{frame}\titlepage\end{frame}
-\begin{frame}{Outline}\tableofcontents\end{frame}
+\begin{frame}
+  \titlepage
+\end{frame}
 
-% ══════════════════════════════════════════════════════════════════════════════
-\section{Motivation: Why Algorithms Matter}
-% ══════════════════════════════════════════════════════════════════════════════
+\begin{frame}{Today: A 3-Hour Roadmap}
+  \begin{enumerate}
+    \item Why algorithms matter in real systems
+    \item What an algorithm is: input, output, correctness, termination
+    \item How to measure running time experimentally
+    \item How to reason about running time mathematically
+    \item First examples: search, multiplication, Fibonacci, simple sorting
+    \item Practice: quizzes, timing lab, and starter-code assignment
+  \end{enumerate}
+  \vspace{0.6em}
+  \begin{block}{Main idea}
+    A computer can be fast and still fail if the algorithm scales badly.
+  \end{block}
+\end{frame}
 
-\begin{frame}{The World Runs on Algorithms}
+\begin{frame}{Learning Outcomes}
+  By the end of this session, you should be able to:
+  \begin{itemize}
+    \item explain why algorithm choice can matter more than hardware speed;
+    \item identify input size $n$ for a practical problem;
+    \item distinguish algorithm, program, implementation, and experiment;
+    \item count basic operations in simple code;
+    \item compare $O(1)$, $O(\log n)$, $O(n)$, $O(n^2)$, and $O(2^n)$ growth;
+    \item run a small timing experiment and interpret noisy measurements.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Recommended Timing}
+  \begin{table}
+    \centering
+    \begin{tabular}{ll}
+      \toprule
+      Time & Activity \\
+      \midrule
+      0:00--0:25 & Motivation: real examples and class discussion \\
+      0:25--0:55 & What is an algorithm? Correctness and termination \\
+      0:55--1:25 & Search and input size; in-class quiz \\
+      1:25--1:35 & Break \\
+      1:35--2:10 & Running-time measurement lab \\
+      2:10--2:40 & Operation counting and growth rates \\
+      2:40--3:00 & Stupid algorithms, wrap-up, homework briefing \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\section{Motivation: Algorithms in Daily Life}
+
+\begin{frame}{Why Algorithms Matter}
   \begin{columns}
-    \column{0.55\textwidth}
-    \begin{block}{Algorithms Are Everywhere}
+    \column{0.54\textwidth}
+    \begin{block}{Everyday systems}
       \begin{itemize}
-        \item Google Search ranks billions of pages in \textbf{< 0.5 seconds}
-        \item GPS finds shortest routes across millions of road segments
-        \item Netflix recommends content from 200 million+ profiles
-        \item Genome sequencing aligns billions of DNA base pairs
-        \item Financial trading executes orders in \textbf{microseconds}
+        \item Maps choose routes through large road networks.
+        \item Search engines rank huge collections of documents.
+        \item Banks detect suspicious transactions in real time.
+        \item Streaming apps compress and deliver video smoothly.
+        \item Phones improve photos before you even see them.
       \end{itemize}
     \end{block}
-    \column{0.4\textwidth}
-    \begin{alertblock}{The Core Question}
-      Given a computational problem, how do we solve it \textbf{correctly} and
-      \textbf{efficiently}?
+    \column{0.40\textwidth}
+    \begin{alertblock}{The question}
+      Given a problem, can we solve it correctly, fast enough, and with reasonable memory?
     \end{alertblock}
-    \vspace{0.5em}
-    \begin{exampleblock}{This Course}
-      We study \emph{systematic} techniques for designing and analysing
-      algorithms that scale to real-world problem sizes.
-    \end{exampleblock}
   \end{columns}
 \end{frame}
 
-\begin{frame}{A Tale of Two Algorithms}
-  \textbf{Problem:} Search for a name in a sorted phone book with $n = 10^6$ entries.
-
-  \vspace{0.8em}
-  \begin{columns}
-    \column{0.45\textwidth}
-    \begin{block}{Linear Search}
-      Check each entry one by one.\\[4pt]
-      \textbf{Worst case:} $10^6$ comparisons\\
-      At $10^9$ ops/sec: \textbf{1 ms}
-    \end{block}
-    \column{0.45\textwidth}
-    \begin{exampleblock}{Binary Search}
-      Repeatedly halve the search space.\\[4pt]
-      \textbf{Worst case:} $\log_2(10^6) \approx 20$ comparisons\\
-      At $10^9$ ops/sec: \textbf{20 ns}
-    \end{exampleblock}
-  \end{columns}
-
-  \vspace{1em}
-  \begin{center}
-    \begin{tikzpicture}[scale=0.85]
-      \draw[->] (0,0) -- (6,0) node[right] {$n$};
-      \draw[->] (0,0) -- (0,3.5) node[above] {Time};
-      \draw[blue,thick,domain=0.1:5.5,samples=100] plot(\x, {\x*0.5}) node[right] {$O(n)$};
-      \draw[OliveGreen,thick,domain=0.5:5.5,samples=100] plot(\x,{ln(\x+1)*0.8}) node[right] {$O(\log n)$};
-    \end{tikzpicture}
-  \end{center}
-\end{frame}
-
-% ══════════════════════════════════════════════════════════════════════════════
-\section{Historical Development}
-% ══════════════════════════════════════════════════════════════════════════════
-
-\begin{frame}{A Brief History of Algorithms}
-  \begin{description}[leftmargin=2cm]
-    \item[300 BC] Euclid's GCD algorithm -- one of the oldest known
-    \item[9th c.\ AD] Al-Khwarizmi (الخوارزمي) names the discipline
-    \item[1843] Ada Lovelace writes the first computer program (Bernoulli numbers)
-    \item[1936] Alan Turing formalises computation with the Turing machine
-    \item[1945] Merge Sort invented by John von Neumann
-    \item[1956] Dijkstra's shortest path algorithm
-    \item[1971] Cook's theorem -- foundations of NP-completeness
-    \item[1973] Knuth's \emph{The Art of Computer Programming} -- TAOCP
-    \item[1990] Introduction to Algorithms (CLRS) -- the course textbook
-    \item[2010s] Algorithm design for machine learning, quantum computing
-  \end{description}
-\end{frame}
-
-% ══════════════════════════════════════════════════════════════════════════════
-\section{What Is an Algorithm?}
-% ══════════════════════════════════════════════════════════════════════════════
-
-\begin{frame}{Definition and Properties}
-  \begin{block}{Definition (CLRS)}
-    An \textbf{algorithm} is any well-defined computational procedure that takes
-    some value (or set of values) as \emph{input} and produces some value (or
-    set of values) as \emph{output}.
-  \end{block}
-
-  \vspace{0.5em}
-  \textbf{Properties an algorithm must satisfy:}
-  \begin{enumerate}
-    \item \textbf{Correctness} -- produces the correct output for every valid input
-    \item \textbf{Definiteness} -- each step is precisely defined
-    \item \textbf{Finiteness} -- terminates after a finite number of steps
-    \item \textbf{Effectiveness} -- each step can be carried out mechanically
-    \item \textbf{Input / Output} -- zero or more inputs, one or more outputs
-  \end{enumerate}
-
-  \vspace{0.5em}
-  \begin{exampleblock}{Algorithm vs Program}
-    An \textit{algorithm} is a mathematical concept; a \textit{program} is its
-    implementation in a specific language on a specific machine.
+\begin{frame}{Internet: From Slow Pages to Instant Services}
+  In the 1990s, many users had slow dial-up connections. Today, we expect:
+  \begin{itemize}
+    \item search results in a fraction of a second;
+    \item video calls with compression and error correction;
+    \item online shopping recommendations;
+    \item maps that update traffic routes live;
+    \item cloud services serving millions of users at once.
+  \end{itemize}
+  \vspace{0.6em}
+  \begin{exampleblock}{Hardware helped, but algorithms were essential}
+    Better routing, indexing, caching, compression, ranking, and scheduling algorithms are part of why modern Internet services feel fast.
   \end{exampleblock}
 \end{frame}
 
-\begin{frame}[fragile]{Example: Insertion Sort}
+\begin{frame}{Image and Video: Why TV Looks Better}
+  Modern TV, YouTube, Netflix, and phone cameras rely on algorithms:
+  \begin{itemize}
+    \item \textbf{Compression}: send fewer bits while preserving visual quality.
+    \item \textbf{Motion estimation}: reuse information between video frames.
+    \item \textbf{Denoising}: remove sensor noise from low-light images.
+    \item \textbf{Super-resolution}: estimate a sharper image from lower-resolution data.
+    \item \textbf{Color correction}: adjust brightness, contrast, and white balance.
+  \end{itemize}
+  \vspace{0.5em}
+  \begin{block}{Algorithmic thinking}
+    The practical question is not only ``can we compute it?'' but ``can we compute it for every pixel, every frame, in real time?''
+  \end{block}
+\end{frame}
+
+\begin{frame}{Case Study: Multiplying Huge Numbers}
+  Multiplication feels simple, but huge-number multiplication is central in:
+  \begin{itemize}
+    \item cryptography;
+    \item computer algebra;
+    \item scientific computing;
+    \item blockchain systems;
+    \item arbitrary-precision arithmetic libraries.
+  \end{itemize}
+  \vspace{0.5em}
+  \begin{alertblock}{Question}
+    If two numbers each have $n$ digits, how many single-digit multiplications do we need?
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{School Multiplication vs Karatsuba}
   \begin{columns}
-    \column{0.52\textwidth}
-    \begin{lstlisting}
+    \column{0.48\textwidth}
+    \begin{block}{School method}
+      Split numbers into digits and multiply every digit pair.
+      \[
+        n \times n = n^2
+      \]
+      single-digit products.
+    \end{block}
+    \column{0.48\textwidth}
+    \begin{exampleblock}{Karatsuba idea}
+      Split each number into two halves. Replace 4 recursive multiplications with 3.
+      \[
+        T(n) = 3T(n/2) + O(n)
+      \]
+      This is about $O(n^{1.585})$.
+    \end{exampleblock}
+  \end{columns}
+  \vspace{0.7em}
+  \begin{block}{Why mention this in Week 1?}
+    It shows the course theme: clever structure can beat the obvious method.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Small Difference, Huge Consequence}
+  \begin{table}
+    \centering
+    \begin{tabular}{rrrr}
+      \toprule
+      Digits $n$ & $n^2$ & $n^{1.585}$ approx. & Ratio \\
+      \midrule
+      10 & 100 & 38 & 2.6x \\
+      100 & 10,000 & 1,479 & 6.8x \\
+      1,000 & 1,000,000 & 56,900 & 17.6x \\
+      1,000,000 & $10^{12}$ & $3.2\times 10^9$ & 312x \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.4em}
+  \begin{alertblock}{Lesson}
+    At small scale, many algorithms look similar. At large scale, growth rate dominates.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Discussion: Where Do You See Algorithms?}
+  Work in pairs for 3 minutes.
+  \begin{enumerate}
+    \item Choose one app or service you use every day.
+    \item Identify one problem it must solve repeatedly.
+    \item What is the input size $n$?
+    \item What happens if the algorithm is 100 times slower?
+  \end{enumerate}
+  \vspace{0.7em}
+  Examples: Grab routing, Shopee search, TikTok recommendation, bank fraud detection, university timetabling.
+\end{frame}
+
+\section{What Is an Algorithm?}
+
+\begin{frame}{Definition}
+  \begin{block}{Algorithm}
+    An algorithm is a finite, well-defined computational procedure that takes input and produces output.
+  \end{block}
+  \vspace{0.5em}
+  \begin{columns}
+    \column{0.48\textwidth}
+    \textbf{Must specify}
+    \begin{itemize}
+      \item valid inputs;
+      \item expected outputs;
+      \item steps;
+      \item stopping condition.
+    \end{itemize}
+    \column{0.48\textwidth}
+    \textbf{Must be}
+    \begin{itemize}
+      \item correct;
+      \item unambiguous;
+      \item finite;
+      \item executable mechanically.
+    \end{itemize}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{Algorithm vs Program}
+  \begin{table}
+    \centering
+    \begin{tabular}{lll}
+      \toprule
+      Concept & Meaning & Example \\
+      \midrule
+      Problem & What we want to solve & Find a student ID \\
+      Algorithm & General method & Binary search \\
+      Program & Implementation & Python function \\
+      Run & One execution & Search ID 2024001 today \\
+      Experiment & Measured runs & Time 1000 searches \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+  \vspace{0.5em}
+  \begin{block}{Important}
+    We analyze algorithms to understand performance beyond one machine, one language, or one lucky input.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Input Size}
+  The input size $n$ depends on the problem.
+  \begin{table}
+    \centering
+    \begin{tabular}{ll}
+      \toprule
+      Problem & Natural input size \\
+      \midrule
+      Search in a list & number of items \\
+      Sort exam scores & number of scores \\
+      Multiply integers & number of digits or bits \\
+      Image filter & number of pixels \\
+      Video processing & frames $\times$ pixels per frame \\
+      Road navigation & number of intersections and roads \\
+      Social network analysis & users and relationships \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\begin{frame}[fragile]{A First Algorithm: Linear Search}
+  \begin{lstlisting}
+def linear_search(arr, target):
+    for i, x in enumerate(arr):
+        if x == target:
+            return i
+    return -1
+  \end{lstlisting}
+  \vspace{0.4em}
+  \begin{itemize}
+    \item Input: list \texttt{arr}, value \texttt{target}
+    \item Output: index of first occurrence, or -1
+    \item Best case: target is first
+    \item Worst case: target is absent or last
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Correctness for Linear Search}
+  \begin{block}{Claim}
+    \texttt{linear\_search(arr, target)} returns the first index containing \texttt{target}, or -1 if no such index exists.
+  \end{block}
+  \textbf{Reasoning:}
+  \begin{itemize}
+    \item The loop checks indices from left to right.
+    \item If it returns at index $i$, then \texttt{arr[i] == target}.
+    \item Because earlier indices were checked first, $i$ is the first match.
+    \item If the loop finishes, every element was checked and none matched.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{A Faster Algorithm: Binary Search}
+  \begin{lstlisting}
+def binary_search(arr, target):
+    lo, hi = 0, len(arr) - 1
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            lo = mid + 1
+        else:
+            hi = mid - 1
+    return -1
+  \end{lstlisting}
+  \begin{alertblock}{Requirement}
+    Binary search only works when the array is sorted.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Linear vs Binary Search}
+  Searching for a name in a sorted list with $n = 1,000,000$:
+  \begin{columns}
+    \column{0.45\textwidth}
+    \begin{block}{Linear search}
+      Worst case:
+      \[
+        1,000,000
+      \]
+      comparisons.
+    \end{block}
+    \column{0.45\textwidth}
+    \begin{exampleblock}{Binary search}
+      Worst case:
+      \[
+        \lceil \log_2(1,000,000) \rceil \approx 20
+      \]
+      comparisons.
+    \end{exampleblock}
+  \end{columns}
+  \vspace{0.6em}
+  \begin{block}{Interpretation}
+    The sorted structure is information. Binary search exploits that information.
+  \end{block}
+\end{frame}
+
+\begin{frame}{Quick Quiz 1}
+  No computers. Answer individually, then compare with a neighbor.
+  \begin{enumerate}
+    \item Binary search on $2^{20}$ sorted elements needs at most how many comparisons?
+    \item If a list is not sorted, can binary search be used directly?
+    \item If the target is first in the list, which search is faster: linear or binary?
+    \item Is binary search always the right choice? Name one reason it might not be.
+  \end{enumerate}
+\end{frame}
+
+\section{Measuring Running Time}
+
+\begin{frame}{Experiment vs Analysis}
+  \begin{columns}
+    \column{0.48\textwidth}
+    \begin{block}{Timing experiment}
+      \begin{itemize}
+        \item Run code.
+        \item Measure elapsed time.
+        \item See real behavior.
+        \item Affected by machine, OS, Python, cache, randomness.
+      \end{itemize}
+    \end{block}
+    \column{0.48\textwidth}
+    \begin{exampleblock}{Mathematical analysis}
+      \begin{itemize}
+        \item Count operations.
+        \item Ignore constants.
+        \item Predict scaling.
+        \item Applies across machines.
+      \end{itemize}
+    \end{exampleblock}
+  \end{columns}
+  \vspace{0.6em}
+  We need both: experiments build intuition, analysis explains scale.
+\end{frame}
+
+\begin{frame}[fragile]{Timing in Python}
+  \begin{lstlisting}
+import time
+
+t0 = time.perf_counter()
+answer = algorithm(input_data)
+elapsed = time.perf_counter() - t0
+
+print(elapsed)
+  \end{lstlisting}
+  \vspace{0.4em}
+  \begin{itemize}
+    \item Use \texttt{perf\_counter()} for short elapsed-time measurements.
+    \item Repeat runs; one run can be noisy.
+    \item Avoid including input generation time unless that is part of the task.
+    \item Very small inputs are often dominated by overhead.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why Running Time Is Not Constant}
+  Two runs of the same program can differ because of:
+  \begin{itemize}
+    \item operating system scheduling;
+    \item CPU frequency changes;
+    \item cache effects;
+    \item memory allocation;
+    \item background processes;
+    \item random input differences.
+  \end{itemize}
+  \vspace{0.5em}
+  \begin{alertblock}{Practical rule}
+    Measure several input sizes and look for growth trends, not just one timing number.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{In-Class Lab: Repeat a Measurement}
+  \begin{lstlisting}
+import time, random
+
+def trial(n):
+    arr = list(range(n))
+    target = n + 1
+    t0 = time.perf_counter()
+    target in arr
+    return time.perf_counter() - t0
+
+for n in [1000, 10000, 100000, 1000000]:
+    times = [trial(n) for _ in range(10)]
+    print(n, min(times), sum(times) / len(times), max(times))
+  \end{lstlisting}
+  \vspace{0.3em}
+  Observe: the average grows, but individual runs are noisy.
+\end{frame}
+
+\begin{frame}{What Counts as Large?}
+  For small $n$, constants can hide the growth rate.
+  \begin{itemize}
+    \item A theoretically worse method may win on tiny inputs.
+    \item Python overhead may dominate simple operations.
+    \item Cache effects can make arrays seem faster than expected.
+    \item The trend becomes clearer as $n$ grows.
+  \end{itemize}
+  \vspace{0.5em}
+  \begin{block}{Class question}
+    If algorithm A takes $1000n$ operations and algorithm B takes $n^2$ operations, which is faster at $n=10$? Which is faster at $n=10,000$?
+  \end{block}
+\end{frame}
+
+\section{Counting and Growth}
+
+\begin{frame}{The RAM Model}
+  We use a simple model to reason about algorithms:
+  \begin{itemize}
+    \item assignment costs 1;
+    \item arithmetic costs 1;
+    \item comparison costs 1;
+    \item array access costs 1;
+    \item loop overhead is counted as a constant cost.
+  \end{itemize}
+  \vspace{0.5em}
+  \begin{block}{Goal}
+    We usually do not need the exact time in seconds. We need the growth rate as input size increases.
+  \end{block}
+\end{frame}
+
+\begin{frame}[fragile]{Counting a Simple Loop}
+  \begin{lstlisting}
+total = 0
+for i in range(n):
+    total += i
+  \end{lstlisting}
+  \vspace{0.5em}
+  \begin{itemize}
+    \item Initialization happens once.
+    \item The loop body runs $n$ times.
+    \item Each iteration does constant work.
+  \end{itemize}
+  \[
+    T(n) = an + b
+  \]
+  Therefore the running time grows linearly: $\Theta(n)$.
+\end{frame}
+
+\begin{frame}[fragile]{Counting Nested Loops}
+  \begin{lstlisting}
+total = 0
+for i in range(n):
+    for j in range(n):
+        total += i * j
+  \end{lstlisting}
+  \vspace{0.5em}
+  The inner statement runs:
+  \[
+    n \cdot n = n^2
+  \]
+  times.
+  \vspace{0.5em}
+  \begin{alertblock}{Conclusion}
+    Two nested full loops usually indicate quadratic growth, $\Theta(n^2)$.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Counting a Triangular Loop}
+  \begin{lstlisting}
+count = 0
+for i in range(n):
+    for j in range(i + 1, n):
+        count += 1
+  \end{lstlisting}
+  Number of increments:
+  \[
+    (n-1) + (n-2) + \cdots + 1 + 0 = \frac{n(n-1)}{2}
+  \]
+  \vspace{0.5em}
+  This is still $\Theta(n^2)$.
+\end{frame}
+
+\begin{frame}{Common Growth Rates}
+  \begin{table}
+    \centering
+    \begin{tabular}{lll}
+      \toprule
+      Growth & Name & Example \\
+      \midrule
+      $O(1)$ & constant & access first item \\
+      $O(\log n)$ & logarithmic & binary search \\
+      $O(n)$ & linear & scan a list \\
+      $O(n\log n)$ & linearithmic & efficient comparison sorting \\
+      $O(n^2)$ & quadratic & compare every pair \\
+      $O(n^3)$ & cubic & some matrix algorithms \\
+      $O(2^n)$ & exponential & naive subset search \\
+      $O(n!)$ & factorial & try every ordering \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\begin{frame}{Scale Table}
+  Assume $10^8$ operations per second.
+  \begin{table}
+    \centering
+    \small
+    \begin{tabular}{lrrrr}
+      \toprule
+      Growth & $n=10$ & $n=100$ & $n=10^4$ & $n=10^6$ \\
+      \midrule
+      $\log_2 n$ & tiny & tiny & tiny & tiny \\
+      $n$ & tiny & tiny & 0.0001 s & 0.01 s \\
+      $n\log_2 n$ & tiny & tiny & 0.0013 s & 0.2 s \\
+      $n^2$ & tiny & 0.0001 s & 1 s & 2.8 hours \\
+      $n^3$ & tiny & 0.01 s & 11.6 days & 317 years \\
+      $2^n$ & tiny & impossible & impossible & impossible \\
+      \bottomrule
+    \end{tabular}
+  \end{table}
+\end{frame}
+
+\begin{frame}{Big-O, Omega, Theta: First Look}
+  \begin{columns}
+    \column{0.31\textwidth}
+    \begin{block}{$O(g(n))$}
+      Upper bound. The algorithm grows no faster than $g(n)$ up to constants.
+    \end{block}
+    \column{0.31\textwidth}
+    \begin{alertblock}{$\Omega(g(n))$}
+      Lower bound. The algorithm grows at least as fast as $g(n)$ up to constants.
+    \end{alertblock}
+    \column{0.31\textwidth}
+    \begin{exampleblock}{$\Theta(g(n))$}
+      Tight bound. Both upper and lower bound.
+    \end{exampleblock}
+  \end{columns}
+  \vspace{0.8em}
+  We will define these formally in Week 2.
+\end{frame}
+
+\begin{frame}{Quick Quiz 2}
+  Classify each as $O(1)$, $O(\log n)$, $O(n)$, $O(n^2)$, or worse.
+  \begin{enumerate}
+    \item Print the first element of a list.
+    \item Check whether a target is in an unsorted list.
+    \item Compare every pair of students in a class.
+    \item Repeatedly divide $n$ by 2 until it reaches 1.
+    \item Try every possible password of length $n$ over 10 digits.
+  \end{enumerate}
+\end{frame}
+
+\section{When Simple Tasks Take Forever}
+
+\begin{frame}[fragile]{Naive Fibonacci}
+  \begin{lstlisting}
+def fib_recursive(n):
+    if n <= 1:
+        return n
+    return fib_recursive(n - 1) + fib_recursive(n - 2)
+  \end{lstlisting}
+  \vspace{0.5em}
+  This code repeats the same subproblems many times.
+  \begin{itemize}
+    \item \texttt{fib(40)} may already be slow in Python.
+    \item \texttt{fib(50)} can feel unreasonable.
+    \item \texttt{fib(100)} is effectively impossible with this method.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}[fragile]{Iterative Fibonacci}
+  \begin{lstlisting}
+def fib_iterative(n):
+    if n <= 1:
+        return n
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+    return b
+  \end{lstlisting}
+  \vspace{0.5em}
+  \begin{exampleblock}{Same problem, different algorithm}
+    The recursive version is exponential. The iterative version is linear.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{A Stupid Algorithm Can Destroy a Simple Task}
+  Problem: find whether two numbers in a list sum to $S$.
+  \begin{columns}
+    \column{0.48\textwidth}
+    \begin{block}{Obvious pair checking}
+      Compare every pair.
+      \[
+        \Theta(n^2)
+      \]
+    \end{block}
+    \column{0.48\textwidth}
+    \begin{exampleblock}{Hash set idea}
+      Scan once and remember previous values.
+      \[
+        \Theta(n)
+      \]
+    \end{exampleblock}
+  \end{columns}
+  \vspace{0.7em}
+  At $n=10^6$, quadratic pair checking means about $5\times 10^{11}$ pairs.
+\end{frame}
+
+\begin{frame}{Sorting Is Useful, But Not the Whole Story}
+  Sorting is a classic teaching example because it is:
+  \begin{itemize}
+    \item easy to state;
+    \item easy to test;
+    \item rich enough to show best, worst, and average cases;
+    \item foundational for searching, databases, and scheduling.
+  \end{itemize}
+  \vspace{0.5em}
+  But algorithm analysis applies equally to images, networks, finance, logistics, AI, and cryptography.
+\end{frame}
+
+\begin{frame}[fragile]{Insertion Sort as a Small Laboratory}
+  \begin{lstlisting}
 def insertion_sort(A):
+    A = A[:]
     for j in range(1, len(A)):
         key = A[j]
         i = j - 1
         while i >= 0 and A[i] > key:
-            A[i+1] = A[i]
+            A[i + 1] = A[i]
             i -= 1
-        A[i+1] = key
+        A[i + 1] = key
     return A
-    \end{lstlisting}
-    \column{0.44\textwidth}
-    \textbf{Loop invariant:}\\
-    At the start of each iteration, \texttt{A[0..j-1]} contains the original
-    elements of \texttt{A[0..j-1]} in \textbf{sorted order}.
-
-    \vspace{0.5em}
-    \begin{itemize}
-      \item \textbf{Initialisation}: trivially true for $j=1$
-      \item \textbf{Maintenance}: inserting \texttt{key} preserves order
-      \item \textbf{Termination}: $j=n$, array fully sorted
-    \end{itemize}
-  \end{columns}
+  \end{lstlisting}
+  \vspace{0.3em}
+  We use it because sorted, reverse-sorted, and random inputs behave differently.
 \end{frame}
 
-% ══════════════════════════════════════════════════════════════════════════════
-\section{Efficiency: Time \& Space Complexity}
-% ══════════════════════════════════════════════════════════════════════════════
-
-\begin{frame}{Why Efficiency Matters -- The Scale Problem}
+\begin{frame}{Best Case, Worst Case, Average Case}
   \begin{table}
     \centering
-    \caption{Running time for different complexities ($10^9$ ops/sec)}
-    \begin{tabular}{lrrrr}
+    \begin{tabular}{lll}
       \toprule
-      Complexity & $n=10$ & $n=100$ & $n=1\,000$ & $n=10^6$ \\
+      Case & Meaning & Insertion sort example \\
       \midrule
-      $O(\log n)$ & 3 ns & 7 ns & 10 ns & 20 ns \\
-      $O(n)$      & 10 ns & 100 ns & 1 $\mu$s & 1 ms \\
-      $O(n\log n)$ & 33 ns & 665 ns & 10 $\mu$s & 20 ms \\
-      $O(n^2)$    & 100 ns & 10 $\mu$s & 1 ms & \textbf{17 min} \\
-      $O(n^3)$    & 1 $\mu$s & 1 ms & 1 sec & \textbf{31 years} \\
-      $O(2^n)$    & 1 $\mu$s & $10^{14}$ yrs & $\infty$ & $\infty$ \\
+      Best & easiest input & already sorted list \\
+      Worst & hardest input & reverse-sorted list \\
+      Average & typical/random input & random permutation \\
       \bottomrule
     \end{tabular}
   \end{table}
-
-  \begin{alertblock}{Key Insight}
-    Algorithm choice dominates hardware speed. A faster computer running a worse
-    algorithm often loses to a slower computer running a better one.
-  \end{alertblock}
-\end{frame}
-
-\begin{frame}{Models of Computation}
-  \textbf{RAM Model (Random Access Machine):}
-  \begin{itemize}
-    \item Each basic operation (arithmetic, comparison, assignment, memory access)
-          costs \textbf{one unit of time}
-    \item Memory is infinite and uniformly accessible
-    \item Allows us to analyse algorithms \emph{independently of hardware}
-  \end{itemize}
-
-  \vspace{0.8em}
-  \textbf{Two key metrics:}
-  \begin{columns}
-    \column{0.45\textwidth}
-    \begin{block}{Time Complexity $T(n)$}
-      Number of basic operations as a function of input size $n$.
-    \end{block}
-    \column{0.45\textwidth}
-    \begin{block}{Space Complexity $S(n)$}
-      Amount of extra memory used as a function of $n$ (beyond the input).
-    \end{block}
-  \end{columns}
-
-  \vspace{0.8em}
-  \textbf{Analysis cases:}
-  \begin{itemize}
-    \item \textbf{Worst case} $T_{\text{worst}}(n)$ -- maximum over all inputs of size $n$
-    \item \textbf{Average case} $T_{\text{avg}}(n)$ -- expected over random inputs
-    \item \textbf{Best case} $T_{\text{best}}(n)$ -- minimum (rarely used alone)
-  \end{itemize}
-\end{frame}
-
-\begin{frame}{Counting Operations: Insertion Sort}
-  \begin{table}
-    \small
-    \begin{tabular}{lcc}
-      \toprule
-      Statement & Cost & Times \\
-      \midrule
-      \texttt{for j in range(1, n):}            & $c_1$ & $n$ \\
-      \quad\texttt{key = A[j]}                   & $c_2$ & $n-1$ \\
-      \quad\texttt{i = j - 1}                    & $c_3$ & $n-1$ \\
-      \quad\texttt{while i>=0 and A[i]>key:}     & $c_4$ & $\sum_{j=1}^{n-1} t_j$ \\
-      \quad\quad\texttt{A[i+1] = A[i]}           & $c_5$ & $\sum_{j=1}^{n-1} (t_j-1)$ \\
-      \quad\quad\texttt{i -= 1}                  & $c_6$ & $\sum_{j=1}^{n-1} (t_j-1)$ \\
-      \quad\texttt{A[i+1] = key}                 & $c_7$ & $n-1$ \\
-      \bottomrule
-    \end{tabular}
-  \end{table}
-
-  \textbf{Worst case} (reverse-sorted): $t_j = j$, giving $T(n) = an^2 + bn + c = \Theta(n^2)$\\
-  \textbf{Best case} (already sorted): $t_j = 1$, giving $T(n) = dn + e = \Theta(n)$
-\end{frame}
-
-% ══════════════════════════════════════════════════════════════════════════════
-\section{Asymptotic Notation (Preview)}
-% ══════════════════════════════════════════════════════════════════════════════
-
-\begin{frame}{Asymptotic Notation -- First Look}
-  We care about \textbf{growth rate} as $n \to \infty$, not exact constants.
-
   \vspace{0.5em}
-  \begin{columns}
-    \column{0.3\textwidth}
-    \begin{block}{$O$ (Big-Oh)}
-      Upper bound.\\
-      $f(n) = O(g(n))$ means $f$ grows \emph{no faster} than $g$.
-    \end{block}
-    \column{0.3\textwidth}
-    \begin{alertblock}{$\Omega$ (Big-Omega)}
-      Lower bound.\\
-      $f(n) = \Omega(g(n))$ means $f$ grows \emph{at least as fast} as $g$.
-    \end{alertblock}
-    \column{0.3\textwidth}
-    \begin{exampleblock}{$\Theta$ (Theta)}
-      Tight bound.\\
-      $f(n) = \Theta(g(n))$ means $f$ and $g$ grow at the \emph{same rate}.
-    \end{exampleblock}
-  \end{columns}
-
-  \vspace{0.8em}
-  \begin{center}
-    \textbf{Common hierarchy:}\\[4pt]
-    $O(1) \subset O(\log n) \subset O(n) \subset O(n\log n) \subset O(n^2) \subset O(n^3) \subset O(2^n) \subset O(n!)$
-  \end{center}
-\end{frame}
-
-% ══════════════════════════════════════════════════════════════════════════════
-\section{Further Reading \& Recent Developments}
-% ══════════════════════════════════════════════════════════════════════════════
-
-\begin{frame}{Further Reading}
-  \begin{block}{Core Textbook}
-    \begin{itemize}
-      \item CLRS \textit{Introduction to Algorithms}, 4th ed.\ (2022) -- Ch. 1--3
-    \end{itemize}
-  \end{block}
-  \begin{block}{Supplementary}
-    \begin{itemize}
-      \item Jeff Erickson, \textit{Algorithms} (free PDF): \url{https://jeffe.cs.illinois.edu/teaching/algorithms/}
-      \item Tim Roughgarden, \textit{Algorithms Illuminated} Vol.\ 1
-      \item MIT OpenCourseWare 6.006 lecture notes
-    \end{itemize}
-  \end{block}
-  \begin{exampleblock}{Recent Developments}
-    \begin{itemize}
-      \item \textbf{2022}: Breakthrough $O(n \log n)$ sorting lower bound confirmation
-      \item \textbf{2023}: DeepMind AlphaDev discovers faster sorting algorithms via RL
-      \item \textbf{2024}: New matrix multiplication algorithm beats Strassen threshold
-      \item Algorithm design for \textbf{quantum} and \textbf{neuromorphic} hardware
-    \end{itemize}
-  \end{exampleblock}
-\end{frame}
-
-\begin{frame}{Advanced Topics Preview}
-  \begin{itemize}
-    \item \textbf{Cache-oblivious algorithms} -- optimal for memory hierarchies
-          without knowing cache parameters
-    \item \textbf{Online algorithms} -- decisions without knowledge of the future
-    \item \textbf{Streaming algorithms} -- single pass over massive data
-    \item \textbf{Parallel algorithms} -- PRAM model, work-span analysis
-    \item \textbf{Quantum algorithms} -- Shor's factoring, Grover's search
-    \item \textbf{Algorithm engineering} -- closing the gap between theory and practice
-  \end{itemize}
-
-  \vspace{1em}
-  \begin{alertblock}{Course Roadmap}
-    Weeks 1--2: Complexity analysis $\to$ Weeks 3--4: Divide \& Conquer $\to$
-    Weeks 5--6: Greedy $\to$ Weeks 7--9: DP $\to$ Weeks 10--11: Graphs $\to$
-    Weeks 12--13: Advanced $\to$ Weeks 14--15: Randomised \& Heuristics
+  \begin{alertblock}{Warning}
+    Best case alone can be misleading. A slow algorithm can look fast on friendly inputs.
   \end{alertblock}
 \end{frame}
 
-% ── Summary ──────────────────────────────────────────────────────────────────
+\begin{frame}{Loop Invariant Preview}
+  A loop invariant is a fact that remains true before and after each loop iteration.
+  \vspace{0.5em}
+  For insertion sort:
+  \begin{block}{Invariant}
+    At the start of iteration $j$, the subarray $A[0..j-1]$ contains the original elements of that prefix in sorted order.
+  \end{block}
+  \vspace{0.5em}
+  Proof structure:
+  \begin{enumerate}
+    \item Initialization: true before the first iteration.
+    \item Maintenance: one iteration preserves it.
+    \item Termination: when the loop ends, it implies correctness.
+  \end{enumerate}
+\end{frame}
+
+\section{Reading and Practice}
+
+\begin{frame}{Required Reading}
+  Before Week 2:
+  \begin{itemize}
+    \item CLRS, 4th ed., Chapter 1: The Role of Algorithms in Computing.
+    \item CLRS, 4th ed., Section 2.1: Insertion sort.
+    \item CLRS, 4th ed., Section 2.2: Analyzing algorithms.
+    \item CLRS, 4th ed., start of Chapter 3: growth of functions.
+  \end{itemize}
+  \vspace{0.5em}
+  Focus on the ideas. We will formalize asymptotic notation in Week 2.
+\end{frame}
+
+\begin{frame}{Supplementary Reading and Viewing}
+  \begin{itemize}
+    \item Jeff Erickson, \textit{Algorithms}, Chapter 0: Introduction.
+    \item MIT OCW 6.006: introductory lectures on algorithmic thinking.
+    \item Python documentation: \texttt{time.perf\_counter}.
+    \item VisuAlgo: visualizations for search and sorting.
+    \item Optional: read a short explanation of Karatsuba multiplication before Week 3.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Homework}
+  \begin{enumerate}
+    \item Complete Week 1 exercise sheet.
+    \item Run \texttt{week01/demo.py}; save your observations.
+    \item Complete TODO functions in \texttt{week01/starter.py}.
+    \item Run \texttt{python week01/starter.py} until the auto-grader passes.
+    \item Bring one real-world example where algorithm speed matters.
+  \end{enumerate}
+\end{frame}
+
 \begin{frame}{Week 1 Summary}
   \begin{enumerate}
-    \item An \textbf{algorithm} is a finite, well-defined procedure: input $\to$ output
-    \item \textbf{Correctness} is proved via loop invariants
-    \item \textbf{Time complexity} $T(n)$ counts basic operations in the RAM model
-    \item \textbf{Space complexity} $S(n)$ counts extra memory used
-    \item \textbf{Asymptotic notation} ($O, \Omega, \Theta$) captures growth rate
-    \item Algorithm efficiency can differ by \textbf{orders of magnitude} at scale
+    \item Algorithms are not only for sorting; they power search, video, images, networks, finance, and cryptography.
+    \item Input size $n$ must be chosen according to the problem.
+    \item Timing experiments are useful but noisy.
+    \item Operation counting helps predict scaling.
+    \item Growth rate matters most at large scale.
+    \item Bad algorithms can make simple tasks effectively impossible.
   \end{enumerate}
-
-  \vspace{1em}
-  \begin{block}{Next Week}
-    Formal definitions of $O, \Omega, \Theta$; complexity classes P, NP,
-    NP-hard; decidability.
+  \vspace{0.5em}
+  \begin{block}{Next week}
+    Formal asymptotic notation: $O$, $\Omega$, $\Theta$, and more complexity practice.
   \end{block}
 \end{frame}
 
