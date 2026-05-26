@@ -1,0 +1,87 @@
+\documentclass[aspectratio=169,xcolor=dvipsnames]{beamer}
+\usetheme{Madrid}\usecolortheme{seahorse}
+\usepackage{amsmath,amssymb,listings,tikz,booktabs,hyperref}
+\lstset{language=Python,basicstyle=\small\ttfamily,keywordstyle=\color{blue}\bfseries,
+  commentstyle=\color{OliveGreen},stringstyle=\color{red},frame=single,breaklines=true}
+
+\title[Algorithms -- Week 10]{\textbf{Thiết kế và Phân tích Thuật toán}\\
+  \large Week 10: Graph Algorithms I: Traversals & Shortest Paths}
+\subtitle{TOAE209/TOAH209 -- Foreign Trade University}
+\author{Department of Technology \& Data Science}
+\date{Semester 2024--2025}
+\AtBeginSection[]{\begin{frame}<beamer>{Outline}\tableofcontents[currentsection]\end{frame}}
+
+\begin{document}
+\begin{frame}\titlepage\end{frame}
+\begin{frame}{Outline}\tableofcontents\end{frame}
+
+\section{Motivation}
+\begin{frame}{Why This Topic Matters}
+  \begin{block}{Week 10 Overview}
+    \begin{itemize}
+    \item Graph representations: adjacency list/matrix
+    \item DFS and BFS
+    \item Dijkstra's algorithm (full)
+    \item Bellman-Ford algorithm
+    \end{itemize}
+  \end{block}
+  \begin{exampleblock}{Real-World Relevance}
+    These algorithms form the backbone of modern software systems.
+    Understanding them enables you to tackle complex engineering problems.
+  \end{exampleblock}
+\end{frame}
+
+\section{Core Concepts}
+\begin{frame}{Key Definitions and Ideas}
+  See lecture notes and CLRS textbook for full derivations.
+  \begin{itemize}
+    \item Graph representations: adjacency list/matrix
+    \item DFS and BFS
+    \item Dijkstra's algorithm (full)
+    \item Bellman-Ford algorithm
+  \end{itemize}
+\end{frame}
+
+\section{Algorithm Design \& Analysis}
+\begin{frame}[fragile]{Pseudocode \& Examples}
+  \begin{lstlisting}
+# See demo.py for full Python implementations
+# Key algorithms covered this week:
+
+# - Graph representations: adjacency list/matrix
+# - DFS and BFS
+# - Dijkstra's algorithm (full)
+# - Bellman-Ford algorithm
+  \end{lstlisting}
+\end{frame}
+
+\section{Further Reading \& Recent Developments}
+\begin{frame}{Further Reading}
+  \begin{block}{Core References}
+    \begin{itemize}
+      \item CLRS \textit{Introduction to Algorithms}, 4th ed.\ -- relevant chapters
+      \item Jeff Erickson, \textit{Algorithms} -- \url{https://jeffe.cs.illinois.edu}
+    \end{itemize}
+  \end{block}
+  \begin{exampleblock}{Advanced Topics}
+    \begin{itemize}
+      \item Research papers on recent improvements
+      \item Competitive programming resources: Codeforces, LeetCode
+      \item Visualisation tools: VisuAlgo (\url{https://visualgo.net})
+    \end{itemize}
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Week 10 Summary}
+  \begin{enumerate}
+    \item Understand: Graph representations: adjacency list/matrix
+    \item Understand: DFS and BFS
+    \item Understand: Dijkstra's algorithm (full)
+    \item Understand: Bellman-Ford algorithm
+  \end{enumerate}
+  \begin{block}{Exercises}
+    Complete the programming exercises in \texttt{starter.py}.\\
+    Review solutions after attempting independently.
+  \end{block}
+\end{frame}
+\end{document}
