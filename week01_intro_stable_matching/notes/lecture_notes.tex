@@ -1,0 +1,401 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 1: Introduction, Efficiency, and Stable Matching}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+Welcome to \emph{Design and Analysis of Algorithms}. This course is built around a simple
+question: \textbf{given a computational problem, how do we design a procedure (an
+\emph{algorithm}) that solves it correctly, and how do we argue that the procedure is
+efficient?}
+
+We will follow Kleinberg and Tardos, \emph{Algorithm Design} (2005), and this first week
+sets up two things that the rest of the course depends on:
+
+\begin{enumerate}
+    \item \textbf{A vocabulary for efficiency} -- asymptotic (Big-O) notation, and a quick
+    refresher on the basic data structures (arrays, linked lists, stacks, queues, heaps)
+    that we will use as building blocks throughout the semester.
+    \item \textbf{A first complete case study} -- the \emph{Stable Matching Problem} and
+    the Gale--Shapley algorithm, which already illustrates the full arc of an algorithms
+    course: a precise problem statement, an algorithm, a proof that it terminates, a proof
+    that it is correct, and an analysis of its running time.
+\end{enumerate}
+
+\section{What Is an Algorithm, and Why Analyze It?}
+
+An \textbf{algorithm} is an unambiguous, step-by-step procedure that takes an input
+satisfying some precondition and produces an output satisfying some desired
+postcondition, using a finite amount of work.
+
+When we say an algorithm is ``good'', we usually mean three things:
+
+\begin{itemize}
+    \item \textbf{Correctness}: it always produces the right answer (or we can precisely
+    characterize when it does).
+    \item \textbf{Efficiency}: it uses an acceptable amount of time and memory, even as the
+    input grows large.
+    \item \textbf{Clarity / implementability}: it can actually be turned into working code.
+\end{itemize}
+
+\subsection{Measuring running time}
+
+We measure running time as a function of \textbf{input size} $n$, counting the number of
+\emph{basic operations} (comparisons, arithmetic operations, array accesses, etc.) in the
+\emph{worst case} over all inputs of size $n$. We care about \emph{growth rate}, not the
+exact constant, because:
+
+\begin{itemize}
+    \item Constants depend on hardware, language, and implementation details that change
+    over time.
+    \item For large $n$, the growth rate is what determines whether an algorithm is usable
+    at all.
+\end{itemize}
+
+\subsection{Asymptotic notation}
+
+\begin{definition}[Big-O, Big-Omega, Big-Theta]
+Let $f, g : \mathbb{N} \to \mathbb{R}^{+}$.
+\begin{itemize}
+    \item $f(n) = O(g(n))$ if there exist constants $c > 0$ and $n_0$ such that
+    $f(n) \le c \cdot g(n)$ for all $n \ge n_0$. (\emph{$f$ grows no faster than $g$.})
+    \item $f(n) = \Omega(g(n))$ if there exist constants $c > 0$ and $n_0$ such that
+    $f(n) \ge c \cdot g(n)$ for all $n \ge n_0$. (\emph{$f$ grows at least as fast as $g$.})
+    \item $f(n) = \Theta(g(n))$ if $f(n) = O(g(n))$ and $f(n) = \Omega(g(n))$.
+    (\emph{$f$ and $g$ grow at the same rate.})
+\end{itemize}
+\end{definition}
+
+A useful ordering of common growth rates, from slowest to fastest growing:
+\[
+  O(1) \;\subset\; O(\log n) \;\subset\; O(\sqrt{n}) \;\subset\; O(n) \;\subset\; O(n \log n)
+  \;\subset\; O(n^2) \;\subset\; O(n^3) \;\subset\; O(2^n) \;\subset\; O(n!).
+\]
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Growth rate & Name & Typical example \\
+\midrule
+$O(1)$        & constant     & array index access \\
+$O(\log n)$   & logarithmic  & binary search \\
+$O(n)$        & linear       & scanning a list \\
+$O(n \log n)$ & linearithmic & merge sort, heapsort \\
+$O(n^2)$      & quadratic    & insertion sort, naive multiplication \\
+$O(2^n)$      & exponential  & brute-force subset enumeration \\
+\bottomrule
+\end{tabular}
+\caption{Common running-time classes.}
+\end{table}
+
+\textbf{Why this matters for this course.} Throughout the semester, the central question
+for every algorithm we design will be: \emph{what is the tightest $\Theta(\cdot)$ bound we
+can prove on its running time, and is that good enough for the problem at hand?} An
+algorithm that is correct but runs in $O(2^n)$ is often useless in practice once $n$
+exceeds a few dozen, while an $O(n \log n)$ algorithm can handle inputs with millions of
+elements.
+
+\section{Data Structures Refresher}
+
+Many algorithms in this course are described at a high level (``find the smallest
+element'', ``process items in FIFO order'', ``add to the front of a list''), but their
+running time depends entirely on \emph{which data structure} is used to store the data.
+This section reviews four data structures that you will use repeatedly: arrays, linked
+lists, stacks/queues, and binary heaps.
+
+\subsection{Arrays vs. linked lists}
+
+An \textbf{array} stores elements in contiguous memory. A \textbf{linked list} stores
+elements in nodes, each holding a value and a pointer/reference to the next node.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Operation & Array & Singly linked list \\
+\midrule
+Access element at index $i$       & $O(1)$ & $O(n)$ \\
+Search for a value                 & $O(n)$ & $O(n)$ \\
+Insert/remove at the \emph{front}  & $O(n)$ & $O(1)$ \\
+Insert/remove at the \emph{end}    & $O(1)$ amortized & $O(1)$ if tail pointer kept, else $O(n)$ \\
+\bottomrule
+\end{tabular}
+\caption{Cost comparison: arrays vs. linked lists.}
+\end{table}
+
+The key trade-off: arrays give fast \emph{random access} but expensive insertion/removal
+at arbitrary positions (because elements must be shifted); linked lists give fast
+insertion/removal at known positions but no random access. Problem 9 in this week's
+practical exercises asks you to measure this difference directly by counting operations.
+
+\subsection{Stacks and queues}
+
+A \textbf{stack} is a Last-In-First-Out (LIFO) container with operations
+\texttt{push} (add to top) and \texttt{pop} (remove from top), both $O(1)$. Stacks are the
+natural structure for nested/recursive structure -- e.g., matching brackets, function call
+frames, undo history (Problem 10).
+
+A \textbf{queue} is a First-In-First-Out (FIFO) container with operations
+\texttt{enqueue} (add to back) and \texttt{dequeue} (remove from front), both $O(1)$ with a
+proper implementation (e.g., a circular buffer or a doubly linked list, or in Python
+\texttt{collections.deque}). Queues model ``processing in arrival order'' -- e.g.,
+round-robin CPU scheduling (Problem 11) and breadth-first search (which we will see in a
+later week).
+
+\subsection{Binary heaps}
+
+A \textbf{binary min-heap} is a complete binary tree (usually stored implicitly in an
+array) satisfying the \emph{heap property}: every node's key is $\le$ the keys of its
+children. This gives:
+
+\begin{itemize}
+    \item \texttt{find-min}: $O(1)$ (the root).
+    \item \texttt{insert}: $O(\log n)$ (append, then ``sift up'').
+    \item \texttt{extract-min}: $O(\log n)$ (swap root with last element, remove last,
+    ``sift down'').
+\end{itemize}
+
+Repeatedly inserting $n$ elements and extracting the minimum gives \textbf{heapsort}, an
+$O(n \log n)$ sorting algorithm (Problem 16). Heaps will reappear later in the course as
+the priority queue underlying Dijkstra's shortest-path algorithm and Prim's minimum
+spanning tree algorithm.
+
+\section{Recursion and a First Taste of Divide and Conquer}
+
+Many of the algorithms in this course are recursive: they solve a problem by solving one
+or more smaller instances of the \emph{same} problem and combining the results. We will
+study divide-and-conquer algorithms formally in a later week, but it is useful to see two
+examples now, because they reinforce the asymptotic-analysis vocabulary from Section 2.
+
+\subsection{Naive vs. memoized recursion: Fibonacci}
+
+The naive recursive definition $F(n) = F(n-1) + F(n-2)$ (with $F(0)=0, F(1)=1$) makes an
+exponential number of calls, because the same sub-problems are recomputed many times. If
+we \emph{memoize} (cache) results, each sub-problem $F(k)$ for $k = 0, \dots, n$ is
+computed exactly once, giving $O(n)$ total work. Problem 21 asks you to instrument both
+versions and count calls directly, so you can see the exponential-vs-linear gap with your
+own eyes.
+
+\subsection{Karatsuba multiplication}
+
+The grade-school algorithm for multiplying two $n$-digit numbers performs $\Theta(n^2)$
+single-digit multiplications. Karatsuba's algorithm (1960) splits each number into two
+halves,
+\[
+  x = x_1 \cdot 10^{n/2} + x_0, \qquad y = y_1 \cdot 10^{n/2} + y_0,
+\]
+and observes that the product $xy = x_1 y_1 \cdot 10^{n} + (x_1y_0 + x_0y_1)\cdot 10^{n/2} +
+x_0 y_0$ can be computed using only \textbf{three} recursive multiplications of $n/2$-digit
+numbers (instead of the four you would expect), via the identity
+\[
+  x_1y_0 + x_0y_1 = (x_1+x_0)(y_1+y_0) - x_1y_1 - x_0y_0.
+\]
+Solving the recurrence $T(n) = 3T(n/2) + O(n)$ gives $T(n) = \Theta(n^{\log_2 3}) \approx
+\Theta(n^{1.585})$, asymptotically better than $\Theta(n^2)$. Problem 15 asks you to
+implement Karatsuba and compare its multiplication count against the naive algorithm.
+
+\section{The Stable Matching Problem}
+
+We now turn to this week's main case study, which is also the opening example of
+Kleinberg \& Tardos, Chapter 1.
+
+\subsection{Motivation}
+
+Consider assigning $n$ medical-school graduates (\emph{residents}) to $n$ hospital
+residency positions. Each resident has a ranked preference list over hospitals, and each
+hospital has a ranked preference list over residents. We want an assignment with no
+incentive for any pair to break their assigned match and match with each other instead.
+The same abstract structure shows up when matching students to schools, organ donors to
+recipients, or (the classical framing) men to women in a dating-service scenario.
+
+\subsection{Formal definition}
+
+\begin{definition}[Stable Matching Problem]
+We are given two equal-size sets, $M$ (``men'') and $W$ (``women''), each of size $n$.
+Each $m \in M$ has a strict, complete preference list (a total order) over $W$, and each
+$w \in W$ has a strict, complete preference list over $M$. A \textbf{perfect matching} $S$
+is a set of $n$ pairs $(m, w)$ such that every $m \in M$ and every $w \in W$ appears in
+exactly one pair.
+
+A pair $(m, w) \notin S$ is a \textbf{rogue couple} (or \emph{blocking pair}) for $S$ if
+\begin{itemize}
+    \item $m$ prefers $w$ to his partner in $S$, \emph{and}
+    \item $w$ prefers $m$ to her partner in $S$.
+\end{itemize}
+$S$ is \textbf{stable} if it is a perfect matching with no rogue couples. Otherwise $S$ is
+\textbf{unstable}.
+\end{definition}
+
+A naive approach -- try all $n!$ perfect matchings and check each for stability -- takes
+factorial time. Problem 5 asks you to implement exactly this brute-force approach for
+small $n$, both as a sanity check and to see why we need something smarter.
+
+\subsection{The Gale--Shapley algorithm}
+
+\begin{algorithm}[h]
+\caption{Gale--Shapley (men propose)}
+\begin{algorithmic}[1]
+\State Initialize all $m \in M$ and $w \in W$ to be \emph{free}
+\While{some man $m$ is free and has not proposed to every woman}
+    \State $w \gets$ the highest-ranked woman in $m$'s list to whom $m$ has not yet proposed
+    \If{$w$ is free}
+        \State $(m, w)$ become \emph{engaged}
+    \ElsIf{$w$ prefers $m$ to her current partner $m'$}
+        \State $(m, w)$ become engaged; $m'$ becomes free
+    \Else
+        \State $w$ rejects $m$; $m$ remains free
+    \EndIf
+\EndWhile
+\State \Return the set of engaged pairs
+\end{algorithmic}
+\end{algorithm}
+
+Each man proposes down his list in order, never to the same woman twice. Each woman, once
+engaged, only ever \emph{trades up} -- she keeps her current partner unless a more
+preferred man proposes, in which case she ``upgrades'' and her old partner becomes free
+again. Problems 3 and 4 ask you to implement both the men-propose and women-propose
+versions of this algorithm.
+
+\subsection{Termination}
+
+\begin{lemma}
+The algorithm terminates after at most $n^2$ iterations of the while loop.
+\end{lemma}
+\begin{proof}
+Each iteration corresponds to one man proposing to one woman he has never proposed to
+before. There are $n$ men, each with at most $n$ women on his list, so there can be at
+most $n^2$ proposals total. Since the loop body always consumes one such ``not yet
+proposed'' pair, the loop runs at most $n^2$ times.
+\end{proof}
+
+Problem 18 asks you to empirically measure the average number of proposals for random
+instances and confirm it is well below the $n^2$ worst-case bound.
+
+\subsection{Correctness: the result is a perfect matching}
+
+\begin{lemma}
+At termination, every man and every woman is matched (the result is a perfect matching).
+\end{lemma}
+\begin{proof}
+\emph{Once engaged, a woman never becomes free again} -- she only switches partners, never
+loses one entirely. So the set of engaged women is monotonically non-decreasing.
+
+Suppose for contradiction that at termination some man $m$ is free. Then $m$ must have
+been rejected by (or never engaged with) every woman, i.e., $m$ has proposed to all $n$
+women and all $n$ women are currently engaged (to other men, since $m$ is free).
+But there are only $n$ men total, so if all $n$ women are engaged, all $n$ men are engaged
+-- contradicting that $m$ is free. Hence no man is left free, and since $|M| = |W| = n$,
+every woman is matched too.
+\end{proof}
+
+\subsection{Correctness: the result is stable}
+
+\begin{lemma}
+The matching $S$ returned by Gale--Shapley has no rogue couples.
+\end{lemma}
+\begin{proof}
+Suppose $(m, w) \notin S$ with $m$ matched to $w'\ne w$ and $w$ matched to $m' \ne m$ in
+$S$. We must show $(m,w)$ is \emph{not} a rogue couple, i.e., it is not the case that both
+$m$ prefers $w$ to $w'$ \emph{and} $w$ prefers $m$ to $m'$.
+
+Since men propose in decreasing order of preference, and $m$ ends up matched to $w'$, one
+of two things happened regarding $w$:
+\begin{itemize}
+    \item $m$ never proposed to $w$ -- but men propose in order of decreasing preference,
+    so this means $m$ prefers $w'$ to $w$, i.e., $m$ does \emph{not} prefer $w$ to $w'$.
+    \item $m$ proposed to $w$ at some point and was rejected (either immediately or later
+    displaced). Women only reject/displace a partner in favor of someone they prefer
+    \emph{more}, and a woman's partner only gets better over time. So $w$'s final partner
+    $m'$ is someone $w$ prefers at least as much as $m$, i.e., $w$ does \emph{not} prefer
+    $m$ to $m'$.
+\end{itemize}
+In either case, $(m,w)$ cannot be a rogue couple. Since $(m,w)$ was an arbitrary pair not
+in $S$, $S$ is stable.
+\end{proof}
+
+Problems 1 and 2 ask you to implement, from scratch, the perfect-matching check and the
+rogue-couple/stability check used in these proofs -- these are the basic ``verifiers'' you
+will reuse for the rest of the week's exercises.
+
+\subsection{Optimality}
+
+\begin{definition}
+A woman $w$ is a \textbf{valid partner} of man $m$ if there exists \emph{some} stable
+matching in which $m$ and $w$ are paired. The \textbf{best valid partner} of $m$ is the
+valid partner $m$ ranks highest.
+\end{definition}
+
+\begin{theorem}[Men-optimality]
+In the matching $S^{*}$ produced by the men-propose Gale--Shapley algorithm, every man is
+matched with his best valid partner.
+\end{theorem}
+
+\begin{theorem}[Women-pessimality]
+In the same matching $S^{*}$, every woman is matched with her \emph{worst} valid partner.
+\end{theorem}
+
+These two theorems together explain a striking asymmetry: \emph{the side that proposes
+does at least as well as possible (among all stable matchings), and the side that
+responds does at most as well as possible}. Problems 7 and 8 ask you to verify both
+theorems computationally by comparing the Gale--Shapley result against the brute-force set
+of all stable matchings from Problem 5.
+
+\subsection{Extensions}
+
+Two natural extensions, both explored in this week's exercises:
+
+\begin{itemize}
+    \item \textbf{Incomplete preference lists} (Problem 20): if participants may declare
+    some potential partners ``unacceptable'', a stable matching may leave some
+    participants unmatched, but no acceptable pair can both prefer each other to staying
+    unmatched.
+    \item \textbf{Hospital--Residents problem} (Problem 19): a many-to-one generalization
+    in which each hospital has a \emph{capacity} $> 1$. A resident-proposing algorithm
+    analogous to Gale--Shapley still produces a stable assignment.
+\end{itemize}
+
+\section{Summary and Looking Ahead}
+
+This week established:
+\begin{itemize}
+    \item How to reason about algorithm efficiency using $O$, $\Omega$, $\Theta$ notation,
+    and the standard hierarchy of growth rates.
+    \item The cost trade-offs between arrays, linked lists, stacks, queues, and binary
+    heaps -- the building blocks for almost every algorithm in this course.
+    \item A complete worked example (Gale--Shapley) showing the full methodology of this
+    course: \emph{define the problem precisely $\to$ design an algorithm $\to$ prove
+    termination $\to$ prove correctness $\to$ analyze running time $\to$ ask what
+    ``optimal'' even means}.
+\end{itemize}
+
+Next week, we make the efficiency analysis from Section 2 fully rigorous and look at
+further worked examples of algorithm analysis (Kleinberg \& Tardos, Chapter 2).
+
+\end{document}

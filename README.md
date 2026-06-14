@@ -3,56 +3,87 @@
 
 **Foreign Trade University | Department of Technology & Data Science**
 
+> This course follows the structure and content of *Algorithm Design* by Jon Kleinberg
+> and Éva Tardos. The original lecture slides (by Kevin Wayne, Princeton University,
+> https://www.cs.princeton.edu/~wayne/kleinberg-tardos/) are distributed as reference
+> material inside each week's `original_slides/` folder. Slides that do not map onto
+> one of the 15 teaching weeks are kept in `further_reading/`.
+
 ---
 
 ## Directory Structure
 
 ```
-algorithms_course/
-├── README.md                    ← You are here
-├── week01/  Introduction & Efficiency
-│   ├── slides.tex               ← Beamer LaTeX slides
-│   ├── exercises.md             ← Exercise sheet
-│   ├── demo.py                  ← Demonstration code
-│   ├── starter.py               ← Student starter code (with auto-grader)
-│   └── solution.py              ← Instructor solution (do not distribute early)
-├── week02/  Asymptotic Notation & Complexity Classes
-├── week03/  Divide and Conquer I
-├── week04/  Divide and Conquer II
-├── week05/  Greedy Algorithms I
-├── week06/  Greedy Algorithms II
-├── week07/  Dynamic Programming I
-├── week08/  Dynamic Programming II (+ Midterm)
-├── week09/  Dynamic Programming III
-├── week10/  Graph Algorithms I
-├── week11/  Graph Algorithms II
-├── week12/  Advanced Topics I (Network Flow, String Matching)
-├── week13/  Advanced Topics II (Approximation, NP)
-├── week14/  Randomised Algorithms
-└── week15/  Heuristics (GA, Simulated Annealing)
+algorithm_undergrad_course_ftu/
+├── README.md                              ← You are here
+├── further_reading/                       ← Reference slides not covered in the 15-week plan
+│   ├── AmortizedAnalysis.pdf
+│   ├── BinomialHeaps.pdf
+│   ├── FibonacciHeaps.pdf
+│   ├── IntractabilityIII.pdf
+│   ├── LinearProgrammingI.pdf
+│   ├── LinearProgrammingII.pdf
+│   └── LinearProgrammingIII.pdf
+├── week01_intro_stable_matching/
+├── week02_algorithm_analysis/
+├── week03_graphs_union_find/
+├── week04_greedy_i/
+├── week05_greedy_ii/
+├── week06_divide_and_conquer_i/
+├── week07_divide_and_conquer_ii/
+├── week08_dynamic_programming_i/
+├── week09_dynamic_programming_ii/
+├── week10_network_flow_i/
+├── week11_network_flow_ii_iii/
+├── week12_intractability/
+├── week13_pspace_extending_tractability/
+├── week14_approximation_local_search/
+└── week15_randomized_algorithms/
+```
+
+### Per-week layout
+
+Each `weekNN_topic/` folder is organized into sub-folders by file role:
+
+```
+weekNN_topic/
+├── original_slides/              ← Reference Kleinberg-Tardos slides (Kevin Wayne, Princeton)
+├── notes/
+│   ├── lecture_notes.tex          ← Beamer-free lecture notes (compiled with pdflatex)
+│   └── lecture_notes.pdf
+├── theory/
+│   ├── theoretical_questions.tex  ← 20+ theory questions + quiz, solutions at the end
+│   └── theoretical_questions.pdf
+├── exercises/
+│   ├── practical_exercises.tex    ← 20+ coding problems for the week's topic
+│   ├── practical_exercises.pdf
+│   └── starter_code_problemNN.py  ← Per-problem starter (one per exercise)
+├── solutions/
+│   └── solution_problemNN.py      ← Per-problem reference solution
+└── starter_code.py                ← Shared helper module imported by the per-problem files
 ```
 
 ---
 
 ## Course Schedule
 
-| Week | Topics | Key Algorithms | Reading (CLRS) |
-|------|--------|----------------|----------------|
-| 1 | Introduction, Time/Space Complexity | Insertion Sort | Ch. 1–2 |
-| 2 | Big-O/Omega/Theta, P/NP Classes | — | Ch. 3, App. |
-| 3 | Divide & Conquer I | Merge Sort, Quick Sort | Ch. 2, 7 |
-| 4 | Divide & Conquer II, Master Theorem | Karatsuba, Strassen | Ch. 4 |
-| 5 | Greedy I: Principles | Activity Selection, Huffman | Ch. 16 |
-| 6 | Greedy II: Graph Applications | Dijkstra, Kruskal, Prim | Ch. 23–24 |
-| 7 | Dynamic Programming I | Knapsack, LCS | Ch. 15 |
-| 8 | **Midterm** + DP II | Edit Distance, LIS | Ch. 15 |
-| 9 | Dynamic Programming III | Tabulation, Bitmask DP | Ch. 15 |
-| 10 | Graph Algorithms I | BFS, DFS, Bellman-Ford | Ch. 22–24 |
-| 11 | Graph Algorithms II | Prim, Topo Sort, SCC | Ch. 22–23, 25 |
-| 12 | Advanced: Flow + String | Ford-Fulkerson, KMP | Ch. 26, 32 |
-| 13 | Advanced: Approx + NP | Rabin-Karp, Vertex Cover | Ch. 34–35 |
-| 14 | Randomised Algorithms | Rand. QuickSort, QuickSelect | Ch. 5, 9 |
-| 15 | Heuristics | Genetic Algorithms, Simulated Annealing | Ch. 27 |
+| Week | Folder | Topics | Key Algorithms | Reading (Kleinberg-Tardos) |
+|------|--------|--------|-----------------|------------------------------|
+| 1 | week01_intro_stable_matching | Introduction, Stable Matching | Gale-Shapley | Ch. 1 |
+| 2 | week02_algorithm_analysis | Algorithm Analysis, Asymptotics | Binary Search | Ch. 2 |
+| 3 | week03_graphs_union_find | Graphs, Union-Find | BFS, DFS, Union-Find | Ch. 3, App. B |
+| 4 | week04_greedy_i | Greedy Algorithms I | Interval Scheduling, Partitioning | Ch. 4 |
+| 5 | week05_greedy_ii | Greedy Algorithms II | Dijkstra, MST (Kruskal/Prim) | Ch. 4 |
+| 6 | week06_divide_and_conquer_i | Divide & Conquer I | Merge Sort, Recurrences | Ch. 5 |
+| 7 | week07_divide_and_conquer_ii | Divide & Conquer II | Closest Pair, FFT | Ch. 5 |
+| 8 | week08_dynamic_programming_i | Dynamic Programming I (**Midterm**) | Weighted Interval Scheduling, Knapsack | Ch. 6 |
+| 9 | week09_dynamic_programming_ii | Dynamic Programming II | Sequence Alignment, Shortest Paths | Ch. 6 |
+| 10 | week10_network_flow_i | Network Flow I | Ford-Fulkerson, Max-Flow Min-Cut | Ch. 7 |
+| 11 | week11_network_flow_ii_iii | Network Flow II/III | Bipartite Matching, Flow Applications | Ch. 7 |
+| 12 | week12_intractability | Intractability (NP-Completeness) | Reductions, NP-Complete Problems | Ch. 8 |
+| 13 | week13_pspace_extending_tractability | PSPACE & Extending Tractability | Vertex Cover (FPT), Branch & Bound | Ch. 9–10 |
+| 14 | week14_approximation_local_search | Approximation & Local Search | Vertex Cover, Hill Climbing | Ch. 11–12 |
+| 15 | week15_randomized_algorithms | Randomized Algorithms | RandQuickSort, Contention Resolution | Ch. 13 |
 
 ---
 
@@ -60,22 +91,25 @@ algorithms_course/
 
 ### For Students
 
-1. **Before class**: Read the assigned CLRS chapters
-2. **During class**: Follow the Beamer slides (`slides.tex`, compile with `pdflatex`)
-3. **After class**: Run `demo.py` to see algorithms in action
-4. **Exercises**: Attempt `exercises.md` problems independently
-5. **Programming**: Implement functions in `starter.py`, run to see your score:
+1. **Before class**: Read `notes/lecture_notes.pdf` for the week.
+2. **During class**: Follow along with the reference slides in `original_slides/`.
+3. **Practical exercises**: Read `exercises/practical_exercises.pdf`, then implement each
+   problem in its `exercises/starter_code_problemNN.py` file:
    ```bash
-   python starter.py
+   cd weekNN_topic/exercises
+   python starter_code_problem01.py
    ```
-6. **After deadline**: Compare your work with `solution.py`
+4. **Theory**: Attempt `theory/theoretical_questions.pdf` independently before checking
+   the solutions printed at the end of the document.
+5. **After deadline**: Compare your work with `solutions/solution_problemNN.py`.
 
 ### For Instructors
 
-- Compile slides: `pdflatex slides.tex` (run twice for cross-references)
-- Solutions in `solution.py` — do not distribute until after submission deadline
-- Auto-grader in `starter.py` tests correctness automatically
-- Modify test cases in the `_run_tests()` function as needed
+- Compile PDFs: `pdflatex <file>.tex` (run twice for cross-references/TOC).
+- Solutions (`solutions/solution_problemNN.py`, theory-question answers) — do not
+  distribute until after the submission deadline.
+- `starter_code.py` (at the week root) gives students a common scaffold (imports,
+  helper functions, test harness conventions) used across all problems for the week.
 
 ---
 
@@ -94,15 +128,16 @@ algorithms_course/
 
 ## Key Textbooks
 
-1. **[Primary]** Thomas H. Cormen et al., *Introduction to Algorithms*, 4th ed. (CLRS), MIT Press 2022
-2. **[Secondary]** Nguyễn Đức Nghĩa, *Cấu trúc dữ liệu và giải thuật*, NXB ĐHBK 2013
-3. **[Supplementary]** Jeff Erickson, *Algorithms* (free): https://jeffe.cs.illinois.edu/teaching/algorithms/
-4. **[C++ Reference]** Deitel & Deitel, *C++ How to Program*, 7th ed.
+1. **[Primary]** Jon Kleinberg & Éva Tardos, *Algorithm Design*, Pearson 2005
+2. **[Secondary]** Thomas H. Cormen et al., *Introduction to Algorithms*, 4th ed. (CLRS), MIT Press 2022
+3. **[Secondary]** Nguyễn Đức Nghĩa, *Cấu trúc dữ liệu và giải thuật*, NXB ĐHBK 2013
+4. **[Supplementary]** Jeff Erickson, *Algorithms* (free): https://jeffe.cs.illinois.edu/teaching/algorithms/
 
 ---
 
 ## Online Resources
 
+- **Original slide source**: https://www.cs.princeton.edu/~wayne/kleinberg-tardos/
 - **VisuAlgo**: https://visualgo.net — interactive algorithm visualisations
 - **MIT OpenCourseWare 6.006**: https://ocw.mit.edu/6-006
 - **LeetCode / Codeforces** — practice problems
@@ -113,13 +148,25 @@ algorithms_course/
 ## Requirements
 
 ```
-Python 3.8+
+Python 3.10+
 matplotlib (for demos)   pip install matplotlib
 ```
 
 No other external libraries required for the core algorithms.
 
+LaTeX (with `pdflatex`) is required to compile `lecture_notes.tex`,
+`practical_exercises.tex`, and `theoretical_questions.tex`.
+
 ---
 
-*Last updated: 2024–2025 Academic Year*
+## Progress
+
+| Week | Status |
+|------|--------|
+| 1 | ✅ Complete |
+| 2–15 | 🚧 In progress |
+
+---
+
+*Last updated: 2025–2026 Academic Year*
 *Department of Technology & Data Science, Foreign Trade University*
