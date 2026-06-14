@@ -1,0 +1,322 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 4: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{generate\_intervals},
+\texttt{generate\_jobs}, \texttt{is\_feasible}, \texttt{interval\_depth},
+\texttt{total\_length}, \texttt{schedule\_lateness}.
+
+The 22 problems are grouped into five themes:
+\begin{itemize}
+    \item \textbf{Interval Scheduling} (Problems 1--6): the earliest-finish-time-first
+    greedy algorithm, brute-force verification, and a counter-example showing why
+    ``shortest interval first'' fails.
+    \item \textbf{Interval Partitioning} (Problems 7--10): the earliest-start-time-first
+    algorithm with a min-heap, and verification that it uses the minimum possible number
+    of resources.
+    \item \textbf{Minimizing Lateness} (Problems 11--15): the earliest-deadline-first
+    algorithm, brute-force verification, a counter-example for ``shortest job first'', and
+    exchange-argument practice with inversions.
+    \item \textbf{Optimal Caching} (Problems 16--19): the furthest-in-future (Belady)
+    offline-optimal eviction policy, the online LRU heuristic, and brute-force
+    verification of optimality.
+    \item \textbf{Greedy on Other Structures} (Problems 20--22): coin change (canonical
+    vs. non-canonical systems) and job sequencing with deadlines and profits.
+\end{itemize}
+
+\newpage
+\section{Interval Scheduling}
+
+\subsection*{Problem 1 -- Feasibility Checker for Interval Selections}
+
+Implement \texttt{is\_feasible\_scratch(selection)} \textbf{from scratch} (without using
+the helper of the same name in \texttt{starter\_code.py}). A list of intervals
+\texttt{selection} (each a tuple \texttt{(start, finish)}) is \emph{feasible} iff no two
+intervals overlap. Two intervals $(s_1,f_1)$ and $(s_2,f_2)$ overlap iff $s_1 < f_2$ and
+$s_2 < f_1$. Intervals that merely touch at an endpoint do \textbf{not} count as
+overlapping (intervals are half-open $[start, finish)$).
+
+\textbf{Example.} \texttt{[(0,2),(2,4),(5,7)]} is feasible; \texttt{[(0,3),(2,5)]} is not
+(they overlap on $(2,3)$); \texttt{[(1,3),(3,6)]} is feasible (they only touch at $3$).
+
+\subsection*{Problem 2 -- Interval Depth (Maximum Overlap)}
+
+Implement \texttt{interval\_depth\_scratch(intervals)} \textbf{from scratch}. The
+\emph{depth} of a set of intervals is the maximum number of intervals that are
+simultaneously active at any point in time. Use a ``sweep line'': create a $+1$ event at
+each start time and a $-1$ event at each finish time, sort all events by time (processing
+$-1$ events \emph{before} $+1$ events at equal times, since intervals are half-open), and
+track the running sum -- its maximum value is the depth.
+
+\textbf{Example.} \texttt{[(0,3),(1,4),(2,5),(6,8),(7,9)]} has depth $3$ (the first three
+intervals all overlap around $t=2.5$).
+
+\subsection*{Problem 3 -- Earliest-Finish-Time-First Interval Scheduling}
+
+Implement \texttt{earliest\_finish\_time\_first(intervals)}, the classic greedy algorithm
+for Interval Scheduling:
+\begin{verbatim}
+Sort requests by finish time.
+Repeatedly:
+    Select the request with the earliest finish time among those still
+    compatible with everything selected so far.
+    Discard all requests that overlap the selected request.
+\end{verbatim}
+Return the selected intervals, in the order selected (increasing finish time). Use
+\texttt{is\_feasible} from \texttt{starter\_code.py} to sanity-check the result.
+
+\subsection*{Problem 4 -- Brute-Force Optimal Interval Scheduling}
+
+For small $n$, implement \texttt{brute\_force\_max\_independent\_set(intervals)} that
+returns the LARGEST feasible subset of \texttt{intervals}, by checking all $2^n$ subsets
+(via \texttt{itertools.combinations}, from largest size downward) and returning the first
+feasible one of maximum size. This is exponential and only intended for $n \le 15$.
+
+\subsection*{Problem 5 -- Verifying Optimality of Earliest-Finish-Time-First}
+
+Implement \texttt{verify\_eft\_optimal(num\_trials, n, seed)}: for each of
+\texttt{num\_trials} random instances of $n$ intervals (\texttt{generate\_intervals(n,
+seed=seed + trial)}), compute the size of the greedy result (Problem 3) and the
+brute-force optimum (Problem 4). Return \texttt{True} iff these sizes are equal for every
+trial. This empirically confirms that earliest-finish-time-first is optimal.
+
+\subsection*{Problem 6 -- Counter-Example: Shortest-Interval-First Is Not Optimal}
+
+A tempting (but incorrect) greedy rule is ``repeatedly pick the SHORTEST remaining
+compatible interval''. Implement \texttt{shortest\_interval\_first(intervals)} that does
+exactly this (sort by duration ascending, greedily keep feasible ones). Then implement
+\texttt{counter\_example\_instance()} returning a list of intervals on which this rule
+selects \emph{strictly fewer} intervals than the optimum (Problem 4) -- demonstrating that
+``shortest first'' is not a valid greedy strategy for Interval Scheduling.
+
+\textbf{Hint.} A single short interval can overlap (and thus block) two longer,
+mutually-compatible intervals.
+
+\newpage
+\section{Interval Partitioning}
+
+\subsection*{Problem 7 -- Interval Partitioning (Earliest-Start-Time-First)}
+
+Implement \texttt{interval\_partitioning(intervals)}: assign every interval to one of the
+smallest possible number of ``resources'' (e.g.\ classrooms) so that no two intervals on
+the same resource overlap.
+\begin{verbatim}
+Sort intervals by start time.
+Maintain a min-heap of (end_time, resource_id) for resources in use.
+For each interval (s, f) in order of start time:
+    If the heap is non-empty and its minimum end_time <= s:
+        pop that resource, assign (s,f) to it, push (f, resource_id)
+    Else:
+        allocate a new resource id, assign (s,f) to it, push (f, new_id)
+\end{verbatim}
+Return a dict mapping each interval to its assigned resource id (0-indexed).
+
+\subsection*{Problem 8 -- Verifying Interval Partitioning Uses the Minimum Number of Resources}
+
+Implement \texttt{verify\_partitioning\_optimal(num\_trials, n, seed)}: for each of
+\texttt{num\_trials} random instances, compute the number of distinct resources used by
+\texttt{interval\_partitioning} (Problem 7) and the depth via \texttt{interval\_depth}
+(\texttt{starter\_code.py}). Return \texttt{True} iff these are equal for every trial --
+confirming that earliest-start-time-first always uses exactly \texttt{depth} resources,
+which is provably the minimum possible (since \texttt{depth} mutually-overlapping
+intervals each need a distinct resource).
+
+\subsection*{Problem 9 -- Can K Resources Suffice?}
+
+Implement \texttt{min\_resources\_needed(intervals)} that runs
+\texttt{interval\_partitioning} (Problem 7) and returns the number of distinct resources
+used (WITHOUT calling \texttt{interval\_depth} directly). Then implement
+\texttt{can\_schedule\_with\_k\_resources(intervals, k)} returning \texttt{True} iff
+\texttt{min\_resources\_needed(intervals) <= k}.
+
+\subsection*{Problem 10 -- Stress-Testing Interval Partitioning on Random Instances}
+
+Implement \texttt{random\_partitioning\_is\_valid(n, seed)}: generate $n$ random
+intervals, run \texttt{interval\_partitioning} (Problem 7), and check (a) no two
+intervals assigned to the same resource overlap, and (b) the resource ids used are
+exactly $\{0, 1, \ldots, k-1\}$ for some $k$ (contiguous, no gaps). Then implement
+\texttt{stress\_test(num\_trials, n, seed)} that returns \texttt{True} iff
+\texttt{random\_partitioning\_is\_valid} holds for \texttt{num\_trials} different random
+instances.
+
+\newpage
+\section{Minimizing Lateness}
+
+\subsection*{Problem 11 -- Earliest-Deadline-First Scheduling}
+
+In the Minimizing Lateness problem, a single resource processes $n$ jobs
+$(d_i, t_i)$ (deadline, length), all available at time 0, without preemption. If job $i$
+finishes at time $f_i$, its \emph{lateness} is $\max(0, f_i - d_i)$. The goal is to
+minimize the \emph{maximum} lateness.
+
+Implement \texttt{earliest\_deadline\_first(jobs)}: sort \texttt{jobs} (a list of
+\texttt{(deadline, length)} tuples) by deadline, ascending, and schedule them back-to-back
+in that order. Return \texttt{(order, max\_lateness)} where \texttt{order} is the list of
+original indices in scheduling order, and \texttt{max\_lateness} is computed via
+\texttt{schedule\_lateness} (\texttt{starter\_code.py}).
+
+\textbf{Example.} For jobs (by index) with $(d_i,t_i)$ = $(2,1), (4,2), (6,3), (8,4),
+(9,3), (15,2)$, EDF schedules them in index order $0,1,2,3,4,5$, with finish times
+$1,3,6,10,13,15$ and maximum lateness $4$ (job 4 finishes at $13$, deadline $9$).
+
+\subsection*{Problem 12 -- Brute-Force Optimal Schedule for Minimizing Lateness}
+
+For small $n$, implement \texttt{brute\_force\_min\_lateness(jobs)} that tries all $n!$
+orderings (via \texttt{itertools.permutations}), computes the max lateness of each via
+\texttt{schedule\_lateness}, and returns the minimum. Intended for $n \le 8$.
+
+\subsection*{Problem 13 -- Verifying Optimality of Earliest-Deadline-First}
+
+Implement \texttt{verify\_edf\_optimal(num\_trials, n, seed)}: for each of
+\texttt{num\_trials} random instances of $n$ jobs (\texttt{generate\_jobs(n, seed=seed +
+trial)}), compute EDF's max lateness (Problem 11) and the brute-force optimum (Problem
+12). Return \texttt{True} iff they are equal (within $10^{-9}$) for every trial.
+
+\subsection*{Problem 14 -- Counter-Example: Shortest-Job-First Is Not Optimal for Lateness}
+
+Implement \texttt{shortest\_job\_first(jobs)}: sort jobs by \emph{length}, ascending
+(ignoring deadlines), and schedule back-to-back, returning \texttt{(order,
+max\_lateness)} as in Problem 11. Then implement \texttt{counter\_example\_instance()}
+returning a list of jobs on which \texttt{shortest\_job\_first} produces a strictly larger
+max lateness than \texttt{earliest\_deadline\_first} -- e.g., a very short job with a very
+tight deadline, paired with a longer job with a much later deadline.
+
+\subsection*{Problem 15 -- Exchange Argument Practice: Inversions and Idle Time}
+
+The exchange-argument proof that EDF is optimal relies on: (1) an optimal schedule has no
+idle time, and (2) EDF produces a schedule with no \emph{inversions} (a pair of jobs $i$
+scheduled before $j$ with $d_i > d_j$).
+
+Implement \texttt{count\_inversions(jobs, order)}: count pairs of positions $a < b$ in
+\texttt{order} with \texttt{jobs[order[a]][0] > jobs[order[b]][0]}. Implement
+\texttt{has\_idle\_time(jobs, order)}: return \texttt{True} iff \texttt{order} is \emph{not}
+a valid permutation of \texttt{range(len(jobs))} (a basic sanity check, since in this
+model idle time never naturally arises).
+
+\textbf{Verify}: the EDF order has zero inversions; the fully-reversed order of $n=6$ jobs
+has $\binom{6}{2}=15$ inversions; swapping two adjacent jobs in the EDF order introduces
+exactly one inversion.
+
+\newpage
+\section{Optimal Caching}
+
+\subsection*{Problem 16 -- Optimal Caching: Furthest-In-Future (Belady's Algorithm)}
+
+In the Optimal Caching (offline) problem, a cache holds up to $k$ items. Given a request
+sequence \texttt{seq}, implement \texttt{furthest\_in\_future(seq, k)} using the
+FURTHEST-IN-FUTURE (Belady's MIN / LFD) eviction policy: on a miss with a full cache,
+evict the item whose \emph{next} use in \texttt{seq} is furthest in the future (or never
+used again, counted as $+\infty$). Return the total number of cache misses.
+
+\textbf{Example.} \texttt{furthest\_in\_future(["A","B","C","B","A"], k=2) == 4}.
+
+\subsection*{Problem 17 -- Online Caching: Least-Recently-Used (LRU)}
+
+Implement \texttt{least\_recently\_used(seq, k)}: on a miss with a full cache, evict the
+item whose most recent prior use is furthest in the \emph{past}. Return the number of
+misses. LRU is \emph{online} (no lookahead), unlike furthest-in-future.
+
+\subsection*{Problem 18 -- Comparing Furthest-In-Future and LRU}
+
+Implement \texttt{construct\_bad\_sequence\_for\_lru(k)} returning \texttt{(seq, k)} such
+that \texttt{least\_recently\_used(seq, k) > furthest\_in\_future(seq, k)} -- i.e. LRU
+makes strictly more misses than the offline optimum on the same input.
+
+\textbf{Hint.} A cyclic access pattern over $k+1$ distinct items with a cache of size $k$,
+repeated several times, causes LRU to ``thrash'' (it always evicts the item that is about
+to be needed again), while furthest-in-future can do strictly better.
+
+\subsection*{Problem 19 -- Brute-Force Optimal Caching and Verifying FIF Optimality}
+
+For short sequences ($|seq| \le 12$, $k \le 3$), implement
+\texttt{brute\_force\_min\_misses(seq, k)} via memoized recursion over
+\texttt{(position, frozenset(cache))}: at each position, either the requested item is
+already cached (no cost, recurse), or it is a miss (cost 1) -- if the cache has room, add
+it; otherwise try evicting each possible item and take the best outcome. Return the
+overall minimum number of misses.
+
+Then implement \texttt{verify\_fif\_optimal(seqs, k)} returning \texttt{True} iff
+\texttt{furthest\_in\_future} (Problem 16) matches \texttt{brute\_force\_min\_misses} on
+every sequence in \texttt{seqs}.
+
+\newpage
+\section{Greedy on Other Structures}
+
+\subsection*{Problem 20 -- Greedy Coin Change for a Canonical Coin System}
+
+Implement \texttt{greedy\_change(amount, denominations)}: repeatedly take the largest
+denomination $\le$ the remaining amount, as many times as possible, until the amount
+reaches 0. Return a dict \texttt{\{denomination: count\}}.
+
+Then implement \texttt{brute\_force\_min\_coins(amount, denominations)} via dynamic
+programming: \texttt{dp[0] = 0}, \texttt{dp[a] = 1 + min(dp[a-c] for c in denominations if
+c <= a)}.
+
+For the canonical system \texttt{[1, 2, 5, 10, 20, 50, 100, 200, 500]}, greedy is
+\textbf{optimal}: verify \texttt{greedy\_change} always uses the minimum number of coins
+for amounts $1, \ldots, 999$.
+
+\subsection*{Problem 21 -- A Non-Canonical Coin System Where Greedy Fails}
+
+Implement \texttt{find\_greedy\_failure(denominations, max\_amount)}: search amounts $1,
+\ldots, \text{max\_amount}$ and return the smallest amount where \texttt{greedy\_change}
+uses strictly more coins than \texttt{brute\_force\_min\_coins}, or \texttt{None} if no
+such amount exists.
+
+Then implement \texttt{non\_canonical\_system()} returning a list of denominations
+(including 1) for which a failure exists with \texttt{max\_amount=100}.
+
+\textbf{Classic example.} With denominations $\{1, 3, 4\}$: greedy makes $6$ as $4+1+1$
+(3 coins), but $3+3$ (2 coins) is optimal -- the smallest failure is at amount $6$.
+
+\subsection*{Problem 22 -- Job Sequencing with Deadlines and Profits}
+
+Each job $i$ has a deadline $d_i$ (positive integer) and profit $p_i$, takes exactly 1
+unit of time, and earns its profit only if scheduled at or before its deadline (on a
+single machine with slots $1, 2, 3, \ldots$).
+
+Implement \texttt{job\_sequencing(jobs)}: sort jobs by profit \emph{descending}; for each
+job, try to place it in the LATEST free slot $t$ with $1 \le t \le d_i$ (placing as late
+as possible leaves earlier slots free for tighter-deadline jobs); skip the job if no such
+slot is free. Return \texttt{(schedule, total\_profit)} where \texttt{schedule} maps slot
+$\to$ job index.
+
+Then implement \texttt{is\_feasible\_schedule(jobs, schedule)}: \texttt{True} iff every
+scheduled job's slot is $\le$ its deadline and all slots are distinct.
+
+\textbf{Example.} Jobs $(d,p)$ = $(2,100), (1,19), (2,27), (1,25), (3,15)$. The greedy
+schedule achieves total profit $100 + 27 + 15 = 142$ using 3 of the 5 jobs.
+
+\end{document}
