@@ -1,0 +1,469 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 2: Algorithm Analysis and Asymptotic Notation}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+In Week 1 we used Big-O notation informally to describe how the running time of
+Gale--Shapley scales with $n$. This week we make that vocabulary precise. Following
+Kleinberg \& Tardos, Chapter 2, we will:
+
+\begin{enumerate}
+    \item Define $O$, $\Omega$, and $\Theta$ rigorously, with the formal
+    ``there exist constants $c, n_0$'' definitions, and prove basic properties (transitivity,
+    sums, products).
+    \item Build a mental hierarchy of common growth rates and learn to recognize which
+    class an algorithm's running time falls into just by reading its code (counting loop
+    iterations, recursive calls, etc.).
+    \item Discuss \emph{polynomial time} as the standard (if imperfect) notion of
+    ``efficient'', and contrast it with exponential-time brute force.
+    \item Work through a full worked example -- \textbf{binary search} -- analyzing its
+    running time via a recurrence relation, both directly (the iterative version) and via
+    the recursion tree (the recursive version).
+\end{enumerate}
+
+This week's practical exercises (17 problems) ask you to implement and empirically verify
+each of these ideas: counting operations in loops, writing ``witness checkers'' for $O$,
+$\Omega$, $\Theta$, solving small recurrences by direct simulation, and analyzing classic
+algorithms (binary search, heaps, dynamic arrays, Karatsuba-style divide and conquer, and a
+more careful re-implementation of Gale--Shapley using arrays instead of dictionaries).
+
+\section{Asymptotic Notation, Formally}
+
+\subsection{Big-O: an asymptotic upper bound}
+
+\begin{definition}[Big-O]
+Let $f, g : \mathbb{N} \to \mathbb{R}^{+}$. We say $f(n) = O(g(n))$ if there exist
+constants $c > 0$ and $n_0 \ge 0$ such that
+\[
+  f(n) \le c \cdot g(n) \qquad \text{for all } n \ge n_0.
+\]
+Informally: \emph{for sufficiently large $n$, $f$ grows no faster than a constant multiple
+of $g$.}
+\end{definition}
+
+\begin{example}
+$f(n) = 3n^2 + 100n + 7$ satisfies $f(n) = O(n^2)$. Take $c = 4$: for $n \ge n_0 = 105$,
+\[
+  3n^2 + 100n + 7 \le 3n^2 + n^2 + n^2 = 4n^2,
+\]
+because once $n \ge 105$, $100n + 7 \le n^2$ (in fact $100n \le n^2$ already holds for $n
+\ge 100$, and the $+7$ is absorbed by the slack). The exact choice of $n_0$ does not matter
+-- only that \emph{some} valid pair $(c, n_0)$ exists.
+\end{example}
+
+A common point of confusion: $O(g(n))$ is an \emph{upper bound} on $f$, but it does not
+have to be \emph{tight}. Every function that is $O(n)$ is automatically also $O(n^2)$,
+$O(n^3)$, etc. (Problem 3 in this week's exercises asks you to implement witness checkers
+that make this concrete: given proposed $(c, n_0)$, verify $f(n) \le c\,g(n)$ on a sample of
+$n$ values.)
+
+\subsection{Big-Omega: an asymptotic lower bound}
+
+\begin{definition}[Big-Omega]
+$f(n) = \Omega(g(n))$ if there exist constants $c > 0$ and $n_0 \ge 0$ such that
+\[
+  f(n) \ge c \cdot g(n) \qquad \text{for all } n \ge n_0.
+\]
+Informally: \emph{for sufficiently large $n$, $f$ grows at least as fast as a constant
+multiple of $g$.}
+\end{definition}
+
+Big-Omega is the mirror image of Big-O: $f(n) = \Omega(g(n))$ if and only if
+$g(n) = O(f(n))$.
+
+\subsection{Big-Theta: tight bounds}
+
+\begin{definition}[Big-Theta]
+$f(n) = \Theta(g(n))$ if $f(n) = O(g(n))$ \emph{and} $f(n) = \Omega(g(n))$. Equivalently,
+there exist constants $c_1, c_2 > 0$ and $n_0$ such that
+\[
+  c_1 \cdot g(n) \le f(n) \le c_2 \cdot g(n) \qquad \text{for all } n \ge n_0.
+\]
+\end{definition}
+
+When we say ``algorithm $A$ runs in time $\Theta(n \log n)$'', we mean the running time is
+\emph{sandwiched} between two constant multiples of $n \log n$ -- this is the strongest and
+most informative of the three notations, and the one we aim for whenever possible.
+
+\subsection{Basic properties}
+
+\begin{proposition}[Transitivity]
+If $f(n) = O(g(n))$ and $g(n) = O(h(n))$, then $f(n) = O(h(n))$. The analogous statements
+hold for $\Omega$ and $\Theta$.
+\end{proposition}
+\begin{proof}
+By assumption there exist $c_1, n_1$ with $f(n) \le c_1 g(n)$ for $n \ge n_1$, and $c_2,
+n_2$ with $g(n) \le c_2 h(n)$ for $n \ge n_2$. Let $n_0 = \max(n_1, n_2)$ and $c = c_1 c_2$.
+For $n \ge n_0$, $f(n) \le c_1 g(n) \le c_1 c_2 h(n) = c\,h(n)$.
+\end{proof}
+
+\begin{proposition}[Sums]
+If $f_1(n) = O(g(n))$ and $f_2(n) = O(g(n))$, then $(f_1+f_2)(n) = O(g(n))$. More generally,
+if $f(n) = O(g(n))$ and $h(n) = O(g(n))$, then $\max(f(n), h(n)) = O(g(n))$ -- so the sum of
+a constant number of terms is dominated by the asymptotically largest term, with the
+others absorbed into the constant.
+\end{proposition}
+
+\begin{proposition}[Polynomials]
+For a polynomial $p(n) = a_d n^d + a_{d-1} n^{d-1} + \cdots + a_0$ with $a_d > 0$,
+$p(n) = \Theta(n^d)$.
+\end{proposition}
+\begin{proof}[Proof sketch]
+For the upper bound, $p(n) \le (|a_d| + |a_{d-1}| + \cdots + |a_0|) \cdot n^d$ for $n \ge 1$
+(since $n^i \le n^d$ for $i \le d$ and $n \ge 1$). For the lower bound, for $n$ large enough
+the leading term $a_d n^d$ dominates the sum of the absolute values of the remaining terms,
+so $p(n) \ge \frac{a_d}{2} n^d$.
+\end{proof}
+
+\section{The Hierarchy of Growth Rates}
+
+A useful ordering of common growth rates, from slowest- to fastest-growing (each is
+asymptotically dominated by the next, i.e.\ $o(\cdot)$, a \emph{strict} version of $O$):
+\[
+  O(1) \;\subset\; O(\log n) \;\subset\; O(\sqrt{n}) \;\subset\; O(n) \;\subset\;
+  O(n \log n) \;\subset\; O(n^2) \;\subset\; O(n^3) \;\subset\; O(2^n) \;\subset\; O(n!).
+\]
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llp{6.5cm}@{}}
+\toprule
+Growth rate & Name & Typical example \\
+\midrule
+$\Theta(1)$        & constant     & array index access \\
+$\Theta(\log n)$   & logarithmic  & binary search \\
+$\Theta(\sqrt{n})$ & root         & some number-theoretic primality checks \\
+$\Theta(n)$        & linear       & scanning a list, finding max \\
+$\Theta(n \log n)$ & linearithmic & merge sort, heapsort, sorting with a heap \\
+$\Theta(n^2)$      & quadratic    & insertion sort, nested-loop pairwise comparisons \\
+$\Theta(n^3)$      & cubic        & naive matrix multiplication, naive triple-nested loops \\
+$\Theta(2^n)$      & exponential  & brute-force subset enumeration, naive recursive Fibonacci \\
+$\Theta(n!)$       & factorial    & brute-force enumeration of all permutations (e.g.\ Week 1
+                                     Problem 5) \\
+\bottomrule
+\end{tabular}
+\caption{Common running-time classes, slowest to fastest growing.}
+\end{table}
+
+\subsection{Reading growth rates off code}
+
+The most common way a growth rate arises is by counting loop iterations or recursive
+calls.
+
+\begin{itemize}
+    \item A single loop \texttt{for i in range(n)} with $O(1)$ work per iteration:
+    $\Theta(n)$.
+    \item A nested loop \texttt{for i in range(n): for j in range(n)}: $\Theta(n^2)$
+    (Problem 2).
+    \item A \emph{triangular} nested loop \texttt{for i in range(n): for j in range(i)}:
+    the inner loop runs $0 + 1 + \cdots + (n-1) = \binom{n}{2} = \Theta(n^2)$ times total --
+    same asymptotic class as the full nested loop, just with a smaller constant
+    (Problem 2).
+    \item A loop that halves its range each iteration, \texttt{while n > 1: n = n // 2}:
+    $\Theta(\log n)$ iterations (Problem 5).
+\end{itemize}
+
+\subsection{Recurrences}
+
+Many algorithms (especially recursive ones) have running times described by a
+\textbf{recurrence relation}: an equation for $T(n)$ in terms of $T$ at smaller arguments.
+Three recurrences recur throughout this course:
+
+\begin{itemize}
+    \item $T(n) = T(n-1) + O(1)$, $T(0) = O(1)$ $\Rightarrow$ $T(n) = \Theta(n)$ (linear
+    recursion -- e.g.\ a simple countdown, Problem 4).
+    \item $T(n) = T(n/2) + O(1)$, $T(1) = O(1)$ $\Rightarrow$ $T(n) = \Theta(\log n)$
+    (halving recursion -- e.g.\ binary search, Problem 5).
+    \item $T(n) = 2T(n/2) + O(n)$, $T(1) = O(1)$ $\Rightarrow$ $T(n) = \Theta(n \log n)$
+    (divide-and-conquer with linear merge -- e.g.\ mergesort, Problem 6).
+\end{itemize}
+
+\begin{example}[Solving $T(n) = T(n/2) + 1$]
+Assume $n = 2^k$. Unrolling: $T(2^k) = T(2^{k-1}) + 1 = T(2^{k-2}) + 2 = \cdots = T(2^0) + k
+= T(1) + k$. Since $k = \log_2 n$, we get $T(n) = T(1) + \log_2 n = \Theta(\log n)$.
+\end{example}
+
+\begin{example}[Solving $T(n) = 2T(n/2) + n$]
+Again assume $n = 2^k$. At recursion depth $i$, there are $2^i$ sub-problems, each of size
+$n/2^i$, and each level contributes $2^i \cdot (n/2^i) = n$ total work (for the ``$+n$''
+combine step, split proportionally across the $2^i$ sub-calls). There are $k = \log_2 n$
+levels (depth $0$ through $k-1$, plus base cases), so the total work is
+$n \cdot \log_2 n + \Theta(n) = \Theta(n \log n)$.
+\end{example}
+
+Problems 4--6 ask you to implement each of these three recursions \emph{exactly as
+written} (so the number of recursive calls matches the formula) and verify the closed-form
+solutions numerically for a range of $n$.
+
+\section{Polynomial Time and Tractability}
+
+\begin{definition}[Polynomial-time algorithm]
+An algorithm runs in \textbf{polynomial time} if its worst-case running time is $O(n^k)$
+for some constant $k$ that does not depend on the input.
+\end{definition}
+
+Kleinberg \& Tardos propose polynomial time as a useful (if imperfect) proxy for
+``efficient'', for two main reasons:
+
+\begin{enumerate}
+    \item \textbf{Closure under composition.} If you call a polynomial-time subroutine a
+    polynomial number of times, the overall algorithm is still polynomial-time (a
+    polynomial composed with a polynomial is a polynomial). This makes polynomial-time
+    algorithms \emph{compositional} -- you can build complex polynomial-time algorithms out
+    of simpler polynomial-time pieces.
+    \item \textbf{Sharp practical divide.} In practice, there is often a genuine
+    qualitative jump between polynomial algorithms (which scale to large $n$) and
+    exponential algorithms (which become infeasible for even moderately-sized $n$). An
+    $O(n^3)$ algorithm on $n = 1000$ does $10^9$ operations -- seconds on a modern machine.
+    A $O(2^n)$ algorithm on $n = 40$ already does over $10^{12}$ operations.
+\end{enumerate}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Running time & $n=10$ & $n=30$ & $n=50$ \\
+\midrule
+$n$       & $10$        & $30$         & $50$ \\
+$n \log n$ & $\approx 33$ & $\approx 147$ & $\approx 282$ \\
+$n^2$     & $100$       & $900$        & $2{,}500$ \\
+$n^3$     & $1{,}000$   & $27{,}000$   & $125{,}000$ \\
+$2^n$     & $1{,}024$   & $1{,}073{,}741{,}824$ & $\approx 1.1 \times 10^{15}$ \\
+$n!$      & $3{,}628{,}800$ & $\approx 2.65 \times 10^{32}$ & $\approx 3.0 \times 10^{64}$ \\
+\bottomrule
+\end{tabular}
+\caption{Growth of running time with $n$, for fixed operation counts -- the qualitative
+divide between polynomial and super-polynomial growth becomes stark by $n=30$.}
+\end{table}
+
+This is precisely why brute-force enumeration of all $n!$ matchings (Week 1, Problem 5) is
+fine for $n \le 6$ but utterly infeasible for $n = 50$, while Gale--Shapley's $O(n^2)$
+bound scales gracefully.
+
+\subsection{Caveats}
+
+Polynomial time is a useful \emph{coarse} filter, but it is not the whole story:
+
+\begin{itemize}
+    \item An $O(n^{100})$ algorithm is polynomial but useless in practice.
+    \item An $O(2^{n/1000})$ algorithm is exponential but might be fine for the $n$'s that
+    actually arise.
+    \item Constant factors matter in practice (Theory Question 4 / Week 1 revisited):
+    asymptotics are about \emph{scaling}, not absolute speed at any fixed $n$.
+\end{itemize}
+
+Nonetheless, ``is there a polynomial-time algorithm for this problem?'' remains one of the
+most important questions an algorithm designer asks, and sets up the contrast (later in
+the course) with $\mathsf{NP}$-hard problems for which no polynomial-time algorithm is
+known.
+
+\section{Worked Example: Binary Search}
+
+Binary search is this week's running example because it cleanly illustrates almost every
+idea above: a simple loop invariant, a $\Theta(\log n)$ recurrence, and both an iterative
+and a recursive implementation that must be shown equivalent.
+
+\subsection{Problem statement}
+
+Given a sorted array $A[0..n-1]$ and a target value $x$, find an index $i$ such that
+$A[i] = x$, or report that no such index exists.
+
+\subsection{Iterative algorithm and loop invariant}
+
+\begin{algorithm}[h]
+\caption{\textsc{BinarySearchIterative}$(A, x)$}
+\begin{algorithmic}[1]
+\State $lo \gets 0$, $hi \gets n - 1$
+\While{$lo \le hi$}
+    \State $mid \gets \lfloor (lo + hi)/2 \rfloor$
+    \If{$A[mid] = x$}
+        \State \Return $mid$
+    \ElsIf{$A[mid] < x$}
+        \State $lo \gets mid + 1$
+    \Else
+        \State $hi \gets mid - 1$
+    \EndIf
+\EndWhile
+\State \Return $-1$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{proposition}[Correctness via loop invariant]
+At the start of every iteration, \textbf{if $x$ is present in $A$, its index lies in
+$[lo, hi]$.}
+\end{proposition}
+\begin{proof}
+\emph{Initialization.} Before the first iteration, $[lo,hi] = [0, n-1]$, the entire array,
+so the invariant holds trivially.
+
+\emph{Maintenance.} Suppose the invariant holds at the start of an iteration and $x \ne
+A[mid]$. Since $A$ is sorted: if $x > A[mid]$, then $x$ (if present) must be at an index
+$> mid$, so updating $lo \gets mid+1$ preserves the invariant. Symmetrically if $x <
+A[mid]$, updating $hi \gets mid - 1$ preserves the invariant.
+
+\emph{Termination.} The loop ends either by finding $x$ (return $mid$, correct by the
+check), or when $lo > hi$, meaning the invariant's interval $[lo,hi]$ is empty -- by the
+invariant, $x$ cannot be present, so returning $-1$ is correct.
+\end{proof}
+
+\subsection{Running-time analysis}
+
+Each iteration either terminates or shrinks $hi - lo + 1$ (the size of the candidate range)
+to \emph{at most half} its previous value (since $mid$ splits $[lo,hi]$ roughly in half,
+and one half is discarded). Starting from a range of size $n$, after $k$ iterations the
+range has size at most $\lceil n / 2^k \rceil$. The loop must terminate once the range size
+reaches $0$, i.e.\ once $k > \log_2 n$. Hence the iterative algorithm performs
+$\Theta(\log n)$ iterations, each doing $O(1)$ work, for a total running time of
+$\Theta(\log n)$.
+
+\subsection{Recursive version and recursion tree}
+
+\begin{algorithm}[h]
+\caption{\textsc{BinarySearchRecursive}$(A, x, lo, hi)$}
+\begin{algorithmic}[1]
+\If{$lo > hi$}
+    \State \Return $-1$
+\EndIf
+\State $mid \gets \lfloor (lo+hi)/2 \rfloor$
+\If{$A[mid] = x$}
+    \State \Return $mid$
+\ElsIf{$A[mid] < x$}
+    \State \Return \textsc{BinarySearchRecursive}$(A, x, mid+1, hi)$
+\Else
+    \State \Return \textsc{BinarySearchRecursive}$(A, x, lo, mid-1)$
+\EndIf
+\end{algorithmic}
+\end{algorithm}
+
+This satisfies the recurrence $T(n) = T(n/2) + O(1)$ from Section 3.2, whose solution is
+$T(n) = \Theta(\log n)$ -- matching the iterative analysis. The recursion ``tree'' here is
+actually a single \emph{path} (each call makes exactly one recursive call), of depth
+$\lceil \log_2(n+1) \rceil$. Problem 7 asks you to implement both versions and to compute
+this depth directly; Problem 8 extends binary search to find the first/last occurrence of a
+repeated value (still $O(\log n)$ per query), and Problem 9 applies the same
+divide-and-decide idea to searching a \emph{rotated} sorted array.
+
+\section{Other Examples of Algorithm Analysis}
+
+\subsection{Finding the maximum and minimum: a tighter constant}
+
+Finding the maximum of $n$ elements takes $n-1$ comparisons (one linear scan). Finding both
+the max \emph{and} the min naively takes $2(n-1)$ comparisons (two scans) -- still
+$\Theta(n)$, but with a worse constant. A classic trick (Problem 10) processes elements in
+\emph{pairs}: for each pair, one comparison determines the local max/min candidate, then
+two more comparisons update the running max and min -- $3$ comparisons per pair instead of
+$4$, giving roughly $\frac{3n}{2}$ comparisons total. Both algorithms are $\Theta(n)$, but
+this is a good illustration that \emph{constants matter} even within the same $\Theta$
+class, and that careful counting can reveal real (if modest) improvements.
+
+\subsection{Selection: median via sorting vs. quickselect}
+
+Finding the median of $n$ unsorted elements by sorting first costs $\Theta(n \log n)$.
+\textbf{Quickselect} (Problem 11) finds the $k$-th smallest element directly, using a
+divide-and-conquer partition step (as in quicksort) but recursing into only \emph{one}
+side: $T(n) = T(\alpha n) + O(n)$ for some $\alpha < 1$ in expectation, giving
+$\mathbb{E}[T(n)] = \Theta(n)$ -- asymptotically faster than sorting, despite ``looking
+similar'' to quicksort.
+
+\subsection{Amortized analysis: dynamic arrays}
+
+A \textbf{dynamic array} (Problem 15) starts with some capacity and \emph{doubles} its
+capacity (copying all existing elements) whenever it becomes full. A single \texttt{append}
+that triggers a resize costs $\Theta(n)$ -- but resizes happen only when the size passes
+$1, 2, 4, 8, \ldots$, so the \emph{total} copying cost over $n$ appends is
+$1+2+4+\cdots+2^{k-1} < 2 \cdot 2^{k-1} < 2n$, i.e.\ $O(n)$ total, or $O(1)$
+\textbf{amortized} per append. This is the standard justification for treating
+\texttt{list.append} in Python (and similarly, \texttt{ArrayList}/\texttt{Vector} in other
+languages) as ``$O(1)$'' despite occasional expensive resizes.
+
+\subsection{Priority queues: heap vs. sorted list}
+
+A binary min-heap (Problem 12, building on Week 1's heapsort) supports \texttt{push} and
+\texttt{pop} in $O(\log n)$, by maintaining the heap property along a single root-to-leaf
+path. A naive ``always keep the list sorted'' priority queue (Problem 14) instead pays
+$O(n)$ per operation (shifting elements to maintain sorted order). Problem 14 asks you to
+measure this difference directly by counting ``element move'' operations for both
+structures on the same sequence of pushes/pops -- a concrete $O(n \log n)$ vs.\ $O(n^2)$
+comparison for $n$ insertions followed by $n$ extractions.
+
+Problem 13 extends the heap with a \texttt{decrease\_key} operation (an \textbf{indexed
+priority queue}), which is exactly the data structure needed for Dijkstra's algorithm,
+covered in a later week.
+
+\subsection{Revisiting Gale--Shapley with arrays}
+
+Week 1's Gale--Shapley implementation used Python dictionaries and \texttt{.index()} calls
+to look up preferences and ranks -- each \texttt{.index()} call is itself $O(n)$, which can
+silently turn an ``$O(n^2)$'' algorithm into $O(n^3)$ if you are not careful! Problem 16
+re-implements the men-proposing algorithm using only arrays (lists) indexed by integers
+$0..n-1$, a \texttt{collections.deque} for the queue of free men, and a precomputed
+\textbf{rank table} \texttt{women\_rank[w][m]} so that comparing two suitors is $O(1)$.
+This makes the true $O(n^2)$ bound from Week 1's Lemma (at most $n^2$ proposals, each
+$O(1)$ to process) explicit and verifiable.
+
+\subsection{Correctness via induction and invariants}
+
+Finally, Problem 17 connects this week's themes back to \emph{correctness} (not just
+running time): an iterative summation maintains the loop invariant ``$total =
+0+1+\cdots+i$ after processing $i$'', verified at every step with an \texttt{assert}; and
+\textbf{binary exponentiation} (repeated squaring) computes $a^b$ in $O(\log b)$
+multiplications instead of $O(b)$, by the recurrence
+\[
+  a^b = \begin{cases}
+    1 & b = 0 \\
+    (a^{b/2})^2 & b \text{ even} \\
+    (a^{(b-1)/2})^2 \cdot a & b \text{ odd}
+  \end{cases}
+\]
+which is the same ``halving recursion'' $T(n) = T(n/2) + O(1)$ from Section 3.2, applied to
+the \emph{exponent} rather than the array size.
+
+\section{Summary and Looking Ahead}
+
+This week established:
+\begin{itemize}
+    \item The formal definitions of $O$, $\Omega$, $\Theta$, with proofs of transitivity
+    and the polynomial rule.
+    \item The standard hierarchy of growth rates and how to read them off code (loops,
+    nested loops, recursion).
+    \item Polynomial time as a (coarse but useful) definition of tractability, and why the
+    polynomial/exponential divide matters in practice.
+    \item A complete worked example (binary search) analyzed both iteratively (loop
+    invariant + shrinking range) and recursively (recurrence $T(n) = T(n/2) + O(1)$), plus
+    several further examples: max/min, quickselect, amortized analysis of dynamic arrays,
+    heaps vs.\ sorted lists, and a tighter re-analysis of Gale--Shapley.
+\end{itemize}
+
+Next week, we put this analysis toolkit to use in earnest with \textbf{Divide and Conquer}
+algorithms (Kleinberg \& Tardos, Chapter 5): mergesort, Karatsuba multiplication (previewed
+in Week 1), and the master-theorem-style recurrences introduced informally in Section 3.2
+above.
+
+\end{document}
