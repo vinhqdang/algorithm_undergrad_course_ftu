@@ -1,0 +1,411 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 3: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{edges\_to\_adjacency\_list},
+\texttt{edges\_to\_adjacency\_matrix}, \texttt{random\_undirected\_graph},
+\texttt{random\_dag}, and the \texttt{UnionFind} class (union by rank + path
+compression). Vertices are always labeled $0, 1, \dots, n-1$.
+
+The 18 problems are grouped into four themes:
+\begin{itemize}
+    \item \textbf{Graph representations} (Problems 1--3): edge lists, adjacency
+    lists/matrices, degrees, and the space/density trade-off.
+    \item \textbf{BFS} (Problems 4--7): shortest-path distances, layers, path
+    reconstruction, connected components, and diameter.
+    \item \textbf{DFS} (Problems 8--14): recursive and iterative traversal,
+    discovery/finish times, connected components, cycle detection (undirected and
+    directed), and bipartiteness / odd-cycle certificates.
+    \item \textbf{Topological sort \& Union-Find} (Problems 15--18): DFS-based and
+    Kahn's topological sort, counting topological orders, and Quick-Find.
+\end{itemize}
+
+\newpage
+\section{Graph Representations}
+
+\subsection*{Problem 1 -- Edge List to Adjacency List/Matrix}
+
+Implement two graph-representation conversions \textbf{from scratch} (without using the
+helpers of the same name in \texttt{starter\_code.py} -- this is a warm-up exercise):
+
+\begin{itemize}
+    \item \texttt{edges\_to\_adjacency\_list(n, edges, directed=False)}: return a list of
+    length $n$, where \texttt{adj[u]} is the list of neighbors of $u$ (in the order the
+    edges were given). For undirected graphs, each edge $(u,v)$ must appear in
+    \emph{both} \texttt{adj[u]} and \texttt{adj[v]}.
+    \item \texttt{edges\_to\_adjacency\_matrix(n, edges, directed=False)}: return an $n
+    \times n$ matrix (list of lists) where \texttt{matrix[u][v]} is the \emph{number} of
+    edges between $u$ and $v$ (so parallel edges show up as values $> 1$).
+\end{itemize}
+
+\textbf{Examples.} For the undirected triangle $0\text{-}1, 1\text{-}2, 0\text{-}2$:
+\texttt{adj[0]} contains $\{1,2\}$, and the matrix is symmetric with
+$\texttt{matrix[0][1]}=\texttt{matrix[1][0]}=1$. For directed edges
+$(0,1),(1,2),(0,1)$ (a parallel edge $0\to1$): \texttt{adj[0] == [1,1]},
+$\texttt{matrix[0][1]}=2$ but $\texttt{matrix[1][0]}=0$ (not symmetric). For an
+undirected self-loop $(0,0)$: \texttt{adj[0]} contains $0$ \emph{twice} (degree
+convention), but $\texttt{matrix[0][0]}=1$ (the matrix entry is incremented only once per
+edge, even for undirected self-loops, since there is only one such edge in the edge
+list).
+
+\subsection*{Problem 2 -- Degrees, Self-Loops, and Multi-Edges}
+
+Given an undirected graph as an edge list, implement:
+
+\begin{itemize}
+    \item \texttt{degree\_sequence(n, edges)}: return a list \texttt{deg} of length $n$
+    where \texttt{deg[v]} is the degree of vertex $v$. A self-loop $(u,u)$ contributes 2
+    to \texttt{deg[u]} (so the Handshake Lemma $\sum \texttt{deg} = 2|E|$ holds even with
+    self-loops).
+    \item \texttt{has\_self\_loop(edges)}: return \texttt{True} iff some edge $(u,u)$ is
+    present.
+    \item \texttt{has\_multi\_edge(edges)}: return \texttt{True} iff some unordered pair
+    $\{u,v\}$ ($u \ne v$) appears more than once in \texttt{edges}.
+    \item \texttt{handshake\_check(n, edges)}: return \texttt{True} iff
+    \texttt{sum(degree\_sequence(n, edges)) == 2 * len(edges)} -- a sanity check /
+    illustration of the Handshake Lemma.
+\end{itemize}
+
+\subsection*{Problem 3 -- Converting Between Adjacency Matrix and Adjacency List}
+
+Implement two conversions between the adjacency-matrix and adjacency-list
+representations of a \emph{simple} undirected graph (no self-loops, no parallel edges,
+matrix entries are 0 or 1):
+
+\begin{itemize}
+    \item \texttt{matrix\_to\_adjacency\_list(matrix)}: given an $n \times n$ 0/1 matrix,
+    return the adjacency list (list of length $n$, \texttt{adj[v]} sorted in increasing
+    order).
+    \item \texttt{adjacency\_list\_to\_matrix(adj)}: given an adjacency list, return the
+    corresponding $n \times n$ 0/1 matrix.
+\end{itemize}
+
+Also implement \texttt{matrix\_density(matrix)}, returning the fraction of possible edges
+that are present: $\frac{\text{(number of 1-entries in the upper triangle)}}{n(n-1)/2}$,
+as a float. This illustrates the space trade-off between the two representations: an
+adjacency matrix uses $\Theta(n^2)$ space regardless of density, while an adjacency list
+uses $\Theta(n+m)$ space, which is much smaller for sparse graphs (low density).
+
+\newpage
+\section{Breadth-First Search}
+
+\subsection*{Problem 4 -- BFS Distances and Layers}
+
+Implement \texttt{bfs\_distances(adj, source)}, which runs BFS from \texttt{source} on a
+graph given as an adjacency list \texttt{adj} (the graph may be directed or undirected --
+BFS does not care). Return a list \texttt{dist} of length \texttt{len(adj)} where:
+\begin{itemize}
+    \item \texttt{dist[source] == 0}
+    \item \texttt{dist[v]} is the length (number of edges) of the \emph{shortest} path
+    from \texttt{source} to \texttt{v}, for every \texttt{v} reachable from
+    \texttt{source}.
+    \item \texttt{dist[v] == -1} for every \texttt{v} \emph{not} reachable from
+    \texttt{source}.
+\end{itemize}
+
+Also implement \texttt{bfs\_layers(adj, source)}, which returns a list of ``layers'':
+\texttt{layers[0] == [source]}, \texttt{layers[1]} is all vertices at distance 1, etc.
+(within each layer, vertices appear in the order they were first discovered).
+
+\subsection*{Problem 5 -- Shortest Path Reconstruction via BFS}
+
+Implement \texttt{bfs\_shortest\_path(adj, source, target)}, which returns the actual
+sequence of vertices on a \emph{shortest} path from \texttt{source} to \texttt{target}
+(unweighted graph), as a list \texttt{[source, ..., target]}.
+
+If \texttt{target} is unreachable from \texttt{source}, return \texttt{None}. If
+\texttt{source == target}, return \texttt{[source]}.
+
+\emph{Hint}: run BFS while recording, for each vertex \texttt{v}, the vertex
+\texttt{parent[v]} from which \texttt{v} was first discovered (a ``BFS tree''). Then walk
+\texttt{parent} pointers backward from \texttt{target} to \texttt{source} and reverse.
+
+\subsection*{Problem 6 -- Connected Components via BFS}
+
+Implement \texttt{connected\_components\_bfs(adj)}, which takes an adjacency list of an
+\emph{undirected} graph with $n = \texttt{len(adj)}$ vertices and returns a list of
+components, where each component is a sorted list of vertices.
+
+Components should be ordered by their smallest vertex (process vertices $0,1,2,\dots$ in
+order, starting a new BFS whenever an unvisited vertex is found). Use BFS as the
+underlying traversal.
+
+Also implement \texttt{num\_components(adj)}, returning just the count.
+
+\subsection*{Problem 7 -- Graph Diameter via Repeated BFS}
+
+The \emph{diameter} of a connected, unweighted graph is the maximum, over all pairs of
+vertices $(u,v)$, of the shortest-path distance between $u$ and $v$ (the ``longest
+shortest path'').
+
+Implement \texttt{eccentricity(adj, v)}, returning the maximum distance from \texttt{v}
+to any other vertex (using BFS), and \texttt{diameter(adj)}, returning the diameter of the
+graph by computing \texttt{eccentricity(adj, v)} for \emph{every} vertex \texttt{v} and
+taking the overall maximum.
+
+Assume \texttt{adj} represents a \emph{connected} undirected graph. For a graph with a
+single vertex, the diameter is 0. This reuses \texttt{bfs\_distances} from Problem 4.
+
+\newpage
+\section{Depth-First Search}
+
+\subsection*{Problem 8 -- Recursive DFS Traversal and Discovery/Finish Times}
+
+Implement \texttt{dfs\_recursive(adj, source)}, which performs a recursive DFS starting
+from \texttt{source} on a graph given as an adjacency list (directed or undirected) and
+returns the list of vertices in the order they are first visited (discovered), i.e.\ the
+DFS preorder. Visit neighbors of $u$ in the order they appear in \texttt{adj[u]}.
+
+Also implement \texttt{dfs\_discovery\_finish\_times(adj, source)}, returning a pair of
+dicts \texttt{(discovery, finish)} mapping each \emph{reachable} vertex to an integer
+``timestamp'': start a counter at 0, increment it each time a vertex is discovered
+(recorded in \texttt{discovery}) or finished (recorded in \texttt{finish}, when the
+recursive call for that vertex returns). This is the classic discovery/finish-time
+bookkeeping used to classify edges (tree, back, forward, cross).
+
+\subsection*{Problem 9 -- Iterative DFS with an Explicit Stack}
+
+Implement \texttt{dfs\_iterative(adj, source)}, an \emph{iterative} version of DFS using
+an explicit stack (a Python list with \texttt{append}/\texttt{pop}) instead of recursion.
+Return the list of vertices in the order they are first visited (discovered), exactly
+like \texttt{dfs\_recursive} from Problem 8.
+
+To match the recursive version's order (which visits \texttt{adj[u][0]} before
+\texttt{adj[u][1]}, etc.), when pushing multiple neighbors of $u$ at once, push them in
+\emph{reverse} order, so the first neighbor is popped first.
+
+Also implement \texttt{max\_stack\_size(adj, source)}, returning the maximum size the
+explicit stack reaches during the traversal -- illustrating the $O(n)$ auxiliary space
+DFS can use in the worst case (e.g.\ a path graph).
+
+\subsection*{Problem 10 -- Connected Components via DFS}
+
+Implement \texttt{connected\_components\_dfs(adj)}, the DFS analogue of Problem 6: given
+an adjacency list of an \emph{undirected} graph, return a list of components (each a
+sorted list of vertices), ordered by smallest vertex, using DFS instead of BFS.
+
+Then implement \texttt{same\_component(adj, u, v)}, returning \texttt{True} iff \texttt{u}
+and \texttt{v} are in the same connected component.
+
+Finally, implement \texttt{is\_connected(adj)}, returning \texttt{True} iff the whole
+graph is a single connected component (or has 0 or 1 vertices).
+
+Note: for an undirected graph, the \emph{set} of vertices visited from a given start does
+not depend on BFS vs.\ DFS -- only the discovery \emph{order} differs, so
+\texttt{connected\_components\_dfs} should return the same partition as
+\texttt{connected\_components\_bfs} from Problem 6 (implement DFS directly, without
+importing Problem 6).
+
+\subsection*{Problem 11 -- Cycle Detection in an Undirected Graph (DFS)}
+
+Implement \texttt{has\_cycle\_undirected(adj)}, which returns \texttt{True} iff the
+\emph{undirected} graph given by adjacency list \texttt{adj} contains at least one cycle
+(in any connected component).
+
+Use DFS: for each unvisited vertex, run a DFS keeping track of each vertex's
+\emph{parent} in the DFS tree. If DFS encounters an edge to an already-visited vertex
+that is \emph{not} the current vertex's parent, that is a ``back edge'' and indicates a
+cycle.
+
+Important: in an adjacency list built from \texttt{edges\_to\_adjacency\_list}, each
+undirected edge $(u,v)$ appears as $v$ in \texttt{adj[u]} \emph{and} $u$ in
+\texttt{adj[v]} -- so when at $u$ and seeing neighbor $v == parent[u]$, that is just the
+edge arrived on, \emph{not} a cycle. Only a visited, non-parent neighbor (or a self-loop)
+indicates a cycle.
+
+Also implement \texttt{find\_a\_cycle(adj)}, which returns a list of vertices forming one
+cycle (e.g.\ \texttt{[a, b, c, a]} meaning the cycle a-b-c-a), or \texttt{None} if the
+graph is acyclic (a forest).
+
+\subsection*{Problem 12 -- Bipartiteness Testing via BFS 2-Coloring}
+
+A graph is \emph{bipartite} iff its vertices can be partitioned into two sets $A$ and $B$
+such that every edge has one endpoint in $A$ and one in $B$ (equivalently: it can be
+properly colored with 2 colors).
+
+Implement \texttt{two\_color\_bfs(adj)}, which attempts to 2-color the graph using BFS:
+assign the source of each BFS a color (0), then alternate colors level by level (every
+neighbor gets the \emph{opposite} color of its discoverer). Handle graphs with multiple
+connected components (run BFS from every unvisited vertex).
+
+Return a list \texttt{color} of length \texttt{len(adj)} where \texttt{color[v]} $\in
+\{0,1\}$ for every vertex, \emph{if} the graph is bipartite. If the graph is \emph{not}
+bipartite, return \texttt{None}.
+
+Then implement \texttt{is\_bipartite(adj)}, returning \texttt{True}/\texttt{False}.
+
+\subsection*{Problem 13 -- Finding an Odd Cycle (Certificate of Non-Bipartiteness)}
+
+\textbf{Theorem (Kleinberg \& Tardos).} A graph is bipartite iff it contains no odd
+cycle. Problem 12 only tells you \emph{whether} a graph is bipartite; this problem asks
+you to produce a \emph{certificate} when it is not -- an explicit odd cycle.
+
+Implement \texttt{find\_odd\_cycle(adj)}:
+\begin{itemize}
+    \item If the graph is bipartite, return \texttt{None}.
+    \item Otherwise, return a list of vertices \texttt{[v0, v1, ..., vk, v0]} (first ==
+    last) forming a cycle of \emph{odd} length $k+1$ (i.e.\ $k+1$ is odd, so there are an
+    odd number of \emph{edges} in the cycle).
+\end{itemize}
+
+\emph{Hint}: run BFS 2-coloring (Problem 12) from each connected component's start
+vertex, tracking each vertex's BFS-tree parent and distance from the root. When you find
+an edge $(u,v)$ where \texttt{color[u] == color[v]} (a ``same-color edge''), the path
+root$\to u$, the edge $u$-$v$, and the path $v\to$root together form a cycle of length
+$dist[u]+dist[v]+1$, which is odd exactly when $dist[u]$ and $dist[v]$ have the same
+parity (which they must, since $u$ and $v$ have the same color). Reconstruct the cycle by
+walking parent pointers from $u$ and from $v$ back to the root, then splicing the two
+paths together with the edge $(u,v)$.
+
+\subsection*{Problem 14 -- Cycle Detection in a Directed Graph (DFS with Colors)}
+
+Implement \texttt{has\_cycle\_directed(adj)}, which returns \texttt{True} iff the
+\emph{directed} graph given by adjacency list \texttt{adj} (\texttt{adj[u]} = out-neighbors
+of $u$) contains a directed cycle.
+
+Use the classic 3-color DFS:
+\begin{itemize}
+    \item \textbf{White} (0): not yet visited.
+    \item \textbf{Gray} (1): currently on the DFS recursion stack (an ancestor of the
+    current vertex).
+    \item \textbf{Black} (2): fully finished (popped off the stack).
+\end{itemize}
+
+A directed graph has a cycle iff DFS ever encounters an edge to a \emph{gray} vertex (a
+back edge to an ancestor). Edges to \emph{black} vertices (forward or cross edges) do
+\emph{not} indicate a cycle.
+
+Also implement \texttt{find\_a\_directed\_cycle(adj)}, returning a list of vertices
+\texttt{[v0, v1, ..., vk, v0]} forming a directed cycle (each consecutive pair, and the
+last$\to$first pair, must be an edge in \texttt{adj}), or \texttt{None} if the graph is
+acyclic (a DAG).
+
+\newpage
+\section{Topological Sort \& Union-Find}
+
+\subsection*{Problem 15 -- Topological Sort via DFS}
+
+A \emph{topological order} of a directed graph is an ordering of its vertices such that
+for every edge $(u,v)$, $u$ comes before $v$ in the order. A directed graph has a
+topological order iff it is a DAG (no directed cycles).
+
+Implement \texttt{topological\_sort\_dfs(adj)}:
+\begin{itemize}
+    \item If \texttt{adj} (a directed graph) contains a cycle, return \texttt{None}.
+    \item Otherwise, return a list of all vertices in a valid topological order.
+\end{itemize}
+
+\textbf{Algorithm}: run DFS from every unvisited vertex. When a vertex \emph{finishes}
+(all its descendants fully explored), prepend it to the result list (or append and
+reverse at the end). This works because a vertex finishes only after all vertices
+reachable from it have finished, so it must come before them in topological order.
+
+Implement \texttt{verify\_topological\_order(adj, order)}, returning \texttt{True} iff
+\texttt{order} is a permutation of \texttt{range(len(adj))} such that for every edge
+$(u,v)$ in \texttt{adj}, $u$ appears before $v$ in \texttt{order}.
+
+\subsection*{Problem 16 -- Topological Sort via Kahn's Algorithm (BFS + In-Degree Queue)}
+
+Implement \texttt{topological\_sort\_kahn(adj)}, an alternative topological-sort
+algorithm using a queue (continuity with BFS / Problem 4):
+
+\begin{enumerate}
+    \item Compute the in-degree of every vertex (number of incoming edges).
+    \item Initialize a queue with all vertices of in-degree 0.
+    \item Repeatedly dequeue a vertex $u$, append it to the result, and for each
+    out-neighbor $v$ of $u$, decrement $v$'s in-degree; if it becomes 0, enqueue $v$.
+    \item If the result contains all $n$ vertices, return it. Otherwise (some vertices
+    never reached in-degree 0, because they're in a cycle), return \texttt{None}.
+\end{enumerate}
+
+To make the result \emph{deterministic} (for testing), use a \texttt{collections.deque}
+and, whenever multiple vertices simultaneously become available, enqueue them in
+increasing order of vertex index; initialize the queue with in-degree-0 vertices in
+increasing order too.
+
+Also implement \texttt{in\_degrees(adj)}, returning a list \texttt{indeg} of length
+\texttt{len(adj)} where \texttt{indeg[v]} is the number of edges $(u,v)$ for any $u$.
+
+\subsection*{Problem 17 -- Counting Topological Orderings \& Uniqueness}
+
+A DAG can have many valid topological orderings. This problem asks you to count them (for
+small DAGs) and relate uniqueness to the graph's structure.
+
+Implement \texttt{count\_topological\_orders(adj)}, which returns the \emph{total} number
+of distinct topological orderings of the DAG \texttt{adj}, using backtracking:
+\begin{itemize}
+    \item At each step, the ``available'' vertices are those not yet placed whose
+    in-degree (counting only edges from not-yet-placed vertices) is 0.
+    \item Try placing each available vertex next, recurse, then undo.
+    \item Base case: all vertices placed $\to$ count 1 ordering.
+\end{itemize}
+(For graphs where \texttt{adj} has a cycle, return 0 -- there are no topological
+orderings.)
+
+Then implement \texttt{has\_unique\_topological\_order(adj)}, returning \texttt{True} iff
+\texttt{count\_topological\_orders(adj) == 1}.
+
+\textbf{Theorem connection}: a DAG has a \emph{unique} topological order iff it contains a
+Hamiltonian path (a path visiting every vertex exactly once) consistent with the edges --
+equivalently, iff every pair of ``adjacent-in-the-order'' vertices has a direct edge
+between them. \textbf{Example}: two independent chains $0\to1$ and $2\to3$ have $\binom{4}{2}
+= 6$ valid topological orderings (every interleaving that keeps $0$ before $1$ and $2$
+before $3$); a single chain $0\to1\to2\to3$ has exactly 1.
+
+\subsection*{Problem 18 -- Quick-Find (Eager Union-Find)}
+
+Implement \texttt{QuickFind}, a disjoint-set data structure over elements
+$0,1,\dots,n-1$ using the \emph{Quick-Find} strategy:
+
+\begin{itemize}
+    \item Maintain an array \texttt{id\_} of length $n$, where \texttt{id\_[i]} is the
+    ``component id'' (representative) of element $i$. Initially \texttt{id\_[i] == i}
+    for all $i$.
+    \item \texttt{find(p)}: return \texttt{id\_[p]} -- $O(1)$.
+    \item \texttt{union(p, q)}: if \texttt{find(p) != find(q)}, relabel \emph{every}
+    element whose id equals \texttt{id\_[p]} to have id \texttt{id\_[q]} instead --
+    $O(n)$ per union.
+    \item \texttt{connected(p, q)}: return \texttt{find(p) == find(q)} -- $O(1)$.
+\end{itemize}
+
+Also track \texttt{self.find\_calls} and \texttt{self.union\_relabels} (total number of
+elements relabeled across all \texttt{union} calls), so the cost of Quick-Find can be
+measured empirically and compared against the $\Theta(n^2)$ worst case discussed in the
+lecture notes and theory questions (Quick-Union, union by rank, and path compression --
+the optimizations that bring this down to near-$O(1)$ amortized -- are covered in the
+lecture notes and are already implemented for you in the general-purpose
+\texttt{UnionFind} class in \texttt{starter\_code.py}, used by later weeks).
+
+\end{document}
