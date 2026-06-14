@@ -1,0 +1,511 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 2: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block (wrapped
+in \texttt{try/except NotImplementedError}) with tests. Implement the missing functions so
+the tests pass and the script prints \texttt{"All tests passed!"}. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions
+(\texttt{random\_array}, \texttt{is\_sorted}, \texttt{GROWTH\_FUNCTIONS},
+\texttt{generate\_instance}, and the Week-1-style stable-matching helpers) live in
+\texttt{starter\_code.py} at the week root.
+
+The 17 problems are grouped into four themes:
+\begin{itemize}
+    \item \textbf{Asymptotic notation and recurrences} (Problems 1--6): ordering functions
+    by growth rate, witness checkers for $O/\Omega/\Theta$, and directly simulating the
+    three canonical recurrences from the lecture notes.
+    \item \textbf{Searching} (Problems 7--9): binary search (iterative and recursive),
+    first/last occurrence, and search in a rotated sorted array.
+    \item \textbf{Selection and data structures} (Problems 10--15): max/min with a
+    comparison counter, median via sorting vs.\ quickselect, binary heaps, an indexed
+    priority queue, heap vs.\ sorted-list priority queues, and amortized analysis of a
+    dynamic array.
+    \item \textbf{Algorithm analysis case studies} (Problems 16--17): an efficient
+    array/queue-based re-implementation of Gale--Shapley, and correctness-via-induction
+    examples (loop invariants and binary exponentiation).
+\end{itemize}
+
+\newpage
+\section{Asymptotic Notation and Recurrences}
+
+\subsection*{Problem 1 -- Ordering Functions by Growth Rate}
+
+Implement \texttt{order\_by\_growth(functions, n)} that takes a dict mapping names to
+callables of $n$ (see \texttt{GROWTH\_FUNCTIONS} in \texttt{starter\_code.py}: constant,
+logarithmic, sqrt, linear, linearithmic, quadratic, cubic, exponential) and returns the
+list of names sorted by \emph{increasing} value at the given $n$ (slowest- to
+fastest-growing, at that particular $n$).
+
+Then implement \texttt{dominates(f, g, n\_values)} that returns \texttt{True} iff, for
+every $n$ in \texttt{n\_values} (an increasing list of positive integers), $f(n) \le
+g(n)$. This is a simple empirical proxy for ``$f$ is $O(g)$'' (it does not prove it, but a
+violation immediately disproves it).
+
+\textbf{Expected behavior.} At $n=512$, the order should match the textbook hierarchy:
+constant, logarithmic, sqrt, linear, linearithmic, quadratic, cubic, exponential. Also,
+\texttt{dominates(logarithmic, linear, [1,2,4,...,128])} and
+\texttt{dominates(linear, quadratic, ...)} should be \texttt{True}, while
+\texttt{dominates(quadratic, linear, ...)} should be \texttt{False}.
+
+\subsection*{Problem 2 -- Counting Operations in Nested Loops}
+
+Implement three ``instrumented'' functions that count the number of times their innermost
+operation runs, as a function of $n$:
+\begin{itemize}
+    \item \texttt{count\_single\_loop(n)}: a single loop \texttt{for i in range(n)}, one
+    operation per iteration. Returns exactly $n$.
+    \item \texttt{count\_nested\_loop(n)}: a loop \texttt{for i in range(n)} containing an
+    inner loop \texttt{for j in range(n)}, one operation per inner iteration. Returns
+    exactly $n^2$.
+    \item \texttt{count\_triangular\_loop(n)}: a loop \texttt{for i in range(n)} containing
+    an inner loop \texttt{for j in range(i)} (note: \texttt{range(i)}, not
+    \texttt{range(n)}), one operation per inner iteration. Returns exactly
+    $0+1+\cdots+(n-1) = \frac{n(n-1)}{2}$.
+\end{itemize}
+
+Then implement \texttt{tightest\_bound(counts, n\_values)} that, given a list of operation
+counts measured at the corresponding \texttt{n\_values}, returns the name of the tightest
+matching growth class from \texttt{\{"constant", "linear", "quadratic"\}}, by checking
+which of \texttt{n\_values[i]**0}, \texttt{n\_values[i]**1}, \texttt{n\_values[i]**2} the
+counts are closest to being proportional to (the ratio \texttt{counts[i] /
+n\_values[i]**k} should be roughly constant across all $i$, for the smallest $k$ that
+works, within a relative tolerance of $0.15$).
+
+\textbf{Expected behavior.} \texttt{tightest\_bound} applied to the outputs of
+\texttt{count\_single\_loop}, \texttt{count\_nested\_loop}, and
+\texttt{count\_triangular\_loop} (over several $n$) returns \texttt{"linear"},
+\texttt{"quadratic"}, and \texttt{"quadratic"} respectively.
+
+\subsection*{Problem 3 -- Witness Checkers for $O$, $\Omega$, and $\Theta$}
+
+Implement \texttt{is\_big\_o(f, g, c, n0, n\_values)} that returns \texttt{True} iff
+$f(n) \le c \cdot g(n)$ holds for \emph{every} $n$ in \texttt{n\_values} with $n \ge n0$
+(values $n < n0$ are ignored -- the definition only requires the bound to hold
+eventually).
+
+Similarly implement \texttt{is\_big\_omega(f, g, c, n0, n\_values)} ($f(n) \ge c\,g(n)$ for
+$n \ge n0$), and \texttt{is\_theta(f, g, c\_lo, c\_hi, n0, n\_values)} which returns
+\texttt{True} iff $c\_lo \cdot g(n) \le f(n) \le c\_hi \cdot g(n)$ for all $n$ in
+\texttt{n\_values} with $n \ge n0$.
+
+These are \emph{witness checkers}: given proposed constants $(c, n0)$ or $(c\_lo, c\_hi,
+n0)$, they verify the inequality holds on a finite sample of $n$ -- a necessary (but not
+sufficient) condition for a full proof, useful for sanity-checking candidate constants
+before writing a proof.
+
+\textbf{Expected behavior.} For $f(n) = 5n^2+3n+2$ and $g(n) = n^2$: \texttt{is\_big\_o(f,
+g, c=6, n0=5, ...)} is \texttt{True} (matching Theory Question A2); \texttt{is\_big\_omega(f,
+g, c=5, n0=0, ...)} is \texttt{True} (matching A3); and \texttt{is\_theta(f, g, c\_lo=5,
+c\_hi=6, n0=5, ...)} is \texttt{True}.
+
+\subsection*{Problem 4 -- Recurrence $T(n) = T(n-1) + O(1)$: Linear Recursion}
+
+Consider the recursive function \texttt{countdown\_ops(n)} that simulates the recurrence
+$T(n) = T(n-1) + 1$ (with $T(0) = 1$):
+\begin{lstlisting}
+def countdown_ops(n):
+    if n <= 0:
+        return 1
+    return 1 + countdown_ops(n - 1)
+\end{lstlisting}
+The closed form is $T(n) = n + 1 = \Theta(n)$.
+
+Implement \texttt{countdown\_ops(n)} exactly as above (recursively -- do not just return
+\texttt{n+1} directly; the point is to call this on small $n$ and see that the
+\emph{number of recursive calls} matches the closed form).
+
+Then implement \texttt{verify\_linear\_recurrence(n\_values)} that, for each $n$ in
+\texttt{n\_values}, computes \texttt{countdown\_ops(n)} and checks it equals $n+1$. Return
+\texttt{True} iff this holds for every $n$ in \texttt{n\_values}.
+
+\textbf{Expected behavior.} \texttt{verify\_linear\_recurrence([0,1,5,10,50])} returns
+\texttt{True}.
+
+\subsection*{Problem 5 -- Recurrence $T(n) = T(n/2) + O(1)$: Logarithmic Recursion}
+
+Consider the recursive function \texttt{halving\_ops(n)} that simulates the recurrence
+$T(n) = T(\lfloor n/2 \rfloor) + 1$ for $n \ge 1$, with $T(0) = 1$:
+\begin{lstlisting}
+def halving_ops(n):
+    if n <= 0:
+        return 1
+    return 1 + halving_ops(n // 2)
+\end{lstlisting}
+The closed form is $T(n) = \Theta(\log n)$; precisely, $T(n) = \lfloor \log_2 n \rfloor + 2$
+for $n \ge 1$ ($T(0)=1$).
+
+Implement \texttt{halving\_ops(n)} recursively as above.
+
+Then implement \texttt{verify\_log\_recurrence(n\_values)} that, for each $n$ in
+\texttt{n\_values} ($n \ge 1$), computes \texttt{halving\_ops(n)} and checks it equals
+$\lfloor \log_2 n \rfloor + 2$. Return \texttt{True} iff this holds for every $n$ in
+\texttt{n\_values}.
+
+\textbf{Expected behavior.} \texttt{verify\_log\_recurrence([1,2,4,8,16,100,1000])} returns
+\texttt{True}.
+
+\subsection*{Problem 6 -- Recurrence $T(n) = 2T(n/2) + O(n)$: Linearithmic Recursion}
+
+Consider the recursive function \texttt{divide\_combine\_ops(n)} that simulates the
+recurrence $T(n) = 2T(n/2) + n$ for $n > 1$, with $T(1) = 1$ (and $T(0)=0$):
+\begin{lstlisting}
+def divide_combine_ops(n):
+    if n <= 1:
+        return n
+    return 2 * divide_combine_ops(n // 2) + n
+\end{lstlisting}
+This is the same recurrence that governs mergesort's running time, and its solution is
+$T(n) = \Theta(n \log n)$.
+
+Implement \texttt{divide\_combine\_ops(n)} recursively as above. (For $n$ that is not a
+power of 2, \texttt{n // 2} truncates -- that's fine, just follow the recurrence
+literally.)
+
+Then implement \texttt{verify\_linearithmic\_growth(powers\_of\_two)} where
+\texttt{powers\_of\_two} is a list of exponents $k$ (so $n = 2^k$). For each $k$, compute
+$T(n) = \texttt{divide\_combine\_ops}(2^k)$. When $n$ is an exact power of two, the closed
+form is $T(n) = n \cdot (k+1) = n \log_2 n + n$. Check that
+\texttt{divide\_combine\_ops(2**k) == 2**k * (k+1)} for every $k$ in
+\texttt{powers\_of\_two}. Return \texttt{True} iff this holds for all of them.
+
+\textbf{Expected behavior.} \texttt{verify\_linearithmic\_growth([0,1,2,3,4,5,6,7,8,9,10])}
+returns \texttt{True}.
+
+\newpage
+\section{Searching}
+
+\subsection*{Problem 7 -- Binary Search (Iterative and Recursive)}
+
+Implement two versions of binary search over a sorted list \texttt{arr}:
+\begin{itemize}
+    \item \texttt{binary\_search\_iterative(arr, target)}: returns the index of
+    \texttt{target} in \texttt{arr}, or $-1$ if not present. Use a \texttt{while} loop.
+    \item \texttt{binary\_search\_recursive(arr, target)}: same behaviour, implemented
+    recursively (a helper with \texttt{lo}/\texttt{hi} bounds is fine).
+\end{itemize}
+Also implement \texttt{recursion\_depth(n)}, returning the number of recursive calls
+\texttt{binary\_search\_recursive} would make in the \emph{worst case} on a sorted array of
+length $n$, i.e.\ $\lceil \log_2(n+1) \rceil$ -- the number of halvings until the search
+range becomes empty.
+
+\textbf{Expected behavior.} On \texttt{arr = [1,3,5,7,9,11,13,15]}, both search functions
+return the correct index for present values (e.g.\ \texttt{target=7} $\to$ index $3$) and
+$-1$ for absent values. \texttt{recursion\_depth(15)} returns $4$.
+
+\subsection*{Problem 8 -- First and Last Occurrence (Binary Search Variant)}
+
+Given a sorted array \texttt{arr} that may contain duplicate values, implement:
+\begin{itemize}
+    \item \texttt{find\_first(arr, target)}: returns the smallest index $i$ such that
+    \texttt{arr[i] == target}, or $-1$ if \texttt{target} is not present.
+    \item \texttt{find\_last(arr, target)}: returns the largest such index, or $-1$.
+    \item \texttt{count\_occurrences(arr, target)}: returns the number of times
+    \texttt{target} appears in \texttt{arr}, computed as \texttt{find\_last(arr, target) -
+    find\_first(arr, target) + 1} if present, else $0$.
+\end{itemize}
+Each of \texttt{find\_first} and \texttt{find\_last} must run in $O(\log n)$ time: do a
+binary search that, upon finding \texttt{target}, continues searching the left half (for
+\texttt{find\_first}) or right half (for \texttt{find\_last}) instead of returning
+immediately, to find the boundary.
+
+\textbf{Expected behavior.} On \texttt{arr = [1,2,2,2,3,4,5]}, \texttt{find\_first(arr,2)
+== 1}, \texttt{find\_last(arr,2) == 3}, \texttt{count\_occurrences(arr,2) == 3}, and
+\texttt{count\_occurrences(arr,9) == 0}.
+
+\subsection*{Problem 9 -- Search in a Rotated Sorted Array}
+
+An array \texttt{arr} of distinct integers, originally sorted in increasing order, has
+been ``rotated'' at some unknown pivot, e.g.\ \texttt{[4,5,6,7,0,1,2]} (originally
+\texttt{[0,1,2,4,5,6,7]}, rotated by 4).
+
+Implement \texttt{search\_rotated(arr, target)} that returns the index of \texttt{target}
+in \texttt{arr}, or $-1$ if not present, in $O(\log n)$ time.
+
+\textbf{Hint.} At any point during binary search, at least one of the two halves
+\texttt{[lo..mid]} or \texttt{[mid..hi]} is ``normally sorted'' (its first element $\le$
+its last element). Determine which half is sorted, then check whether \texttt{target}
+could lie in that half's range to decide which half to recurse/iterate into.
+
+\textbf{Expected behavior.} \texttt{search\_rotated([4,5,6,7,0,1,2], 0) == 4},
+\texttt{search\_rotated([4,5,6,7,0,1,2], 3) == -1}.
+
+\newpage
+\section{Selection and Data Structures}
+
+\subsection*{Problem 10 -- Finding Max and Min with a Comparison Counter}
+
+Implement \texttt{find\_max\_min(arr)} that returns \texttt{(max\_val, min\_val,
+comparisons)} where \texttt{comparisons} is the total number of element-vs-element
+comparisons performed, using the \emph{naive} approach: scan once to find the max
+($n-1$ comparisons), then scan again to find the min ($n-1$ comparisons), for a total of
+$2(n-1)$.
+
+Then implement \texttt{find\_max\_min\_paired(arr)} using the classic ``divide into
+pairs'' trick: process elements two at a time. For each pair $(a,b)$, first compare $a$
+vs.\ $b$ (1 comparison) to determine which is the candidate-max and which is the
+candidate-min of the pair, then compare the candidate-max against the running maximum (1
+comparison) and the candidate-min against the running minimum (1 comparison) -- 3
+comparisons per pair, instead of 4. Handle an odd-length array by initializing the running
+max/min from the first element (0 extra comparisons) before processing the rest in pairs.
+
+\textbf{Expected behavior.} For $n$ elements, \texttt{find\_max\_min} uses $2(n-1)$
+comparisons and \texttt{find\_max\_min\_paired} uses roughly $\frac{3n}{2}$ -- fewer for
+$n>2$. Both return the same \texttt{(max\_val, min\_val)}.
+
+\subsection*{Problem 11 -- Median via Sorting vs.\ Quickselect}
+
+Implement \texttt{median\_via\_sort(arr)} that returns the median of \texttt{arr} (defined
+as \texttt{sorted(arr)[(len(arr)-1)//2]} for both even and odd lengths) by calling
+Python's built-in \texttt{sorted()}.
+
+Then implement \texttt{quickselect(arr, k)}, which returns the $k$-th smallest element
+(0-indexed) of \texttt{arr} using the Quickselect algorithm:
+\begin{enumerate}
+    \item If \texttt{len(arr) == 1}, return \texttt{arr[0]}.
+    \item Choose a pivot (use \texttt{arr[0]} for determinism).
+    \item Partition \texttt{arr} into three lists: elements \texttt{< pivot}, \texttt{==
+    pivot}, and \texttt{> pivot}.
+    \item If \texttt{k < len(less)}, recurse into \texttt{less} with the same \texttt{k}.
+    Elif \texttt{k < len(less) + len(equal)}, return \texttt{pivot}. Else recurse into
+    \texttt{greater} with \texttt{k - len(less) - len(equal)}.
+\end{enumerate}
+
+Then implement \texttt{median\_via\_quickselect(arr)} that calls
+\texttt{quickselect(arr, (len(arr)-1)//2)}.
+
+Finally, implement \texttt{count\_comparisons\_sort(arr)} returning the number of
+comparisons \texttt{sorted()} would roughly need in the worst case for an array of length
+$n$, i.e.\ \texttt{ceil(n * log2(n))} if $n>1$ else $0$ -- a standard upper-bound estimate
+for comparison sorts, for \emph{discussion}, not measured directly.
+
+\textbf{Expected behavior.} \texttt{median\_via\_sort(arr) ==
+median\_via\_quickselect(arr)} for a variety of arrays, including arrays with duplicates.
+
+\subsection*{Problem 12 -- Binary Min-Heap from Scratch}
+
+Implement an array-based binary \texttt{MinHeap} class with:
+\begin{itemize}
+    \item \texttt{push(x)}: insert \texttt{x}, then ``sift up'' to restore the heap
+    property.
+    \item \texttt{pop()}: remove and return the minimum element, moving the last element
+    to the root and ``sifting down'' to restore the heap property. Raise
+    \texttt{IndexError} if empty.
+    \item \texttt{peek()}: return (without removing) the minimum element. Raise
+    \texttt{IndexError} if empty.
+    \item \texttt{\_\_len\_\_}: number of elements.
+\end{itemize}
+The heap is stored in \texttt{self.data} (a Python list), where for index $i$ the children
+are at indices $2i+1$ and $2i+2$, and the parent is at $(i-1)//2$.
+
+Then implement \texttt{heapsort(arr)} that returns a new sorted list by pushing all
+elements of \texttt{arr} onto a \texttt{MinHeap} and popping them off in order. This gives
+an $O(n\log n)$ sort.
+
+\textbf{Expected behavior.} \texttt{heapsort([5,3,1,4,2]) == [1,2,3,4,5]}; popping from a
+\texttt{MinHeap} always returns elements in non-decreasing order.
+
+\subsection*{Problem 13 -- Indexed Priority Queue with \texttt{decrease\_key}}
+
+In algorithms like Dijkstra's shortest path (covered in a later week), we need a priority
+queue where items can have their priority \emph{decreased} after insertion, and we need to
+look up an item's current position efficiently.
+
+Implement \texttt{IndexedMinPQ}, a binary min-heap of \texttt{(key, priority)} pairs that
+supports:
+\begin{itemize}
+    \item \texttt{insert(key, priority)}: insert a new key with the given priority.
+    Assumes \texttt{key} is not already present.
+    \item \texttt{decrease\_key(key, new\_priority)}: lower the priority of an existing
+    \texttt{key} to \texttt{new\_priority} (assumes \texttt{new\_priority <=} current
+    priority), then restore the heap property by sifting up.
+    \item \texttt{extract\_min()}: remove and return \texttt{(key, priority)} with the
+    smallest priority, restoring the heap property by sifting down. Raise
+    \texttt{IndexError} if empty.
+    \item \texttt{\_\_len\_\_}: number of elements.
+    \item \texttt{\_\_contains\_\_(key)}: \texttt{True} iff \texttt{key} is currently in
+    the priority queue.
+\end{itemize}
+
+\textbf{Implementation hints.} Maintain \texttt{self.heap}: a list of \texttt{[priority,
+key]} pairs (heap-ordered by priority). Maintain \texttt{self.position}: a dict mapping
+\texttt{key -> index in self.heap}, updated on every swap, so \texttt{decrease\_key} can
+find the key in $O(1)$ and then sift up in $O(\log n)$.
+
+\textbf{Expected behavior.} After inserting several \texttt{(key, priority)} pairs,
+\texttt{extract\_min} returns them in increasing order of (possibly decreased) priority,
+and \texttt{decrease\_key} followed by \texttt{extract\_min} reflects the updated
+priority.
+
+\newpage
+
+\subsection*{Problem 14 -- Heap-Based PQ vs.\ Naive Sorted-List PQ}
+
+A priority queue can be implemented in (at least) two ways:
+\begin{enumerate}
+    \item \textbf{Heap-based} (Problem 12's \texttt{MinHeap}): \texttt{push} and
+    \texttt{pop} are both $O(\log n)$.
+    \item \textbf{Naive sorted list}: maintain a Python list that is kept sorted at all
+    times.
+    \begin{itemize}
+        \item \texttt{push(x)}: find the insertion point and insert -- count
+        \texttt{len(self.data)} ``shift operations'' \emph{before} insertion (worst case,
+        inserting at the front).
+        \item \texttt{pop()}: remove and return \texttt{self.data.pop(0)} -- count
+        \texttt{len(self.data) - 1} ``shift operations'' \emph{before} removal (the number
+        of remaining elements that must shift left).
+    \end{itemize}
+\end{enumerate}
+
+Implement \texttt{SortedListPQ} with \texttt{push}, \texttt{pop}, \texttt{peek},
+\texttt{\_\_len\_\_}, and an \texttt{self.ops} counter that accumulates the ``shift
+operations'' described above.
+
+Then implement \texttt{compare\_pq\_costs(n, seed)}:
+\begin{enumerate}
+    \item Generate $n$ random integers (use \texttt{random\_array(n, seed=seed)} from
+    \texttt{starter\_code}).
+    \item Push all $n$ values onto a \texttt{MinHeap} (Problem 12) and a
+    \texttt{SortedListPQ}, in the same order.
+    \item Pop all $n$ values from each (in increasing order).
+    \item Return \texttt{(heap\_ops, sorted\_list\_ops)}, where \texttt{heap\_ops} is the
+    total number of ``element moves'' performed by the heap (count 1 per swap during sift
+    up/down), and \texttt{sorted\_list\_ops} is \texttt{SortedListPQ.ops}.
+\end{enumerate}
+
+\textbf{Expected behavior.} For increasing $n$ (e.g.\ $16, 64, 256$), \texttt{heap\_ops}
+grows roughly like $n \log n$ while \texttt{sorted\_list\_ops} grows roughly like $n^2$,
+and \texttt{sorted\_list\_ops} $>$ \texttt{heap\_ops} for $n=256$.
+
+\subsection*{Problem 15 -- Dynamic Array with Doubling: Amortized Analysis}
+
+Implement \texttt{DynamicArray}, a simple dynamic array (manual resizing, no use of
+Python's built-in list growth) with:
+\begin{itemize}
+    \item \texttt{\_\_init\_\_(self, initial\_capacity=1)}: starts with
+    \texttt{self.capacity = initial\_capacity}, \texttt{self.size = 0}, and
+    \texttt{self.data = [None] * self.capacity}. Also \texttt{self.copy\_ops = 0} (total
+    number of element copies performed across all resizes).
+    \item \texttt{append(x)}: if \texttt{self.size == self.capacity}, first \emph{resize}:
+    create a new array of capacity \texttt{2 * self.capacity}, copy all
+    \texttt{self.size} existing elements into it (incrementing \texttt{self.copy\_ops} by
+    \texttt{self.size} for this resize), and replace \texttt{self.data}. Then store
+    \texttt{x} at index \texttt{self.size} and increment \texttt{self.size}.
+    \item \texttt{\_\_len\_\_}: returns \texttt{self.size}.
+    \item \texttt{\_\_getitem\_\_(i)}: returns \texttt{self.data[i]}.
+\end{itemize}
+
+Then implement \texttt{total\_copy\_ops(n)} that creates a fresh \texttt{DynamicArray()}
+(starting capacity 1), appends $n$ items, and returns \texttt{self.copy\_ops}.
+
+\textbf{Expected behavior.} Resizes happen when size passes $1, 2, 4, 8, \ldots$ (powers of
+two), so \texttt{total\_copy\_ops(n)} equals $1+2+4+\cdots+2^{k-1} = 2^k - 1$ where $2^k$
+is the smallest power of two $\ge n$ -- always $< 2n$, illustrating $O(1)$ amortized
+\texttt{append}.
+
+\newpage
+\section{Algorithm Analysis Case Studies}
+
+\subsection*{Problem 16 -- Efficient Gale--Shapley with Arrays and Queues}
+
+Week 1's Gale--Shapley implementation used Python dicts and \texttt{.index()} lookups,
+which can hide costly linear scans. This problem re-implements the men-proposing algorithm
+(Kleinberg \& Tardos, Section 2.3 style) using only arrays (lists) and a queue, to make the
+$O(n^2)$ bound explicit and measurable.
+
+Represent men and women as integers $0..n-1$. You are given:
+\begin{itemize}
+    \item \texttt{men\_pref[m]} = list of women in order of preference (best first).
+    \item \texttt{women\_pref[w]} = list of men in order of preference (best first).
+\end{itemize}
+
+Implement \texttt{build\_women\_rank(women\_pref, n)} that returns \texttt{women\_rank}
+where \texttt{women\_rank[w][m]} is the 0-based rank of man $m$ in woman $w$'s list. This
+precomputed table lets you compare two suitors in $O(1)$ instead of calling
+\texttt{.index()} (which is $O(n)$).
+
+Then implement \texttt{efficient\_gale\_shapley(men\_pref, women\_pref, n)}:
+\begin{enumerate}
+    \item Build \texttt{women\_rank} via \texttt{build\_women\_rank}.
+    \item Use a queue (\texttt{collections.deque}) of free men, initially containing all
+    of $0..n-1$.
+    \item Maintain \texttt{next\_proposal[m]} = index into \texttt{men\_pref[m]} of the
+    next woman $m$ will propose to (starts at $0$, array of size $n$).
+    \item Maintain \texttt{woman\_partner[w]} = current partner of woman $w$, or $-1$ if
+    free (array of size $n$).
+    \item While the queue is non-empty: pop a free man $m$, let $w$ be his next proposal,
+    increment \texttt{next\_proposal[m]} and the total-proposals counter; if $w$ is free,
+    engage $(m,w)$; else compare \texttt{women\_rank[w][m]} against
+    \texttt{women\_rank[w][\text{current partner}]} and either engage $(m,w)$ (freeing the
+    old partner, who re-enters the queue) or re-enqueue $m$.
+\end{enumerate}
+Return \texttt{(matching, total\_proposals)} where \texttt{matching[m]} = woman matched to
+man $m$.
+
+\textbf{Expected behavior.} The result is a valid perfect matching (each
+\texttt{matching[m]} distinct and covering $0..n-1$), and \texttt{total\_proposals}
+satisfies $0 < \texttt{total\_proposals} \le n^2$.
+
+\subsection*{Problem 17 -- Correctness via Induction: Sum and Power}
+
+Implement \texttt{iterative\_sum(n)}, which computes $0+1+\cdots+n$ using a loop that
+maintains the invariant ``after processing $i$, \texttt{total == 0+1+...+i}''. Return the
+final total (for $n \ge 0$; return $0$ if $n<0$).
+
+Implement \texttt{fast\_power(base, exp)}, which computes \texttt{base ** exp} for
+\texttt{exp >= 0} using repeated squaring (binary exponentiation):
+\[
+\texttt{fast\_power(base, exp)}: \quad
+\begin{cases}
+\text{if } exp = 0: & \text{return } 1 \\
+half = \texttt{fast\_power(base, exp // 2)} & \\
+\text{if } exp \text{ even}: & \text{return } half \cdot half \\
+\text{else}: & \text{return } half \cdot half \cdot base
+\end{cases}
+\]
+This runs in $O(\log exp)$ multiplications rather than $O(exp)$.
+
+Then implement \texttt{verify\_sum\_invariant(n)} that re-implements
+\texttt{iterative\_sum} but additionally checks, \emph{at every step} of the loop, that the
+invariant \texttt{total == i*(i+1)//2} holds (using \texttt{assert}), and returns the final
+total. If the invariant is ever violated, the assertion raises and propagates (no
+\texttt{try/except} inside this function).
+
+Then implement \texttt{verify\_fast\_power(values)} where \texttt{values} is a list of
+\texttt{(base, exp)} pairs, returning \texttt{True} iff \texttt{fast\_power(base, exp) ==
+base ** exp} for every pair.
+
+\textbf{Expected behavior.} \texttt{iterative\_sum(100) == 5050},
+\texttt{fast\_power(2,10) == 1024}, \texttt{verify\_sum\_invariant(50) == 1275}, and
+\texttt{verify\_fast\_power([(2,0),(2,10),(3,5),(10,6),(1,100),(7,7)]) == True}.
+
+\end{document}
