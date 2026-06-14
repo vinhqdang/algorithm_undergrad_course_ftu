@@ -1,0 +1,686 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 3: Graphs, Graph Traversal, and Union-Find}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+This week we move from the single case study of Week 1 (stable matching) to the most
+pervasive modeling tool in algorithm design: \textbf{graphs}. An enormous range of
+problems -- road networks, social networks, dependency structures, web link graphs,
+scheduling constraints -- can be modeled as graphs, and many fundamental algorithmic
+questions (``is there a path?'', ``what is the shortest path?'', ``is there a cycle?'',
+``can these tasks be ordered consistently?'') reduce to graph traversal.
+
+We follow Kleinberg \& Tardos, Chapter 3 (Graphs) and Appendix B (Union-Find / Disjoint
+Sets). The plan for this week:
+
+\begin{enumerate}
+    \item \textbf{Graph representations} -- adjacency lists vs.\ adjacency matrices, and
+    the space/time trade-offs between them.
+    \item \textbf{Breadth-First Search (BFS)} -- shortest paths in unweighted graphs,
+    layers, and connected components.
+    \item \textbf{Depth-First Search (DFS)} -- recursive and iterative formulations,
+    connected components, and cycle detection.
+    \item \textbf{Bipartiteness} -- 2-coloring via BFS, and the odd-cycle characterization.
+    \item \textbf{Directed graphs and DAGs} -- cycle detection with 3-color DFS, and
+    \textbf{topological sort} via DFS and via Kahn's algorithm.
+    \item \textbf{Union-Find (Disjoint Sets)} -- quick-find, quick-union, union by rank,
+    path compression, and the resulting near-constant amortized cost per operation.
+\end{enumerate}
+
+\section{Graphs: Definitions and Representations}
+
+\begin{definition}[Graph]
+A graph $G = (V, E)$ consists of a set of \textbf{vertices} (or \textbf{nodes}) $V$ and a
+set of \textbf{edges} $E$. In an \textbf{undirected} graph, each edge $\{u,v\} \in E$ is an
+unordered pair, representing a symmetric relationship. In a \textbf{directed} graph (or
+\textbf{digraph}), each edge $(u,v) \in E$ is an ordered pair (an \emph{arc}) from $u$ to
+$v$.
+\end{definition}
+
+We write $n = |V|$ for the number of vertices and $m = |E|$ for the number of edges.
+Throughout this course, vertices are typically labeled $0, 1, \dots, n-1$.
+
+\begin{definition}[Degree, self-loops, multi-edges]
+The \textbf{degree} of a vertex $v$ in an undirected graph is the number of edges
+incident to $v$; a \textbf{self-loop} $(v,v)$ contributes \emph{2} to $\deg(v)$ by
+convention. A \textbf{simple graph} has no self-loops and no \textbf{multi-edges}
+(parallel edges between the same pair of vertices).
+\end{definition}
+
+\begin{lemma}[Handshake Lemma]
+For any undirected graph, $\sum_{v \in V} \deg(v) = 2|E|$.
+\end{lemma}
+\begin{proof}
+Every edge $\{u,v\}$ (with $u \ne v$) contributes exactly 1 to $\deg(u)$ and 1 to
+$\deg(v)$, for a total contribution of 2; a self-loop $(v,v)$ contributes 2 directly to
+$\deg(v)$ by convention. Either way, each edge contributes exactly 2 to the sum of
+degrees.
+\end{proof}
+
+Problem 2 asks you to implement \texttt{degree\_sequence}, \texttt{has\_self\_loop},
+\texttt{has\_multi\_edge}, and a \texttt{handshake\_check} that verifies this lemma
+empirically.
+
+\subsection{Adjacency list vs.\ adjacency matrix}
+
+\begin{definition}[Adjacency list]
+An \textbf{adjacency list} represents $G$ as an array $\mathrm{adj}[0..n-1]$ where
+$\mathrm{adj}[v]$ is the list of vertices adjacent to $v$ (for directed graphs,
+$\mathrm{adj}[v]$ lists the \emph{out-neighbors} of $v$).
+\end{definition}
+
+\begin{definition}[Adjacency matrix]
+An \textbf{adjacency matrix} represents $G$ as an $n \times n$ matrix $A$ where
+$A[u][v]$ is the number of edges from $u$ to $v$ (for a simple graph, $A[u][v] \in
+\{0,1\}$; for an undirected simple graph, $A$ is symmetric).
+\end{definition}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}lll@{}}
+\toprule
+Operation & Adjacency list & Adjacency matrix \\
+\midrule
+Space & $\Theta(n + m)$ & $\Theta(n^2)$ \\
+Is $(u,v) \in E$? & $O(\deg(u))$ & $O(1)$ \\
+Iterate over neighbors of $v$ & $\Theta(\deg(v))$ & $\Theta(n)$ \\
+Add an edge & $O(1)$ & $O(1)$ \\
+\bottomrule
+\end{tabular}
+\caption{Adjacency list vs.\ adjacency matrix.}
+\end{table}
+
+\textbf{Sparse vs.\ dense graphs.} A graph is \textbf{sparse} if $m = O(n)$ (or more
+generally $m \ll n^2$), and \textbf{dense} if $m = \Theta(n^2)$. For sparse graphs (the
+common case for real-world networks: road networks, social networks, the web graph), the
+adjacency list's $\Theta(n+m)$ space is dramatically smaller than the matrix's
+$\Theta(n^2)$, and traversal algorithms (BFS/DFS) that visit each edge once run in
+$O(n+m)$ time on an adjacency list -- this is the representation we use by default.
+Problem 1 asks you to build both representations from an edge list \emph{from scratch};
+Problem 3 asks you to convert between them and compute \texttt{matrix\_density} to make
+this trade-off concrete.
+
+\section{Breadth-First Search (BFS)}
+
+\textbf{Breadth-First Search} explores a graph ``layer by layer'' outward from a source
+vertex $s$: first all vertices at distance 1 from $s$, then all vertices at distance 2,
+and so on. It uses a queue (FIFO), which is exactly why we studied queues in Week 1.
+
+\begin{algorithm}[h]
+\caption{BFS$(adj, s)$}
+\begin{algorithmic}[1]
+\State $dist[s] \gets 0$; $dist[v] \gets \infty$ (or $-1$) for all $v \ne s$
+\State $Q \gets$ empty queue; enqueue $s$
+\While{$Q$ is not empty}
+    \State $u \gets$ dequeue($Q$)
+    \For{each $v \in adj[u]$}
+        \If{$dist[v]$ is still $\infty$ (unvisited)}
+            \State $dist[v] \gets dist[u] + 1$
+            \State enqueue($v$)
+        \EndIf
+    \EndFor
+\EndWhile
+\State \Return $dist$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}[BFS computes shortest-path distances]
+\label{thm:bfs-correct}
+In an unweighted graph (directed or undirected), the value $dist[v]$ computed by BFS from
+$s$ equals the length (number of edges) of a shortest path from $s$ to $v$, for every $v$
+reachable from $s$; and $v$ is reachable from $s$ iff $dist[v]$ is finite (i.e.\ $v$ was
+ever enqueued).
+\end{theorem}
+\begin{proof}[Proof sketch]
+By induction on the distance $k$. The set of vertices with $dist[v] = 0$ is $\{s\}$,
+correct by definition. Assume that for all $j < k$, $dist[v] = j$ exactly for vertices at
+true distance $j$ from $s$, and that BFS has enqueued (in some order) exactly the
+vertices at distances $0, \dots, k-1$ before dequeuing any vertex at distance $\ge k$ --
+this follows because BFS processes a FIFO queue, so all distance-$(j-1)$ vertices are
+dequeued (and their neighbors examined) before any distance-$j$ vertex is enqueued.
+
+Now consider a vertex $v$ at true distance $k$ from $s$. By definition of distance, $v$
+has a neighbor $u$ at true distance $k-1$ (the second-to-last vertex on a shortest
+$s$-$v$ path), and $v$ has no neighbor at distance $< k-1$ (otherwise $v$ would have
+distance $< k$). By the inductive hypothesis, $u$ is dequeued with $dist[u] = k-1$
+before any distance-$k$ vertex is processed, and at that point $v$ is still unvisited
+(since none of $v$'s neighbors at distance $\le k-1$ other than possibly $u$ have been
+processed yet to set $dist[v]$ -- and if one had, it would imply $dist[v] \le k-1 <
+k$, a contradiction). So $v$ is discovered while processing $u$, with $dist[v] \gets
+dist[u]+1 = k$, which is correct. Vertices not reachable from $s$ are never enqueued, so
+$dist[v]$ remains $\infty$ (or $-1$).
+\end{proof}
+
+\textbf{Running time.} BFS runs in $O(n + m)$ time on an adjacency list: each vertex is
+enqueued at most once ($O(n)$ total dequeues), and the total work in the inner \texttt{for}
+loop over all dequeues is $\sum_u |adj[u]| = O(m)$ (each edge is examined at most twice
+for undirected graphs, once for directed graphs).
+
+\textbf{BFS layers.} The sequence $L_0 = \{s\}, L_1, L_2, \dots$ where $L_k = \{v :
+dist[v] = k\}$ is called the \textbf{BFS layering}. Problem 4 asks you to compute both
+\texttt{dist} and the explicit layers \texttt{bfs\_layers}.
+
+\textbf{Shortest path reconstruction.} To recover an actual shortest path (not just its
+length), record a \textbf{parent pointer} $parent[v] = u$ whenever $v$ is first
+discovered via $u$. The path $s \to \dots \to t$ is obtained by following parent pointers
+from $t$ back to $s$ and reversing. Problem 5 implements
+\texttt{bfs\_shortest\_path}.
+
+\subsection{Connected components via BFS}
+
+\begin{definition}[Connected component]
+In an undirected graph, two vertices $u, v$ are in the same \textbf{connected component}
+if there is a path between them. The connected components partition $V$ into disjoint
+subsets.
+\end{definition}
+
+\begin{algorithm}[h]
+\caption{Connected components via BFS}
+\begin{algorithmic}[1]
+\State mark all vertices unvisited
+\For{$v = 0, 1, \dots, n-1$}
+    \If{$v$ unvisited}
+        \State run BFS from $v$, marking everything it reaches as visited and as part of a
+        new component
+    \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+Running BFS from every unvisited vertex costs $O(n+m)$ total (each vertex/edge is touched
+a constant number of times across all BFS calls combined). Problem 6 implements
+\texttt{connected\_components\_bfs} and \texttt{num\_components}.
+
+\subsection{Graph diameter}
+
+\begin{definition}[Eccentricity and diameter]
+The \textbf{eccentricity} of $v$ is $\max_{u \in V} dist(v,u)$. The \textbf{diameter} of a
+connected graph is $\max_{v \in V} \mathrm{ecc}(v) = \max_{u,v} dist(u,v)$, the longest
+shortest-path distance between any pair of vertices.
+\end{definition}
+
+Computing the diameter exactly by running BFS from \emph{every} vertex costs $O(n(n+m))$
+-- this is the ``all-pairs shortest paths via repeated BFS'' approach, only practical for
+moderately sized graphs. Problem 7 implements \texttt{eccentricity} and \texttt{diameter}
+this way.
+
+\section{Depth-First Search (DFS)}
+
+\textbf{Depth-First Search} explores as far as possible along each branch before
+backtracking. It is naturally recursive (using the call stack) but can also be
+implemented iteratively with an explicit stack.
+
+\begin{algorithm}[h]
+\caption{DFS-Visit$(adj, u)$ -- recursive}
+\begin{algorithmic}[1]
+\State mark $u$ visited; record $u$ in the preorder
+\For{each $v \in adj[u]$}
+    \If{$v$ unvisited}
+        \State DFS-Visit$(adj, v)$
+    \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+Calling \texttt{DFS-Visit}$(adj, s)$ visits exactly the vertices reachable from $s$, each
+exactly once, in $O(|\text{reachable}| + |\text{their edges}|)$ time -- so DFS from a
+single source costs $O(n+m)$ in the worst case, same asymptotic bound as BFS. The
+\emph{order} of visitation differs (DFS goes deep first; BFS goes wide first), but the
+\emph{set} of reachable vertices is identical, and both run in $O(n+m)$.
+
+Problem 8 implements the recursive version, \texttt{dfs\_recursive}, returning the
+preorder (discovery order).
+
+\subsection{Discovery and finish times}
+
+For many applications (especially cycle detection and topological sort) it is useful to
+record, for each vertex $u$, a \textbf{discovery time} $d[u]$ (when DFS first visits $u$)
+and a \textbf{finish time} $f[u]$ (when DFS finishes processing all of $u$'s descendants
+and returns from the recursive call). These are obtained with a single global counter
+incremented on every discovery and every finish event. Problem 8 also implements
+\texttt{dfs\_discovery\_finish\_times}.
+
+\begin{proposition}[Parenthesis structure]
+For any two vertices $u, v$ visited during the same DFS, the intervals $[d[u], f[u]]$ and
+$[d[v], f[v]]$ either are disjoint, or one is nested entirely inside the other -- they
+never ``partially overlap''. This is the basis for classifying edges as tree, back,
+forward, or cross edges.
+\end{proposition}
+
+\subsection{Iterative DFS with an explicit stack}
+
+Recursive DFS uses $O(h)$ call-stack frames, where $h$ is the depth of the recursion
+(which can be $\Theta(n)$ for a path graph, risking stack overflow in languages/runtimes
+with limited recursion depth). An \textbf{iterative} version uses an explicit stack
+(a list with \texttt{append}/\texttt{pop}):
+
+\begin{algorithm}[h]
+\caption{Iterative DFS$(adj, s)$}
+\begin{algorithmic}[1]
+\State stack $\gets [s]$; mark nothing visited yet
+\While{stack not empty}
+    \State $u \gets$ stack.pop()
+    \If{$u$ not yet visited}
+        \State mark $u$ visited; record $u$ in the preorder
+        \State push $adj[u]$ onto the stack in \emph{reverse} order (so the first
+        neighbor is popped first, matching the recursive order)
+    \EndIf
+\EndWhile
+\end{algorithmic}
+\end{algorithm}
+
+Problem 9 implements \texttt{dfs\_iterative} (matching the discovery order of
+\texttt{dfs\_recursive}) and \texttt{max\_stack\_size}, which measures the $O(n)$
+worst-case auxiliary space DFS can use (e.g.\ on a path graph, the stack can grow to size
+$\Theta(n)$).
+
+\subsection{Connected components via DFS}
+
+Exactly as with BFS, running DFS from every unvisited vertex (in order $0, 1, \dots,
+n-1$) partitions $V$ into connected components in $O(n+m)$ total time. Problem 10
+implements \texttt{connected\_components\_dfs}, \texttt{same\_component}, and
+\texttt{is\_connected}, and observes that DFS and BFS produce the \emph{same partition}
+of vertices into components (only the traversal order differs).
+
+\subsection{Cycle detection in undirected graphs}
+
+\begin{algorithm}[h]
+\caption{Cycle detection (undirected) via DFS}
+\begin{algorithmic}[1]
+\Function{DFS-Visit}{$u$, parent}
+    \State mark $u$ visited
+    \For{each $v \in adj[u]$}
+        \If{$v$ unvisited}
+            \State DFS-Visit($v$, $u$)
+        \ElsIf{$v \ne $ parent}
+            \State \Return ``cycle found'' \Comment{back edge to a non-parent visited vertex}
+        \EndIf
+    \EndFor
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{proposition}
+An undirected graph contains a cycle iff, for some unvisited vertex $u$ during a DFS,
+$u$ has a neighbor $v$ that is already visited and is \emph{not} $u$'s parent in the DFS
+tree (a \textbf{back edge}).
+\end{proposition}
+
+The subtlety: in an adjacency list built from undirected edges, each edge $\{u,v\}$
+appears as $v \in adj[u]$ \emph{and} $u \in adj[v]$. When DFS is at $u$ and sees $v =
+parent[u]$, this is just the edge it arrived on, \emph{not} a cycle -- it must be
+excluded explicitly. Problem 11 implements \texttt{has\_cycle\_undirected} and
+\texttt{find\_a\_cycle} (which reconstructs an explicit cycle).
+
+\section{Bipartiteness}
+
+\begin{definition}[Bipartite graph]
+An undirected graph $G = (V,E)$ is \textbf{bipartite} if $V$ can be partitioned into two
+sets $A, B$ such that every edge has one endpoint in $A$ and one in $B$. Equivalently, $G$
+admits a proper \textbf{2-coloring}: a function $\mathrm{color}: V \to \{0,1\}$ such that
+$\mathrm{color}(u) \ne \mathrm{color}(v)$ for every edge $\{u,v\}$.
+\end{definition}
+
+\subsection{2-coloring via BFS}
+
+\begin{algorithm}[h]
+\caption{2-Color$(adj)$}
+\begin{algorithmic}[1]
+\For{each unvisited vertex $s$}
+    \State $color[s] \gets 0$; enqueue $s$
+    \While{queue not empty}
+        \State $u \gets$ dequeue
+        \For{each $v \in adj[u]$}
+            \If{$v$ unvisited}
+                \State $color[v] \gets 1 - color[u]$; enqueue $v$
+            \ElsIf{$color[v] = color[u]$}
+                \State \Return ``not bipartite''
+            \EndIf
+        \EndFor
+    \EndWhile
+\EndFor
+\State \Return $color$
+\end{algorithmic}
+\end{algorithm}
+
+Problem 12 implements \texttt{two\_color\_bfs} (returning \texttt{None} if not
+bipartite) and \texttt{is\_bipartite}.
+
+\subsection{The odd-cycle characterization}
+
+\begin{theorem}
+\label{thm:bipartite-odd-cycle}
+An undirected graph $G$ is bipartite if and only if it contains no cycle of odd length.
+\end{theorem}
+\begin{proof}[Proof sketch]
+($\Rightarrow$) If $G$ is bipartite with parts $A, B$, then any cycle alternates between
+$A$ and $B$ as it traverses each edge, so it must use an even number of edges to return to
+its starting part.
+
+($\Leftarrow$) If $G$ has no odd cycle, 2-color it via BFS from each component: assign
+$\mathrm{color}(s)=0$ for the BFS root $s$ and $\mathrm{color}(v) = dist(s,v) \bmod 2$ for
+every other $v$. If some edge $\{u,v\}$ had $\mathrm{color}(u) = \mathrm{color}(v)$, then
+$dist(s,u)$ and $dist(s,v)$ have the same parity, and the cycle formed by the BFS-tree
+path $s \to u$, the edge $u$-$v$, and the path $v \to s$ has length $dist(s,u) +
+dist(s,v) + 1$, which is \emph{odd} (sum of two equal-parity numbers is even, plus 1 is
+odd) -- contradicting the assumption of no odd cycle. So no such edge exists, and the
+2-coloring is proper.
+\end{proof}
+
+Problem 13 implements \texttt{find\_odd\_cycle}, which produces an explicit odd cycle as
+a \emph{certificate} of non-bipartiteness whenever BFS 2-coloring fails -- precisely by
+the construction in the proof above (splicing the two root-to-$u$ and root-to-$v$ paths
+together with the offending edge).
+
+\section{Directed Graphs}
+
+In a \textbf{directed graph} (digraph), $adj[u]$ lists only the \textbf{out-neighbors} of
+$u$ (vertices $v$ such that $(u,v)$ is an arc). BFS and DFS both work unchanged on
+digraphs -- they simply follow arcs in their given direction -- but the notions of
+``cycle'' and ``connectivity'' become directional.
+
+\subsection{Cycle detection via 3-color DFS}
+
+\begin{definition}[Vertex colors during DFS]
+\textbf{White}: not yet visited. \textbf{Gray}: currently on the recursion stack (an
+ancestor of the current vertex in the DFS tree). \textbf{Black}: finished (popped off
+the stack, all descendants explored).
+\end{definition}
+
+\begin{theorem}
+A directed graph has a directed cycle if and only if some DFS encounters an edge $(u,v)$
+where $v$ is \textbf{gray} at the time $(u,v)$ is examined (a \textbf{back edge} to an
+ancestor).
+\end{theorem}
+\begin{proof}[Proof sketch]
+If DFS finds edge $(u,v)$ with $v$ gray, then $v$ is an ancestor of $u$ in the current DFS
+tree, so there is a path $v \to \dots \to u$ in the tree, and the edge $(u,v)$ closes this
+into a directed cycle $v \to \dots \to u \to v$.
+
+Conversely, if $G$ has a directed cycle $v_0 \to v_1 \to \dots \to v_{k-1} \to v_0$,
+consider the first vertex $v_i$ on the cycle that DFS discovers. At the moment $v_i$ is
+discovered (colored gray), all other $v_j$ on the cycle are white (not yet discovered,
+else they would have been discovered first by following the cycle, or $v_i$ would not be
+first). DFS from $v_i$ will eventually traverse $v_i \to v_{i+1} \to \dots \to v_{i-1}
+\to v_i$ (the cycle, relabeled to start at $v_i$); when the edge $(v_{i-1}, v_i)$ is
+examined, $v_i$ is still gray (its DFS call has not yet returned, since it is the ancestor
+of everything on this path) -- so this edge is a back edge to a gray vertex.
+
+Edges to \textbf{black} vertices are \emph{forward} or \emph{cross} edges and never
+indicate a cycle, since a black vertex is fully finished and cannot be an ancestor of the
+current vertex.
+\end{proof}
+
+Problem 14 implements \texttt{has\_cycle\_directed} (3-color DFS) and
+\texttt{find\_a\_directed\_cycle} (reconstructing an explicit directed cycle from the DFS
+recursion stack when a back edge is found).
+
+\subsection{Topological sort}
+
+\begin{definition}[Topological order]
+A \textbf{topological order} of a directed graph $G=(V,E)$ is a linear ordering of $V$
+such that for every edge $(u,v) \in E$, $u$ appears before $v$ in the order.
+\end{definition}
+
+\begin{theorem}
+\label{thm:dag-toposort}
+A directed graph $G$ has a topological order if and only if $G$ is a \textbf{DAG}
+(Directed Acyclic Graph, i.e.\ has no directed cycle).
+\end{theorem}
+\begin{proof}[Proof sketch]
+If $G$ has a directed cycle $v_0 \to v_1 \to \dots \to v_{k-1} \to v_0$, no linear order
+can place every $v_i$ before $v_{i+1 \bmod k}$ for all $i$ simultaneously (this would
+require $v_0$ before $v_1$ before $\dots$ before $v_{k-1}$ before $v_0$, an impossible
+cyclic ordering constraint). Conversely, if $G$ is a DAG, one can always find a
+\textbf{source} -- a vertex with in-degree 0 (otherwise, following in-edges backward
+forever would either cycle, contradicting acyclicity, or the graph would be infinite).
+Place this source first, remove it, and recurse on the remaining DAG (which is still
+acyclic and smaller). This greedy ``peel off a source'' process is exactly Kahn's
+algorithm below.
+\end{proof}
+
+\subsubsection{Topological sort via DFS}
+
+\begin{algorithm}[h]
+\caption{Topological-Sort-DFS$(adj)$}
+\begin{algorithmic}[1]
+\State result $\gets$ empty list
+\For{each unvisited vertex $u$}
+    \State DFS-Visit($u$), where on \emph{finishing} $u$ (after all its out-neighbors are
+    fully processed), \textbf{prepend} $u$ to result (or append and reverse at the end)
+\EndFor
+\State \Return result (or \texttt{None} if a cycle was detected during DFS)
+\end{algorithmic}
+\end{algorithm}
+
+\begin{proposition}
+If $G$ is a DAG, the order in which vertices \emph{finish} during DFS, reversed, is a
+valid topological order.
+\end{proposition}
+\begin{proof}[Proof sketch]
+Consider any edge $(u,v)$. We must show $u$ finishes \emph{after} $v$ (so that $u$ comes
+\emph{before} $v$ in the reversed-finish order). When DFS examines edge $(u,v)$: if $v$ is
+white, DFS recurses into $v$ and $v$ finishes before $u$ does (since $u$'s call cannot
+finish until the recursive call on $v$ returns). If $v$ is already black (finished), then
+$v$ finished before $u$ examined the edge, hence before $u$ finishes. $v$ cannot be gray
+when $(u,v)$ is examined, because that would mean $v$ is an ancestor of $u$, giving a back
+edge and hence a cycle (contradicting that $G$ is a DAG, by the previous theorem). So in
+all cases $v$ finishes before $u$, i.e.\ $u$ finishes after $v$.
+\end{proof}
+
+Problem 15 implements \texttt{topological\_sort\_dfs} (returning \texttt{None} on a
+cycle) and \texttt{verify\_topological\_order}.
+
+\subsubsection{Topological sort via Kahn's algorithm (BFS-style)}
+
+\begin{algorithm}[h]
+\caption{Kahn$(adj)$}
+\begin{algorithmic}[1]
+\State compute $indeg[v]$ = number of incoming edges to $v$, for all $v$
+\State $Q \gets$ queue of all $v$ with $indeg[v] = 0$
+\State result $\gets$ empty list
+\While{$Q$ not empty}
+    \State $u \gets$ dequeue($Q$); append $u$ to result
+    \For{each $v \in adj[u]$}
+        \State $indeg[v] \gets indeg[v] - 1$
+        \If{$indeg[v] = 0$}
+            \State enqueue($v$)
+        \EndIf
+    \EndFor
+\EndWhile
+\State \Return result if $|\text{result}| = n$, else \texttt{None} (cycle detected)
+\end{algorithmic}
+\end{algorithm}
+
+Kahn's algorithm is the direct algorithmic translation of the ``repeatedly remove a
+source'' argument in the proof of Theorem~\ref{thm:dag-toposort}: a vertex with in-degree
+0 (no remaining incoming edges from un-placed vertices) is exactly a valid ``next''
+vertex. If the queue empties before all $n$ vertices are output, the remaining vertices
+all have positive in-degree from each other -- i.e.\ they form a cycle. Both
+DFS-based and Kahn's algorithm run in $O(n+m)$ time. Problem 16 implements
+\texttt{in\_degrees} and \texttt{topological\_sort\_kahn} (made deterministic by always
+breaking ties in increasing order of vertex index, using a \texttt{deque}).
+
+\subsubsection{Counting and uniqueness of topological orders}
+
+A DAG can have many valid topological orders (e.g.\ two completely independent chains can
+be interleaved in any order). Problem 17 implements \texttt{count\_topological\_orders}
+by backtracking over the set of currently-available (in-degree-0-among-remaining)
+vertices, and \texttt{has\_unique\_topological\_order}. A DAG has a \emph{unique}
+topological order iff every pair of consecutive vertices in that order is connected by a
+direct edge -- equivalently, the DAG contains a Hamiltonian path consistent with $E$.
+
+\section{Union-Find (Disjoint-Set Union)}
+
+The \textbf{Union-Find} (or \textbf{Disjoint-Set Union}, DSU) data structure maintains a
+partition of a set of elements into disjoint subsets, supporting two operations:
+
+\begin{itemize}
+    \item $\texttt{find}(x)$: return a canonical representative of the subset containing
+    $x$ (so that $\texttt{find}(x) = \texttt{find}(y)$ iff $x$ and $y$ are in the same
+    subset).
+    \item $\texttt{union}(x,y)$: merge the subsets containing $x$ and $y$ into one.
+\end{itemize}
+
+This is exactly the abstraction needed for incremental connectivity: ``are $u$ and $v$
+connected if we only ever \emph{add} edges?'' (Kruskal's MST algorithm, to be covered in a
+later week, is the canonical application.)
+
+\subsection{Quick-Find}
+
+\textbf{Quick-Find} stores an array $id[0..n-1]$ where $id[i]$ is the component
+\emph{id} of element $i$. Initially $id[i] = i$.
+
+\begin{itemize}
+    \item $\texttt{find}(p) = id[p]$ -- $O(1)$.
+    \item $\texttt{union}(p,q)$: if $id[p] \ne id[q]$, scan the \emph{entire} array and
+    relabel every $i$ with $id[i] = id[p]$ to $id[q]$ -- $O(n)$.
+\end{itemize}
+
+\begin{proposition}
+With Quick-Find, a sequence of $n-1$ unions (enough to merge $n$ singletons into one
+component) can cost $\Theta(n^2)$ total time in the worst case, since each union can touch
+$\Theta(n)$ array entries.
+\end{proposition}
+
+Problem 18 implements \texttt{QuickFind} from scratch, including instrumentation counters
+(\texttt{find\_calls}, \texttt{union\_relabels}) used to measure this cost empirically.
+
+\subsection{Quick-Union}
+
+\textbf{Quick-Union} instead stores a \emph{parent} array $parent[0..n-1]$, where each
+element initially points to itself ($parent[i] = i$), forming $n$ trees (each a single
+node, its own \textbf{root}).
+
+\begin{itemize}
+    \item $\texttt{find}(p)$: follow $parent$ pointers from $p$ until reaching a node that
+    is its own parent (the \textbf{root}) -- $O(\text{tree height})$.
+    \item $\texttt{union}(p,q)$: set $parent[\texttt{find}(p)] \gets \texttt{find}(q)$
+    (attach one root under the other) -- $O(\text{tree height})$.
+\end{itemize}
+
+\begin{proposition}
+With naive Quick-Union (always attaching the root of $p$'s tree under the root of $q$'s
+tree, regardless of size), a carefully chosen sequence of unions can build a tree of
+height $\Theta(n)$ (e.g.\ a path: union(1,0), union(2,1), union(3,2), \dots), making
+\texttt{find} cost $\Theta(n)$ in the worst case.
+\end{proposition}
+
+\subsection{Union by rank}
+
+\textbf{Union by rank} (or union by size) fixes the linear-chain problem: maintain a
+\textbf{rank} (an upper bound on tree height) for each root, and when unioning, attach the
+\emph{shorter} tree under the root of the \emph{taller} tree (breaking ties arbitrarily,
+and incrementing the surviving root's rank only when the two ranks were equal).
+
+\begin{lemma}
+\label{lem:rank-bound}
+With union by rank (no path compression), every tree has height $O(\log n)$, where $n$ is
+the total number of elements.
+\end{lemma}
+\begin{proof}[Proof sketch]
+By induction, a tree with rank $r$ has at least $2^r$ nodes. A rank-0 tree is a single
+node ($2^0 = 1$, true). When two trees of ranks $r_1 \le r_2$ are merged, the result has
+rank $\max(r_1, r_2)$ if $r_1 < r_2$, or $r_1 + 1$ if $r_1 = r_2$; in either case the new
+tree's node count is at least the sum of the two subtrees' node counts $\ge 2^{r_1} +
+2^{r_2} \ge 2 \cdot 2^{\min(r_1,r_2)} = 2^{\min(r_1,r_2)+1}$, which is $\ge 2^{\text{new
+rank}}$ in both cases. Since a tree on $n$ elements has at most $n$ nodes, its rank $r$
+satisfies $2^r \le n$, i.e.\ $r \le \log_2 n$. The height of a tree is at most its rank, so
+$\texttt{find}$ costs $O(\log n)$.
+\end{proof}
+
+\subsection{Path compression}
+
+\textbf{Path compression} is an additional optimization applied during \texttt{find}:
+after locating the root $r$ of $x$, make every node visited on the way from $x$ to $r$
+point \emph{directly} to $r$. This flattens the tree for future operations, at the cost
+of a second pass during \texttt{find}.
+
+\begin{theorem}[Union-Find with union by rank and path compression]
+\label{thm:uf-amortized}
+A sequence of $m$ \texttt{find}/\texttt{union} operations on $n$ elements, using union by
+rank \emph{and} path compression, takes $O(m \log^* n)$ total time, and in fact
+$O(m \alpha(n))$ where $\alpha$ is the inverse Ackermann function -- for all practical
+$n$, $\alpha(n) \le 4$, so each operation is effectively $O(1)$ \textbf{amortized}.
+\end{theorem}
+
+We will not prove the full inverse-Ackermann bound (it is a famously intricate analysis),
+but the key intuition is: path compression means that once a node's path to the root is
+``flattened'', subsequent finds through that node are $O(1)$; combined with union by
+rank's $O(\log n)$ height bound, the \emph{total} flattening work across $m$ operations
+is bounded by a function that grows astronomically slowly -- $\log^* n$ (the number of
+times you must apply $\log$ to $n$ before reaching $\le 1$) is at most 5 for any $n$ that
+could ever be represented in a real computer.
+
+The \texttt{UnionFind} class in \texttt{starter\_code.py} implements exactly this
+combination (union by rank + path compression) over arbitrary hashable elements, and is
+used as a building block by later weeks (e.g.\ Kruskal's MST algorithm).
+
+\subsection{Applications}
+
+\begin{itemize}
+    \item \textbf{Dynamic connectivity}: answer ``are $u$ and $v$ connected?'' queries
+    while edges are only ever added (never removed) -- exactly $\texttt{find}$ and
+    $\texttt{union}$.
+    \item \textbf{Kruskal's Minimum Spanning Tree algorithm} (a later week): process edges
+    in increasing order of weight, adding an edge iff its endpoints are in different
+    components (checked with \texttt{find}), then merging them (\texttt{union}).
+    \item \textbf{Detecting cycles while building a graph incrementally}: an edge $(u,v)$
+    creates a cycle iff $\texttt{find}(u) = \texttt{find}(v)$ \emph{before} the edge is
+    added.
+    \item \textbf{Image segmentation / connected-component labeling}: pixels (or grid
+    cells) are unioned with their neighbors of similar value; the resulting components
+    correspond to connected regions.
+\end{itemize}
+
+\section{Summary and Looking Ahead}
+
+This week established:
+\begin{itemize}
+    \item Two graph representations (adjacency list, adjacency matrix) and their
+    $\Theta(n+m)$ vs.\ $\Theta(n^2)$ space trade-off.
+    \item BFS: shortest paths/distances/layers in unweighted graphs, and connected
+    components, in $O(n+m)$.
+    \item DFS (recursive and iterative): connected components, cycle detection, and
+    discovery/finish times, also $O(n+m)$.
+    \item Bipartiteness via 2-coloring, and the odd-cycle characterization
+    (Theorem~\ref{thm:bipartite-odd-cycle}).
+    \item Directed graphs: 3-color DFS for cycle detection, and two $O(n+m)$ algorithms
+    for topological sort (DFS-based and Kahn's).
+    \item Union-Find: from $\Theta(n)$-per-union Quick-Find, to $O(\log n)$ union by rank,
+    to near-$O(1)$ amortized with path compression (Theorem~\ref{thm:uf-amortized}).
+\end{itemize}
+
+Next week (Kleinberg \& Tardos, Chapter 4) we use BFS as a stepping stone toward
+\textbf{greedy algorithms} -- including weighted shortest paths (Dijkstra's algorithm) and
+minimum spanning trees, where Union-Find reappears as the core data structure behind
+Kruskal's algorithm.
+
+\end{document}
