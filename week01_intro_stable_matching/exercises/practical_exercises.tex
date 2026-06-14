@@ -1,0 +1,439 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 1: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions for the
+stable-matching problems (Problems 1--8, 18--22) live in \texttt{starter\_code.py} at the
+week root: \texttt{generate\_instance}, \texttt{rank}, \texttt{is\_perfect\_matching},
+\texttt{find\_rogue\_couples}, \texttt{is\_stable}, \texttt{print\_matching}.
+
+The 22 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Stable matching} (Problems 1--8, 18--20, 22): the Gale--Shapley
+    algorithm and its theoretical properties.
+    \item \textbf{Data structures} (Problems 9--12, 16): arrays, linked lists, stacks,
+    queues, and heaps.
+    \item \textbf{Algorithmic building blocks} (Problems 13--17, 21): recursion, searching,
+    sorting, divide-and-conquer multiplication, and asymptotic growth.
+\end{itemize}
+
+\newpage
+\section{Stable Matching: Core Algorithm}
+
+\subsection*{Problem 1 -- Perfect Matching Checker}
+
+Implement \texttt{is\_perfect\_matching(matching, men, women)} \textbf{from scratch}
+(without using the helper of the same name in \texttt{starter\_code.py}). A matching
+(a dict \texttt{man -> woman}) is \emph{perfect} iff:
+\begin{enumerate}
+    \item Every man in \texttt{men} appears exactly once as a key.
+    \item Every woman in \texttt{women} appears exactly once as a value, i.e. the matching
+    is a bijection between \texttt{men} and \texttt{women}.
+\end{enumerate}
+
+\textbf{Example.} With \texttt{men = ["M0","M1","M2"]}, \texttt{women =
+["W0","W1","W2"]}, the matching \texttt{\{"M0":"W1","M1":"W0","M2":"W2"\}} is perfect, but
+\texttt{\{"M0":"W1","M1":"W1","M2":"W2"\}} is not (W1 used twice, W0 missing).
+
+\subsection*{Problem 2 -- Stability Checker}
+
+Implement \texttt{find\_rogue\_couples(matching, men\_prefs, women\_prefs)}
+\textbf{from scratch}. A pair $(m, w)$ is a \emph{rogue couple} (blocking pair) for
+\texttt{matching} if:
+\begin{itemize}
+    \item $m$ and $w$ are \emph{not} matched to each other, \textbf{and}
+    \item $m$ prefers $w$ to his current partner, \textbf{and}
+    \item $w$ prefers $m$ to her current partner.
+\end{itemize}
+Return a list of all such $(m,w)$ pairs. A matching is \emph{stable} iff this list is
+empty.
+
+\textbf{Example.} Two men $\{M0, M1\}$, two women $\{W0, W1\}$, where both men prefer W0
+and both women prefer M0 (i.e. everyone agrees W0 > W1 and M0 > M1). The matching
+$\{M0{:}W0, M1{:}W1\}$ is stable. The matching $\{M0{:}W1, M1{:}W0\}$ is \emph{unstable}:
+$(M0, W0)$ is a rogue couple, since $M0$ prefers $W0$ to $W1$ and $W0$ prefers $M0$ to
+$M1$.
+
+\subsection*{Problem 3 -- Gale--Shapley Algorithm (Men Propose)}
+
+Implement \texttt{gale\_shapley\_men\_propose(men\_prefs, women\_prefs)}:
+\begin{verbatim}
+Initialize all m in M and w in W to free.
+While some man m is free and hasn't proposed to every woman:
+    w = first woman on m's list to whom m has not yet proposed
+    if w is free:
+        (m, w) become engaged
+    else if w prefers m to her current partner m':
+        m' becomes free; (m, w) become engaged
+    else:
+        w rejects m
+\end{verbatim}
+Return the resulting matching as a dict \texttt{man -> woman}. Verify on a random
+instance (via \texttt{generate\_instance}) that the result is a perfect matching
+(Problem 1) and stable (Problem 2).
+
+\subsection*{Problem 4 -- Gale--Shapley Algorithm (Women Propose)}
+
+By symmetry with Problem 3, implement \texttt{gale\_shapley\_women\_propose(men\_prefs,
+women\_prefs)}, where the roles are swapped: women propose to men, and men hold the best
+offer received so far. Return the matching in the \emph{same orientation} as Problem 3
+(\texttt{man -> woman}), so the two results are directly comparable. \emph{Hint}: you can
+implement this by calling \texttt{gale\_shapley\_men\_propose} with the roles of
+\texttt{men\_prefs} and \texttt{women\_prefs} swapped, then flipping the resulting dict.
+
+\subsection*{Problem 5 -- Brute-Force Enumeration of All Stable Matchings}
+
+For small $n$, implement \texttt{all\_stable\_matchings(men, women, men\_prefs,
+women\_prefs)} that returns a list of \emph{all} stable perfect matchings, by:
+\begin{enumerate}
+    \item Generating every possible perfect matching (every permutation of \texttt{women}
+    assigned to \texttt{men}, i.e. $n!$ candidates), using
+    \texttt{itertools.permutations}.
+    \item Keeping only those that are stable (Problem 2 / \texttt{is\_stable}).
+\end{enumerate}
+This is exponential and only intended for small $n$ (say $n \le 6$); it exists so we can
+empirically verify properties of Gale--Shapley in Problems 6--8.
+
+\subsection*{Problem 6 -- How Many Stable Matchings Are There?}
+
+Using \texttt{all\_stable\_matchings} from Problem 5, implement
+\texttt{average\_num\_stable\_matchings(n, num\_trials, seed)}:
+\begin{enumerate}
+    \item Generate \texttt{num\_trials} random instances of size $n$ (with
+    \texttt{generate\_instance(n, seed=seed + trial\_index)} or similar, so each trial is
+    different but reproducible).
+    \item Compute the number of stable matchings for each instance.
+    \item Return the average over all trials, as a float.
+\end{enumerate}
+In \texttt{\_\_main\_\_}, print this average for $n = 1, \dots, 5$ with
+\texttt{num\_trials=20} and observe how quickly the count grows with $n$.
+
+\subsection*{Problem 7 -- Verifying the Men-Optimality Theorem}
+
+\textbf{Theorem (Kleinberg \& Tardos, Thm 1.7).} In the matching produced by the
+men-proposing Gale--Shapley algorithm, every man receives the \emph{best valid partner}
+he could have in \emph{any} stable matching (he is ``man-optimal'').
+
+A woman $w$ is a \emph{valid partner} of man $m$ if there exists \emph{some} stable
+matching in which $m$ and $w$ are matched.
+
+Implement:
+\begin{itemize}
+    \item \texttt{valid\_partners(person, all\_stable, role)} -- returns the set of valid
+    partners of \texttt{person}, where \texttt{role} is \texttt{"man"} or
+    \texttt{"woman"}, using the list of all stable matchings from Problem 5.
+    \item \texttt{verify\_men\_optimality(men, men\_prefs, all\_stable, men\_optimal)} --
+    checks, for every man $m$, that \texttt{men\_optimal[m]} is $m$'s
+    \emph{most-preferred} valid partner.
+\end{itemize}
+Test by generating a random instance, computing \texttt{all\_stable\_matchings} (Problem
+5) and \texttt{gale\_shapley\_men\_propose} (Problem 3), and confirming
+\texttt{verify\_men\_optimality} returns \texttt{True}.
+
+\subsection*{Problem 8 -- Verifying the Women-Pessimality Theorem}
+
+\textbf{Theorem (Kleinberg \& Tardos, Thm 1.8).} In the same matching, every woman is
+matched with her \emph{least-preferred} valid partner (she is ``woman-pessimal'').
+
+Using \texttt{valid\_partners} from Problem 7, implement
+\texttt{verify\_women\_pessimality(women, women\_prefs, all\_stable, men\_optimal)} that
+checks, for every woman $w$, that her partner in \texttt{men\_optimal} is her
+\emph{least}-preferred valid partner. Test the same way as Problem 7.
+
+\newpage
+\section{Data Structures}
+
+\subsection*{Problem 9 -- Array vs. Linked List: Counting Operations}
+
+Implement two simple sequence data structures, each instrumented with an \texttt{ops}
+counter that counts ``basic steps'' (element shifts for the array, pointer hops for the
+linked list):
+
+\begin{itemize}
+    \item \texttt{ArraySeq.prepend(x)}: insert \texttt{x} at index 0. Every existing
+    element must be shifted right by one slot $\to$ costs \texttt{len(self.data)} ops.
+    \item \texttt{ArraySeq.get(i)}: direct indexing $\to$ costs 1 op.
+    \item \texttt{LinkedSeq.prepend(x)}: create a new head node $\to$ costs 1 op.
+    \item \texttt{LinkedSeq.get(i)}: walk \texttt{i} pointers from the head $\to$ costs
+    $(i+1)$ ops.
+\end{itemize}
+
+Then implement \texttt{total\_prepend\_ops(seq\_class, n)} that creates a fresh
+\texttt{seq\_class()}, prepends $n$ items ($0, 1, \dots, n-1$ in that order), and returns
+the final value of \texttt{seq.ops} (the total cost of all prepends).
+
+\textbf{What you should observe.} For \texttt{ArraySeq}, the total is
+$0+1+\cdots+(n-1) = \binom{n}{2} = \Theta(n^2)$. For \texttt{LinkedSeq}, the total is
+exactly $n = \Theta(n)$. This is a direct, measurable illustration of the array-vs-linked-list
+trade-off from the lecture notes.
+
+\subsection*{Problem 10 -- Stack: Balanced Brackets Checker}
+
+Implement a simple \texttt{Stack} class with \texttt{push}, \texttt{pop}, \texttt{peek},
+and \texttt{is\_empty}, backed by a Python list. Then implement \texttt{is\_balanced(expr)}
+that returns \texttt{True} iff every \texttt{(}, \texttt{[}, \texttt{\{} in \texttt{expr}
+is closed by the matching \texttt{)}, \texttt{]}, \texttt{\}} in the correct order (other
+characters are ignored).
+
+\textbf{Examples.} \texttt{"(a[b]\{c\})"} $\to$ \texttt{True}. \texttt{"(a[b)]"} $\to$
+\texttt{False} (wrong order). \texttt{"((a)"} $\to$ \texttt{False} (unclosed).
+
+\subsection*{Problem 11 -- Queue: Round-Robin CPU Scheduling}
+
+Implement a \texttt{Queue} class backed by a Python list with \texttt{enqueue},
+\texttt{dequeue}, and \texttt{is\_empty} (FIFO order).
+
+Then implement \texttt{round\_robin(tasks, quantum)}, where \texttt{tasks} is a list of
+\texttt{(name, burst\_time)} pairs. Simulate round-robin scheduling: repeatedly dequeue a
+task, run it for up to \texttt{quantum} time units, and if it still has remaining time,
+enqueue it again at the back. Return the order in which tasks \emph{finish} (a list of
+names, in finishing order).
+
+\textbf{Example.} \texttt{tasks = [("A",5), ("B",3), ("C",8)]}, \texttt{quantum=4}.
+Trace: A runs 4 (1 left), B runs 3 (done), C runs 4 (4 left), A runs 1 (done), C runs 4
+(done). Finishing order: \texttt{["B", "A", "C"]}.
+
+\subsection*{Problem 12 -- Singly Linked List}
+
+Implement a \texttt{LinkedList} class with:
+\begin{itemize}
+    \item \texttt{append(x)}: add \texttt{x} at the end -- $O(n)$ without a tail pointer.
+    \item \texttt{prepend(x)}: add \texttt{x} at the front -- $O(1)$.
+    \item \texttt{delete(x)}: remove the first node with value \texttt{x} (no-op if not
+    found).
+    \item \texttt{find(x)}: return \texttt{True} iff \texttt{x} is in the list.
+    \item \texttt{to\_list()}: return a Python list of the values, in order.
+    \item \texttt{reverse()}: reverse the list \emph{in place} (re-link nodes -- do not
+    just reverse \texttt{to\_list()}).
+\end{itemize}
+
+\subsection*{Problem 16 -- Binary Min-Heap and Heapsort}
+
+Implement an array-based binary \texttt{MinHeap} with:
+\begin{itemize}
+    \item \texttt{push(x)}: insert \texttt{x}, then ``sift up'' to restore the heap
+    property.
+    \item \texttt{pop()}: remove and return the minimum element, moving the last element
+    to the root and ``sifting down'' to restore the heap property. Raise
+    \texttt{IndexError} if empty.
+    \item \texttt{\_\_len\_\_}: number of elements.
+\end{itemize}
+Then implement \texttt{heapsort(arr)} that returns a new sorted list by pushing all
+elements onto a \texttt{MinHeap} and popping them off in order. This gives an
+$O(n\log n)$ sort.
+
+\newpage
+\section{Algorithmic Building Blocks}
+
+\subsection*{Problem 13 -- Binary Search (Iterative and Recursive)}
+
+Implement two versions of binary search over a sorted list \texttt{arr}:
+\begin{itemize}
+    \item \texttt{binary\_search\_iterative(arr, target)}: returns the index of
+    \texttt{target} in \texttt{arr}, or $-1$ if not present. Use a \texttt{while} loop.
+    \item \texttt{binary\_search\_recursive(arr, target)}: same behaviour, implemented
+    recursively (a helper with \texttt{lo}/\texttt{hi} bounds is fine).
+\end{itemize}
+Also implement \texttt{recursion\_depth(n)}, returning the number of recursive calls
+\texttt{binary\_search\_recursive} would make in the \emph{worst case} on a sorted array
+of length $n$, i.e. $\lceil \log_2(n+1) \rceil$ -- the number of halvings until the search
+range is empty.
+
+\subsection*{Problem 14 -- Insertion Sort with Comparison Counter}
+
+Implement \texttt{insertion\_sort(arr)} that returns a \emph{new} sorted list (do not
+mutate the input) using the standard insertion-sort algorithm, together with the total
+number of element \emph{comparisons} performed, as a tuple
+\texttt{(sorted\_list, comparisons)}.
+
+\textbf{Verify empirically} that:
+\begin{itemize}
+    \item On an already-sorted list of length $n$, insertion sort makes exactly $n-1$
+    comparisons (best case, $O(n)$).
+    \item On a reverse-sorted list of length $n$, it makes exactly $\frac{n(n-1)}{2}$
+    comparisons (worst case, $O(n^2)$).
+\end{itemize}
+
+\subsection*{Problem 15 -- Karatsuba Multiplication}
+
+Implement \texttt{karatsuba(x, y)}, multiplying two non-negative integers using the
+Karatsuba divide-and-conquer algorithm: given $x, y$ with $m$ digits each, split
+$x = a\cdot 10^{m/2} + b$ and $y = c\cdot 10^{m/2} + d$. Then
+\[
+  ac = a \cdot c, \qquad bd = b \cdot d, \qquad
+  ad\_plus\_bc = (a+b)(c+d) - ac - bd,
+\]
+\[
+  x \cdot y = ac \cdot 10^{m} + ad\_plus\_bc \cdot 10^{m/2} + bd
+\]
+using \emph{three} recursive multiplications instead of four. Base case: if $x < 10$ or
+$y < 10$, return $x \cdot y$ directly.
+
+Also implement \texttt{naive\_multiply\_op\_count(x, y)} that returns the number of
+single-digit multiplications a grade-school algorithm would need, roughly
+\texttt{len(str(x)) * len(str(y))}.
+
+\subsection*{Problem 17 -- Asymptotic Growth Classification}
+
+You are given a dictionary mapping function names to callables of $n$:
+\begin{verbatim}
+FUNCTIONS = {
+    "constant":     lambda n: 1,
+    "logarithmic":  lambda n: math.log2(n),
+    "sqrt":         lambda n: math.sqrt(n),
+    "linear":       lambda n: n,
+    "linearithmic": lambda n: n * math.log2(n),
+    "quadratic":    lambda n: n ** 2,
+    "cubic":        lambda n: n ** 3,
+    "exponential":  lambda n: 2 ** n,
+}
+\end{verbatim}
+Implement \texttt{order\_by\_growth(functions, n)} that returns the list of function names
+sorted by \emph{increasing} value at the given $n$ (i.e. from slowest- to
+fastest-growing at that $n$).
+
+Then implement \texttt{dominates(f, g, n\_values)} that returns \texttt{True} iff, for
+every $n$ in \texttt{n\_values} (a list of increasing positive integers),
+$f(n) \le g(n)$ -- a simple empirical proxy for ``$f$ is $O(g)$''.
+
+\subsection*{Problem 21 -- Recursion: Naive vs. Memoized Fibonacci}
+
+Implement \texttt{fib\_naive(n)} returning \texttt{(value, call\_count)} where
+\texttt{value} is the $n$-th Fibonacci number ($F(0)=0$, $F(1)=1$) and
+\texttt{call\_count} is the total number of recursive calls made (including the initial
+call).
+
+Then implement \texttt{fib\_memo(n)} returning \texttt{(value, call\_count)} using
+memoization (a dict cache), where \texttt{call\_count} should be much smaller -- $O(n)$
+instead of exponential.
+
+\textbf{What you should observe.} For $n=20$: \texttt{fib\_naive} makes 21891 calls, while
+\texttt{fib\_memo} makes only 39.
+
+\newpage
+\section{Stable Matching: Extensions \& Trace Practice}
+
+\subsection*{Problem 18 -- Empirical Running Time of Gale--Shapley}
+
+Implement \texttt{count\_proposals(men\_prefs, women\_prefs)}, a variant of the
+men-proposing Gale--Shapley algorithm (Problem 3) that returns the \emph{total} number of
+proposals made (instead of the final matching).
+
+The Kleinberg--Tardos textbook proves this is at most $n^2$ (Section 1.1's analysis).
+Implement \texttt{average\_proposals(n, num\_trials, seed)} returning the average number
+of proposals over \texttt{num\_trials} random instances of size $n$, and verify it never
+exceeds $n^2$.
+
+\subsection*{Problem 19 -- Hospital--Residents Problem (Many-to-One Stable Matching)}
+
+Generalize Gale--Shapley to the Hospital--Residents problem: each hospital $h$ has a
+capacity \texttt{capacity[h]} (it can accept up to that many residents). Residents propose
+to hospitals; a hospital holds the best \texttt{capacity[h]} residents it has seen so far
+(by its preference list) and rejects the rest.
+
+Implement \texttt{hospital\_resident\_matching(residents, hospitals, resident\_prefs,
+hospital\_prefs, capacity)}:
+\begin{itemize}
+    \item \texttt{residents}, \texttt{hospitals}: lists of names.
+    \item \texttt{resident\_prefs[r]}: hospitals in order of preference (best first).
+    \item \texttt{hospital\_prefs[h]}: residents in order of preference (best first).
+    \item \texttt{capacity[h]}: max number of residents hospital $h$ can take.
+\end{itemize}
+Return a dict \texttt{hospital -> list of assigned residents}, where every hospital's list
+has length $\le$ \texttt{capacity[h]}, and the assignment is stable: no resident $r$ and
+hospital $h$ both prefer each other over $r$'s current assignment / one of $h$'s current
+residents.
+
+\subsection*{Problem 20 -- Stable Matching with Incomplete Preference Lists}
+
+In practice, not everyone is acceptable to everyone else. Generalize Gale--Shapley to
+\emph{incomplete} preference lists: \texttt{men\_prefs[m]} and \texttt{women\_prefs[w]}
+list only the \emph{acceptable} partners, best first (a person may have an empty list).
+
+Run the men-proposing algorithm: each man proposes down his list. If he runs out of
+acceptable women, he remains permanently single. Women only accept proposals from men on
+their own list.
+
+Implement \texttt{gale\_shapley\_incomplete(men, women, men\_prefs, women\_prefs)}
+returning a dict \texttt{man -> woman} containing \emph{only} the matched pairs
+(unmatched men/women are simply absent from the dict).
+
+\subsection*{Problem 22 -- Trace-Based Verification on a Textbook Example}
+
+Consider the classic $3\times3$ instance (Kleinberg \& Tardos, Chapter 1):
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Men's preferences (best first) & Women's preferences (best first) \\
+\midrule
+$X$: A, B, C & $A$: Y, X, Z \\
+$Y$: B, A, C & $B$: X, Y, Z \\
+$Z$: A, B, C & $C$: X, Y, Z \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Implement \texttt{build\_instance()} returning \texttt{(men, women, men\_prefs,
+women\_prefs)} for this instance, where \texttt{men = ["X","Y","Z"]} and
+\texttt{women = ["A","B","C"]}.
+
+Using \texttt{gale\_shapley\_men\_propose} from Problem 3, the men-proposing algorithm on
+this instance produces the matching $\{X{:}A, Y{:}B, Z{:}C\}$. You can verify this by
+hand-tracing the algorithm:
+
+\begin{center}
+\begin{tabular}{@{}clll@{}}
+\toprule
+Step & Proposal & Outcome & Engaged pairs after step \\
+\midrule
+1 & $X \to A$ & $A$ free, accepts & $(X,A)$ \\
+2 & $Y \to B$ & $B$ free, accepts & $(X,A), (Y,B)$ \\
+3 & $Z \to A$ & $A$ prefers $X$ to $Z$ (A's list: Y,X,Z) -- $Z$ rejected & $(X,A), (Y,B)$ \\
+4 & $Z \to B$ & $B$ prefers $Y$ to $Z$ (B's list: X,Y,Z) -- $Z$ rejected & $(X,A), (Y,B)$ \\
+5 & $Z \to C$ & $C$ free, accepts & $(X,A), (Y,B), (Z,C)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Note that $Z$, the only man rejected along the way, ends up with his \emph{last} choice
+$C$ -- while $A$ and $B$ (the women he was rejected by) each end up with their
+\emph{first}-choice man among those who proposed to them. This single trace illustrates
+both the men-optimal and women-pessimal theorems from Problems 7--8.
+
+Implement \texttt{verify\_textbook\_example()} that builds the instance, runs
+Gale--Shapley, and returns \texttt{True} iff the result equals
+\texttt{\{"X":"A","Y":"B","Z":"C"\}}.
+
+\end{document}
