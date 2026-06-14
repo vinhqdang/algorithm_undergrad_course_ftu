@@ -163,8 +163,8 @@ LaTeX (with `pdflatex`) is required to compile `lecture_notes.tex`,
 
 | Week | Status |
 |------|--------|
-| 1 | ✅ Complete |
-| 2–15 | 🚧 In progress |
+| 1–4 | ✅ Complete |
+| 5–15 | 🚧 In progress |
 
 ---
 
