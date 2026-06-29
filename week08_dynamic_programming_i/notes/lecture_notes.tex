@@ -1,0 +1,432 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 8: Dynamic Programming I: Weighted Interval Scheduling and Knapsack}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction: The Dynamic Programming Paradigm}
+
+This week we begin our study of \textbf{dynamic programming} (DP), arguably the most
+powerful general-purpose algorithm-design technique in this course. Where greedy
+algorithms (Weeks 4--5) commit to a single locally-optimal choice at each step and never
+look back, dynamic programming instead \emph{considers all the choices available at each
+step}, but does so efficiently by reusing the answers to subproblems it has already
+solved.
+
+\medskip
+\noindent\textit{(Note: this is the Midterm week -- the material below also serves as a
+consolidation of the problem-solving habits developed so far: define the object precisely,
+write a recurrence, prove it correct, analyze its cost, and verify empirically.)}
+
+The name ``dynamic programming'' is historical (Richard Bellman, 1950s; ``programming''
+here means ``planning,'' not writing code). The essential idea is captured by one slogan:
+
+\begin{quote}
+\emph{Solve each subproblem once, store its answer, and build the answer to a larger
+problem from the answers to smaller ones.}
+\end{quote}
+
+\subsection{When does dynamic programming apply?}
+
+Two structural properties must hold for a problem to admit an efficient DP solution.
+
+\begin{definition}[Optimal substructure]
+A problem has \emph{optimal substructure} if an optimal solution to the whole problem can
+be expressed in terms of optimal solutions to its subproblems. Equivalently: once we fix
+one ``decision'' (e.g.\ whether to include the last item), what remains is an independent,
+smaller instance of the same problem, and the overall optimum uses an optimum of that
+smaller instance.
+\end{definition}
+
+\begin{definition}[Overlapping subproblems]
+A problem has \emph{overlapping subproblems} if a naive recursive solution would solve the
+\emph{same} subproblem many times. This is what distinguishes dynamic programming from
+plain divide-and-conquer (where subproblems are typically disjoint, as in merge sort).
+\end{definition}
+
+When both hold, we can write a \textbf{recurrence} (the Bellman equation) expressing the
+optimum of an instance in terms of the optima of smaller instances, and then evaluate it
+without recomputation. The textbook example of overlapping subproblems is the Fibonacci
+recurrence $F(n) = F(n-1) + F(n-2)$: the naive recursion makes $2F(n+1)-1$ calls
+(exponentially many), whereas remembering each $F(k)$ reduces this to $n+1$ distinct
+subproblems. Problem 12 asks you to instrument exactly this blow-up and confirm that DP
+does linear work.
+
+\subsection{Two implementation styles: memoization vs.\ bottom-up}
+
+There are two equivalent ways to evaluate a DP recurrence without recomputation.
+
+\begin{itemize}
+    \item \textbf{Top-down (memoization).} Write the recurrence as a recursive function,
+    but cache (``memoize'') the result of each subproblem the first time it is computed; on
+    subsequent calls, return the cached value immediately. Subproblems are solved
+    \emph{lazily}: only those actually reached are ever computed. This is often the easiest
+    to write (it mirrors the recurrence directly) and avoids computing unreachable
+    subproblems.
+
+    \item \textbf{Bottom-up (tabulation).} Identify an order in which subproblems depend
+    only on \emph{smaller} ones, then fill a table iteratively in that order, so that
+    whenever we need a subproblem's value it is already in the table. This avoids recursion
+    overhead, makes the running time and space transparent, and often enables space
+    optimizations (e.g.\ keeping only the last row of a 2-D table).
+\end{itemize}
+
+Both compute the same values and have the same asymptotic running time (number of distinct
+subproblems times the work per subproblem). Problem 4 asks you to implement a DP both ways
+and confirm they agree. We will generally present the bottom-up form for analysis and the
+top-down form when the recurrence is more natural recursively.
+
+\subsection{A recipe for designing a DP}
+
+For every DP this week (and in Week 9), we follow the same five steps:
+\begin{enumerate}[label=(\arabic*)]
+    \item \textbf{Define the subproblem} precisely, in words and as an array
+    (e.g.\ ``$M[j]$ = optimal value over the first $j$ intervals'').
+    \item \textbf{Write the recurrence} relating a subproblem to smaller ones, including
+    the \textbf{decision} being made (take vs.\ skip, cut here vs.\ later).
+    \item \textbf{State the base cases.}
+    \item \textbf{Choose an evaluation order} (bottom-up) or memoize (top-down), and
+    analyze the running time as (number of subproblems) $\times$ (work per subproblem).
+    \item \textbf{Reconstruct an optimal solution} by tracing back through the table, not
+    just reporting the optimal \emph{value}.
+\end{enumerate}
+
+\section{Weighted Interval Scheduling}
+
+\subsection{Problem statement}
+
+Recall the (unweighted) Interval Scheduling problem from Week 4, where we maximized the
+\emph{number} of compatible intervals and the earliest-finish-time greedy algorithm was
+optimal. We now attach a \textbf{value} to each interval.
+
+\begin{definition}[Weighted Interval Scheduling]
+We are given $n$ requests, where request $i$ has a start time $s_i$, a finish time $f_i$
+(with $s_i < f_i$), and a \emph{weight} (or value) $w_i \ge 0$. Two requests are
+\emph{compatible} if their half-open intervals $[s_i, f_i)$ and $[s_j, f_j)$ do not
+overlap. The goal is to select a set of mutually compatible requests of \textbf{maximum
+total weight}.
+\end{definition}
+
+\subsection{Why greedy fails, and what replaces it}
+
+The earliest-finish-time greedy rule maximizes the \emph{count} of intervals, but a single
+high-value interval can be worth more than many low-value ones it conflicts with. Sorting
+by weight fails too: a very heavy interval might block two even-heavier compatible ones. No
+simple greedy ordering is correct -- so we turn to dynamic programming.
+
+Sort the requests by finish time, so $f_1 \le f_2 \le \cdots \le f_n$. The key quantity is:
+
+\begin{definition}[The function $p(j)$]
+For each request $j$, let $p(j)$ be the largest index $i < j$ such that request $i$ is
+compatible with request $j$ (i.e.\ $f_i \le s_j$), or $0$ (``none'') if no such $i$
+exists.
+\end{definition}
+
+Because the requests are sorted by finish time, $p(j)$ can be found by \textbf{binary
+search} on the array of finish times: $p(j)$ is the rightmost interval whose finish time is
+$\le s_j$. Computing all of $p(\cdot)$ thus takes $O(n \log n)$. Problem 1 asks you to
+implement this.
+
+\subsection{The recurrence}
+
+Consider the last interval, request $n$ (the one finishing last). Any optimal solution
+either \emph{includes} it or not -- and this single binary decision is the heart of the
+DP.
+
+\begin{itemize}
+    \item If the optimum \textbf{includes} $n$, then it can contain no interval that
+    overlaps $n$; the remaining intervals it may use are exactly $1, \ldots, p(n)$. So the
+    optimum is $w_n$ plus the optimum over $\{1, \ldots, p(n)\}$.
+    \item If the optimum \textbf{excludes} $n$, then it is simply the optimum over
+    $\{1, \ldots, n-1\}$.
+\end{itemize}
+
+Let $M[j]$ denote the maximum total weight obtainable using only requests $1, \ldots, j$
+(after sorting by finish time). Then:
+\[
+M[0] = 0, \qquad
+M[j] = \max\bigl(\, M[j-1], \;\; w_j + M[p(j)] \,\bigr).
+\]
+
+\begin{theorem}[Correctness of the recurrence]
+For every $j$, $M[j]$ as defined above equals the maximum total weight of a compatible
+subset of $\{1, \ldots, j\}$.
+\end{theorem}
+
+\begin{proof}
+By strong induction on $j$. The base case $M[0]=0$ is the empty instance. For $j \ge 1$,
+let $O_j$ be an optimal compatible subset of $\{1,\ldots,j\}$. Either $j \in O_j$ or not.
+If $j \notin O_j$, then $O_j$ is a compatible subset of $\{1,\ldots,j-1\}$, so its weight
+is at most $M[j-1]$ (by the inductive hypothesis), and conversely any compatible subset of
+$\{1,\ldots,j-1\}$ is also valid for $\{1,\ldots,j\}$, so this branch contributes exactly
+$M[j-1]$. If $j \in O_j$, then no interval in $O_j$ overlaps $j$, so every other member has
+index $\le p(j)$; thus $O_j \setminus \{j\}$ is a compatible subset of $\{1,\ldots,p(j)\}$
+of weight $M[j] - w_j$, which by induction is at most $M[p(j)]$, giving weight at most
+$w_j + M[p(j)]$; and this value is achievable (take an optimum of $\{1,\ldots,p(j)\}$ plus
+$j$). The optimum is the better of the two branches, which is exactly the stated maximum.
+\end{proof}
+
+\subsection{Algorithm and running time}
+
+\begin{algorithm}[h]
+\caption{Weighted-Interval-Scheduling (bottom-up)}
+\begin{algorithmic}[1]
+\State Sort requests by finish time so that $f_1 \le \cdots \le f_n$
+\State Compute $p(1), \ldots, p(n)$ by binary search on finish times
+\State $M[0] \gets 0$
+\For{$j = 1$ to $n$}
+    \State $M[j] \gets \max\bigl(M[j-1],\; w_j + M[p(j)]\bigr)$
+\EndFor
+\State \Return $M[n]$
+\end{algorithmic}
+\end{algorithm}
+
+Sorting is $O(n\log n)$; computing all $p(j)$ is $O(n \log n)$; the main loop is $O(n)$.
+Total: $O(n \log n)$. Problems 2 (value) and 4 (top-down memoization) implement this.
+
+\subsection{Reconstructing an optimal solution}
+
+The array $M$ gives the optimal \emph{value}; to recover the optimal \emph{set} we trace
+back. Starting at $j = n$, request $j$ is in the optimum iff the ``take'' branch was at
+least as good as the ``skip'' branch:
+\[
+w_j + M[p(j)] \;\ge\; M[j-1].
+\]
+If so, output $j$ and jump to $j \gets p(j)$; otherwise move to $j \gets j-1$. This runs in
+$O(n)$. Problem 3 asks you to implement this traceback and verify that the reconstructed
+set is feasible and has weight exactly $M[n]$.
+
+\section{Subset Sum and the 0/1 Knapsack Problem}
+
+\subsection{Subset Sum}
+
+\begin{definition}[Subset Sum]
+Given $n$ non-negative integers $a_1, \ldots, a_n$ and a target $T$, decide whether some
+subset of the $a_i$ sums to exactly $T$.
+\end{definition}
+
+Let $R[i][t]$ be true iff some subset of the first $i$ numbers sums to $t$. Considering
+item $i$ (take it or skip it):
+\[
+R[0][0] = \text{true}, \quad R[0][t] = \text{false } (t>0), \qquad
+R[i][t] = R[i-1][t] \;\lor\; \bigl(t \ge a_i \;\land\; R[i-1][t - a_i]\bigr).
+\]
+The answer is $R[n][T]$. The table has $(n+1)(T+1)$ Boolean entries, each filled in $O(1)$,
+so the running time is $O(nT)$. Problem 5 asks you to implement this, using the standard
+1-D optimization: keep a single Boolean array \texttt{reachable} of length $T+1$ and, for
+each $a_i$, update it for $t$ from $T$ \emph{down to} $a_i$. The descending order is
+essential -- it ensures each item is used \emph{at most once} (if we updated in ascending
+order, $a_i$ could be reused, which would instead solve the \emph{unbounded} version).
+
+\subsection{0/1 Knapsack}
+
+\begin{definition}[0/1 Knapsack]
+Given $n$ items, where item $i$ has an integer weight $w_i \ge 0$ and value $v_i \ge 0$,
+and a knapsack of integer capacity $W$, select a subset of items of \emph{maximum total
+value} whose total weight is at most $W$. Each item may be taken at most once (hence
+``0/1'').
+\end{definition}
+
+Subset Sum is the special case $v_i = w_i$, $W = T$, asking only for feasibility. The DP is
+the natural generalization. Let $\mathit{dp}[i][w]$ be the maximum value achievable using
+the first $i$ items with capacity $w$:
+\[
+\mathit{dp}[0][w] = 0, \qquad
+\mathit{dp}[i][w] =
+\begin{cases}
+\mathit{dp}[i-1][w] & \text{if } w_i > w,\\[2pt]
+\max\bigl(\mathit{dp}[i-1][w],\; v_i + \mathit{dp}[i-1][w - w_i]\bigr) & \text{otherwise.}
+\end{cases}
+\]
+The first case says: if item $i$ does not fit, we must skip it. The second case is the
+take-vs-skip decision. The answer is $\mathit{dp}[n][W]$.
+
+\begin{algorithm}[h]
+\caption{Knapsack-0/1 (bottom-up, 2-D table)}
+\begin{algorithmic}[1]
+\For{$w = 0$ to $W$} \State $\mathit{dp}[0][w] \gets 0$ \EndFor
+\For{$i = 1$ to $n$}
+    \For{$w = 0$ to $W$}
+        \State $\mathit{dp}[i][w] \gets \mathit{dp}[i-1][w]$
+        \If{$w_i \le w$}
+            \State $\mathit{dp}[i][w] \gets \max\bigl(\mathit{dp}[i][w],\; v_i + \mathit{dp}[i-1][w - w_i]\bigr)$
+        \EndIf
+    \EndFor
+\EndFor
+\State \Return $\mathit{dp}[n][W]$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+Algorithm Knapsack-0/1 computes the optimal value in $O(nW)$ time and $O(nW)$ space.
+\end{theorem}
+
+\begin{proof}
+Correctness follows from the recurrence by induction on $i$, exactly as for Weighted
+Interval Scheduling: $\mathit{dp}[i][w]$ considers the binary decision on item $i$ and
+defers the rest to optimal sub-instances $\mathit{dp}[i-1][\cdot]$ (optimal substructure).
+The table has $(n+1)(W+1)$ entries, each computed in $O(1)$, giving $O(nW)$.
+\end{proof}
+
+Problem 6 implements the value; Problem 7 reconstructs the chosen items by tracing back:
+item $i$ was taken iff $\mathit{dp}[i][w] \ne \mathit{dp}[i-1][w]$, in which case subtract
+$w_i$ from $w$ and continue to row $i-1$. (A standard space optimization keeps only one
+row, but then reconstruction requires either storing decisions or a divide-and-conquer
+trick; we keep the full table for clarity.)
+
+\subsection{Why $O(nW)$ is only \emph{pseudo}-polynomial}
+
+The running time $O(nW)$ looks polynomial, and indeed it is polynomial in the
+\emph{numeric value} $W$. But the \emph{size of the input} -- the number of bits needed to
+write it down -- is only $O(n \log W)$, because the capacity $W$ is written in binary using
+about $\log_2 W$ bits. So $W$ itself is \emph{exponential} in the input size: doubling the
+number of bits of $W$ squares $W$, and hence squares the running time. An algorithm whose
+running time is polynomial in the numeric values of the inputs, but exponential in their
+bit-length, is called \textbf{pseudo-polynomial}.
+
+This matters because 0/1 Knapsack is \textbf{NP-hard}: no genuinely polynomial-time (in
+the input size) algorithm is known, and one is believed not to exist. The $O(nW)$ DP is
+efficient \emph{only when $W$ is small} (e.g.\ bounded by a polynomial in $n$). For
+instances with huge capacities, the table is astronomically large. This is our first
+concrete encounter with the boundary between tractable and intractable problems, a theme
+we will return to in the complexity unit.
+
+\section{Unbounded Knapsack: Coin Change and Rod Cutting}
+
+In the \emph{unbounded} knapsack variant, each item type may be used \emph{any number of
+times}. Two classic instances appear in this week's exercises.
+
+\subsection{Coin change: minimum number of coins}
+
+\begin{definition}[Coin Change -- minimization]
+Given coin denominations $c_1, \ldots, c_k$ (unlimited supply of each) and an amount $A$,
+find the minimum number of coins summing to exactly $A$, or report that $A$ cannot be
+made.
+\end{definition}
+
+Let $\mathit{dp}[a]$ be the minimum number of coins summing to $a$:
+\[
+\mathit{dp}[0] = 0, \qquad
+\mathit{dp}[a] = 1 + \min_{\,c_i \le a} \mathit{dp}[a - c_i]
+\quad(\text{or } +\infty \text{ if no } c_i \le a \text{ helps}).
+\]
+The answer is $\mathit{dp}[A]$, or $-1$ if it is $+\infty$. The table has $A+1$ entries,
+each requiring an $O(k)$ minimization, so the running time is $O(kA)$ -- again
+pseudo-polynomial. Note the crucial difference from Subset Sum: because coins are
+\emph{reusable}, we iterate $a$ in \emph{ascending} order and do \emph{not} reverse the
+loop. Unlike the Week 4 greedy coin-change algorithm (correct only for ``canonical'' coin
+systems), this DP is correct for \emph{any} coin system. Problem 8 implements it.
+
+\subsection{Coin change: number of ways}
+
+\begin{definition}[Coin Change -- counting]
+With the same input, count the number of distinct \emph{combinations} (multisets, where
+order does not matter) of coins summing to $A$.
+\end{definition}
+
+Let $\mathit{ways}[a]$ be the number of combinations summing to $a$, with $\mathit{ways}[0]
+= 1$ (the empty combination). To count \emph{combinations} rather than \emph{ordered
+sequences}, we loop over the coins on the \emph{outside} and amounts on the inside:
+\[
+\textbf{for } c \text{ in coins:}\quad \textbf{for } a = c \text{ to } A:\quad
+\mathit{ways}[a] \mathrel{+}= \mathit{ways}[a - c].
+\]
+Putting the coin loop outside fixes a canonical order in which coins are ``committed,'' so
+each combination is counted exactly once. Swapping the loop order would instead count
+permutations. Problem 9 implements this and is the same idea behind LeetCode's
+\emph{Coin Change II}.
+
+\subsection{Rod cutting}
+
+\begin{definition}[Rod Cutting]
+Given a rod of integer length $n$ and a price table where $p_\ell$ is the price of a piece
+of length $\ell$, cut the rod into integer pieces to maximize total revenue.
+\end{definition}
+
+This is unbounded knapsack with ``item $\ell$'' = a piece of length $\ell$, weight $\ell$,
+value $p_\ell$, and capacity $n$ (each length usable repeatedly). Let $\mathit{rev}[L]$ be
+the maximum revenue from a rod of length $L$:
+\[
+\mathit{rev}[0] = 0, \qquad
+\mathit{rev}[L] = \max_{1 \le \ell \le L}\bigl(p_\ell + \mathit{rev}[L - \ell]\bigr).
+\]
+The running time is $O(n^2)$. Recording, for each $L$, the cut length $\ell$ achieving the
+maximum lets us reconstruct the list of pieces. Problem 10 implements both the revenue and
+the cut list.
+
+\section{Longest Increasing Subsequence}
+
+As a final example of a one-dimensional DP with a slightly different flavor:
+
+\begin{definition}[Longest Increasing Subsequence (LIS)]
+Given a sequence $a_1, \ldots, a_n$, find the length of the longest subsequence (not
+necessarily contiguous, but keeping the original order) that is strictly increasing.
+\end{definition}
+
+Let $L[i]$ be the length of the longest increasing subsequence \emph{ending at} index $i$:
+\[
+L[i] = 1 + \max\bigl(\{\,L[j] : j < i,\; a_j < a_i\,\} \cup \{0\}\bigr).
+\]
+The answer is $\max_i L[i]$ (or $0$ if the sequence is empty). Each $L[i]$ scans all
+earlier indices, giving $O(n^2)$. (An $O(n \log n)$ patience-sorting algorithm also exists;
+we defer it.) Problem 11 implements the $O(n^2)$ DP and verifies it against a brute-force
+search over all subsequences on small inputs -- a good template for empirically validating
+any DP.
+
+\section{Summary and Looking Ahead}
+
+This week introduced \textbf{dynamic programming} as a systematic technique for problems
+with \emph{optimal substructure} and \emph{overlapping subproblems}, contrasting
+\emph{top-down memoization} with \emph{bottom-up tabulation}. The case studies were:
+
+\begin{itemize}
+    \item \textbf{Weighted Interval Scheduling}: the recurrence $M[j] = \max(M[j-1],\,
+    w_j + M[p(j)])$, with $p(j)$ found by binary search, solved in $O(n \log n)$, plus
+    solution reconstruction by traceback.
+    \item \textbf{Subset Sum and 0/1 Knapsack}: the 2-D table $\mathit{dp}[i][w]$ in
+    $O(nW)$ time, with item reconstruction -- and the observation that $O(nW)$ is only
+    \emph{pseudo-polynomial}, since $W$ is exponential in the input's bit-length (Knapsack
+    is NP-hard).
+    \item \textbf{Unbounded knapsack}: coin change (minimum coins, and counting
+    combinations) and rod cutting, where items may be reused -- distinguished from 0/1 by
+    the loop direction/order.
+    \item \textbf{Longest Increasing Subsequence}: an $O(n^2)$ DP, verified against brute
+    force.
+\end{itemize}
+
+The recurring discipline is the five-step recipe of Section 1.4: define the subproblem,
+write the recurrence (centered on a single decision), state base cases, evaluate
+efficiently, and reconstruct the optimal solution -- not just its value.
+
+Next week (Dynamic Programming II, Kleinberg \& Tardos Ch.\ 6 continued) we extend this
+toolkit to \emph{two-dimensional} alignment problems -- \textbf{sequence alignment / edit
+distance}, the basis of spell-checkers and computational biology -- and to
+\textbf{shortest-path} problems on graphs with negative edges via the Bellman--Ford and
+Floyd--Warshall dynamic programs, where the subproblems are indexed by ``number of edges
+allowed'' or ``set of intermediate vertices.''
+
+\end{document}

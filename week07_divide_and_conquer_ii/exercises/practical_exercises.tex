@@ -1,0 +1,209 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 7: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is provided in
+\texttt{solutions/solution\_problemNN.py} -- try the problem yourself before looking!
+
+All problems use only the Python 3.10+ standard library (including \texttt{math} and
+\texttt{cmath} for the FFT). Shared helper functions live in \texttt{starter\_code.py} at the
+week root: \texttt{generate\_points}, \texttt{generate\_distinct\_points}, \texttt{euclidean},
+\texttt{brute\_force\_closest}, \texttt{poly\_eval}, \texttt{poly\_mul\_naive},
+\texttt{next\_power\_of\_two}, and the \texttt{Counter} instrumentation helper.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Closest Pair} (Problems 1--3): the brute-force $O(n^2)$ algorithm, the
+    $O(n \log n)$ divide-and-conquer algorithm with the strip argument, and a fast-vs-slow
+    verification harness.
+    \item \textbf{Multiplication \& Convolution} (Problems 4--5, 9--12): Karatsuba integer
+    multiplication, naive polynomial multiplication, Strassen's $7$-multiplication matrix
+    product, counting range sums by divide and conquer, median of two sorted arrays, and fast
+    modular exponentiation.
+    \item \textbf{FFT} (Problems 6--8): the recursive radix-2 FFT and its inverse,
+    polynomial multiplication via the FFT, and linear convolution / cross-correlation via the
+    FFT.
+\end{itemize}
+
+\newpage
+\section{Closest Pair}
+
+\subsection*{Problem 1 -- Brute-Force Closest Pair of Points}
+
+Implement \texttt{closest\_pair\_brute(points)} that returns the minimum Euclidean distance
+between any two of the given 2-D points, together with the achieving pair, by checking all
+$\binom{n}{2}$ pairs in $O(n^2)$. Return \texttt{(min\_distance, (p, q))}, and raise
+\texttt{ValueError} for fewer than two points. Use \texttt{euclidean} from
+\texttt{starter\_code.py}.
+
+\textbf{Example.} \texttt{closest\_pair\_brute([(0,0),(3,4),(1,1)])} returns distance
+$\sqrt 2$ with the pair $\{(0,0),(1,1)\}$.
+
+\subsection*{Problem 2 -- Divide-and-Conquer Closest Pair $O(n \log n)$}
+
+Implement \texttt{closest\_pair\_dc(points)}, the classic divide-and-conquer algorithm:
+\begin{verbatim}
+Sort points by x (px) and by y (py).
+Split px at the median x into left/right; split py accordingly.
+Recurse on each half; let delta = min of the two minimum distances.
+Build the "strip" of points within delta of the dividing line, in y-order.
+Compare each strip point only with the next 7 in y-order; update delta.
+Return (min_distance, (p, q)).
+\end{verbatim}
+Raise \texttt{ValueError} for fewer than two points. The strip argument (the 7/15-neighbour
+lemma) is what makes the combine step linear, giving the recurrence $T(n) = 2T(n/2) + O(n) =
+O(n \log n)$.
+
+\subsection*{Problem 3 -- Verify D\&C Closest Pair Equals Brute Force}
+
+Implement \texttt{verify\_closest\_pair(num\_trials, n, seed)}: for each of
+\texttt{num\_trials} random instances of \texttt{n} distinct points
+(\texttt{generate\_distinct\_points(n, seed=seed + trial)}), compute the minimum distance from
+the divide-and-conquer algorithm (Problem 2) and from \texttt{brute\_force\_closest}
+(\texttt{starter\_code.py}). Return \texttt{True} iff they agree on every trial -- the
+standard empirical correctness check.
+
+\newpage
+\section{Multiplication \& Convolution}
+
+\subsection*{Problem 4 -- Karatsuba Integer Multiplication}
+
+Implement \texttt{karatsuba(x, y, counter=None)} for non-negative integers using exactly
+\textbf{three} recursive multiplications per level:
+\begin{verbatim}
+Split x = x_high * B + x_low, y = y_high * B + y_low  (B = 10^half).
+z0 = karatsuba(x_low,  y_low)
+z2 = karatsuba(x_high, y_high)
+z1 = karatsuba(x_low + x_high, y_low + y_high) - z0 - z2
+return z2 * B^2 + z1 * B + z0
+\end{verbatim}
+Use a single-digit base case; if a \texttt{Counter} is supplied, \texttt{tick()} once per
+base-case multiplication. Raise \texttt{ValueError} on negative inputs. The recurrence is
+$T(n) = 3T(n/2) + O(n) = \Theta(n^{\log_2 3})$.
+
+\subsection*{Problem 5 -- Naive Polynomial Multiplication (Coefficient Convolution)}
+
+Implement \texttt{poly\_mul\_naive(a, b)} that multiplies two polynomials given as coefficient
+lists in increasing degree order (\texttt{[a0, a1, a2]} means $a_0 + a_1 x + a_2 x^2$), in
+$O(nm)$ via the convolution $(a*b)[k] = \sum_{i+j=k} a_i b_j$. The product has $n+m-1$
+coefficients; return \texttt{[]} if either input is empty.
+
+\textbf{Example.} \texttt{poly\_mul\_naive([1,2,3],[4,5]) == [4,13,22,15]}.
+
+\subsection*{Problem 9 -- Strassen's Matrix Multiplication: 7 vs 8 Mults}
+
+Implement \texttt{naive\_mult\_count(n)} ($T(n) = 8T(n/2)$, base case $1$) and
+\texttt{strassen\_mult\_count(n)} ($T(n) = 7T(n/2)$, base case $1$), the scalar-multiplication
+counts for the two recurrences. Then implement \texttt{strassen\_2x2(A, B, counter=None)}
+that multiplies two $2 \times 2$ matrices using Strassen's seven products (ticking $7$ if a
+\texttt{Counter} is given), and verify it matches the provided \texttt{naive\_2x2} on random
+matrices. Confirm $\texttt{strassen\_mult\_count}(n) < \texttt{naive\_mult\_count}(n)$ for
+$n \ge 2$.
+
+\subsection*{Problem 10 -- Count of Range Sums via Divide and Conquer}
+
+Given an integer array \texttt{nums} and bounds $\ell \le u$, count the contiguous subarrays
+whose sum lies in $[\ell, u]$. Implement \texttt{count\_range\_sum\_dc(nums, lower, upper)} in
+$O(n \log n)$ by mergesorting the prefix-sum array and, during each merge, using a two-pointer
+window to count for each left index the number of right indices $j$ with $\ell \le S[j]-S[i]
+\le u$. Verify against the provided brute-force baseline.
+
+\textbf{Example.} \texttt{count\_range\_sum\_dc([-2,5,-1], -2, 2) == 3}.
+
+\subsection*{Problem 11 -- Median of Two Sorted Arrays in $O(\log(m+n))$}
+
+Implement \texttt{median\_two\_sorted(a, b)} for two sorted arrays (at least one non-empty),
+in $O(\log(\min(m,n)))$, by binary-searching the partition of the shorter array so that
+everything on the left is $\le$ everything on the right (\texttt{a\_left <= b\_right and
+b\_left <= a\_right}, using $\pm\infty$ sentinels). Verify against the provided merge-based
+reference.
+
+\textbf{Example.} \texttt{median\_two\_sorted([1,2],[3,4]) == 2.5}.
+
+\subsection*{Problem 12 -- Fast Modular Exponentiation (Square-and-Multiply)}
+
+Implement \texttt{power\_mod(base, exp, mod, counter=None)} computing $(\text{base}^{\text{exp}})
+\bmod \text{mod}$ in $O(\log \text{exp})$ modular multiplications via square-and-multiply.
+\texttt{exp} must be non-negative and \texttt{mod} positive; if a \texttt{Counter} is given,
+\texttt{tick()} once per modular multiplication. Verify against Python's built-in
+\texttt{pow(base, exp, mod)}.
+
+\newpage
+\section{FFT}
+
+\subsection*{Problem 6 -- Recursive Radix-2 FFT and Inverse FFT}
+
+Implement the recursive radix-2 Cooley--Tukey FFT and its inverse:
+\begin{verbatim}
+fft(a):  pad a to the next power of two; return the DFT as complex values.
+         Split into even/odd indices, recurse, combine with butterflies
+         using roots of unity omega_n^k = exp(-2*pi*i*k/n).
+ifft(a): len(a) must be a power of two; same recursion with the conjugate
+         root exp(+2*pi*i*k/n), then divide every entry by n, so that
+         ifft(fft(x)) recovers x (after zero-padding).
+\end{verbatim}
+Use \texttt{cmath}/\texttt{math} (both standard library) and \texttt{next\_power\_of\_two}
+from \texttt{starter\_code.py}.
+
+\subsection*{Problem 7 -- Polynomial Multiplication via FFT}
+
+Implement \texttt{poly\_mul\_fft(a, b)} that multiplies two integer-coefficient polynomials
+(low-to-high) in $O(n \log n)$: let $L = \texttt{len}(a) + \texttt{len}(b) - 1$ and
+$\texttt{size} = \texttt{next\_power\_of\_two}(L)$; zero-pad and FFT both (Problem 6); multiply
+the spectra pointwise; inverse-FFT; round the first $L$ entries to integers. Return \texttt{[]}
+for empty input. Verify it matches \texttt{poly\_mul\_naive}.
+
+\subsection*{Problem 8 -- Linear Convolution / Cross-Correlation via FFT}
+
+Linear convolution of two integer sequences is exactly polynomial multiplication. Implement
+\texttt{convolve\_fft(a, b)} (delegate to Problem 7) and \texttt{cross\_correlation(a, b)}
+(the convolution of \texttt{a} with the reversed \texttt{b}). Verify both against the provided
+direct $O(nm)$ definitions \texttt{convolve\_direct} and \texttt{cross\_correlation\_direct}.
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's divide-and-conquer techniques
+(binary-search divide and conquer, merge-based counting, big-integer multiplication, fast
+exponentiation) on the following \href{https://leetcode.com}{LeetCode} problems. Difficulty is
+LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/median-of-two-sorted-arrays/}{Median of Two Sorted Arrays} -- \emph{Hard} -- binary search D\&C.
+  \item \href{https://leetcode.com/problems/search-a-2d-matrix-ii/}{Search a 2D Matrix II} -- \emph{Medium} -- divide \& conquer.
+  \item \href{https://leetcode.com/problems/kth-smallest-element-in-a-sorted-matrix/}{Kth Smallest Element in a Sorted Matrix} -- \emph{Medium} -- binary search on answer.
+  \item \href{https://leetcode.com/problems/find-k-th-smallest-pair-distance/}{Find K-th Smallest Pair Distance} -- \emph{Hard} -- binary search + sorting.
+  \item \href{https://leetcode.com/problems/the-skyline-problem/}{The Skyline Problem} -- \emph{Hard} -- divide \& conquer.
+  \item \href{https://leetcode.com/problems/count-of-range-sum/}{Count of Range Sum} -- \emph{Hard} -- merge sort.
+  \item \href{https://leetcode.com/problems/multiply-strings/}{Multiply Strings} -- \emph{Medium} -- big-integer multiplication.
+  \item \href{https://leetcode.com/problems/super-pow/}{Super Pow} -- \emph{Medium} -- fast exponentiation.
+\end{itemize}
+
+\end{document}

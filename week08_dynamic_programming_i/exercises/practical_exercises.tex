@@ -1,0 +1,243 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 8: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{generate\_weighted\_intervals},
+\texttt{generate\_knapsack\_instance}, \texttt{total\_weight},
+\texttt{intervals\_compatible}, \texttt{selection\_is\_feasible}.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Weighted Interval Scheduling} (Problems 1--4): computing $p(j)$ by binary
+    search, the bottom-up DP for the optimal value, solution reconstruction, and a
+    top-down memoized version cross-checked against the bottom-up one.
+    \item \textbf{Knapsack \& Subset Sum} (Problems 5--7): the Boolean subset-sum table,
+    the 2-D 0/1 knapsack value, and item reconstruction.
+    \item \textbf{More DP} (Problems 8--12): coin change (minimum coins and number of
+    ways), rod cutting, longest increasing subsequence, and an instrumented comparison of
+    naive recursion vs.\ memoization vs.\ bottom-up.
+\end{itemize}
+
+\newpage
+\section{Weighted Interval Scheduling}
+
+\subsection*{Problem 1 -- Compute $p(j)$ via Binary Search}
+
+In Weighted Interval Scheduling we sort the $n$ intervals by finish time, so
+$f_0 \le f_1 \le \cdots \le f_{n-1}$. For each interval $j$,
+\[
+p(j) = \text{the index of the latest interval } i < j \text{ compatible with } j,
+\quad \text{or } -1 \text{ if none.}
+\]
+Implement \texttt{compute\_p(intervals)} where each interval is a tuple
+\texttt{(start, finish, weight)}: sort by finish time, then for each $j$ use
+\textbf{binary search} (the \texttt{bisect} module) over the finish times to find $p(j)$ in
+$O(\log n)$. Return the list $p$ indexed by position in the finish-sorted order.
+
+\textbf{Example.} For \texttt{[(0,3,1),(1,4,1),(3,5,1),(5,7,1)]} (already finish-sorted),
+$p = [-1, -1, 0, 2]$.
+
+\subsection*{Problem 2 -- Weighted Interval Scheduling: Optimal Value (Bottom-Up DP)}
+
+Implement \texttt{weighted\_interval\_scheduling\_value(intervals)} returning the maximum
+total weight of a compatible subset. Sort by finish time, compute $p$ (Problem 1), and fill
+the table bottom-up:
+\begin{verbatim}
+M[0] = 0
+M[j] = max( M[j-1],                  # skip interval j
+            weight_j + M[p(j) + 1] ) # take interval j
+\end{verbatim}
+(using 1-based $M$ where $M[j]$ is the optimum over the first $j$ intervals). Return
+$M[n]$. No recursion.
+
+\subsection*{Problem 3 -- Reconstruct the Optimal Set of Intervals}
+
+Computing the value is not enough -- recover the actual intervals. Implement
+\texttt{weighted\_interval\_scheduling\_solution(intervals)} returning
+\texttt{(optimal\_value, chosen\_intervals)}, sorted by finish time. After filling $M$,
+trace back: interval $j-1$ is in the optimum iff
+\texttt{weight + M[p(j-1)+1] >= M[j-1]}; if so jump to \texttt{j = p(j-1)+1}, else
+\texttt{j -= 1}. The chosen set must be feasible and its weights must sum to the value.
+
+\subsection*{Problem 4 -- Memoized (Top-Down) Weighted Interval Scheduling}
+
+Implement \texttt{memoized\_wis\_value(intervals)} solving the \emph{same} recurrence
+top-down with memoization (e.g.\ \texttt{functools.lru\_cache} or a dict), rather than
+filling a table. The tests confirm it returns \emph{exactly} the bottom-up value (Problem
+2) on many random instances -- demonstrating that top-down and bottom-up DP agree.
+
+\newpage
+\section{Knapsack \& Subset Sum}
+
+\subsection*{Problem 5 -- Subset Sum: Achievability (Boolean DP)}
+
+Given non-negative integers \texttt{nums} and a \texttt{target}, decide whether some subset
+sums to exactly \texttt{target}. Implement \texttt{subset\_sum\_achievable(nums, target)}
+with a Boolean DP: \texttt{reachable[t]} is True iff some subset sums to $t$; start with
+only $t=0$ reachable, and for each number $x$ update \texttt{reachable} for $t$ from
+\texttt{target} \emph{down to} $x$ (descending order keeps each item used at most once).
+Return False for negative targets.
+
+\textbf{Example.} \texttt{subset\_sum\_achievable([3,34,4,12,5,2], 9) == True} (=$4+5$);
+\texttt{subset\_sum\_achievable([3,34,4,12,5,2], 30) == False}.
+
+\subsection*{Problem 6 -- 0/1 Knapsack: Maximum Value (2-D DP)}
+
+Each item $i$ has integer weight \texttt{weights[i]} and value \texttt{values[i]}; the
+knapsack has integer \texttt{capacity}. Each item is taken at most once. Implement
+\texttt{knapsack\_value(weights, values, capacity)} via the 2-D DP:
+\begin{verbatim}
+dp[0][w] = 0
+dp[i][w] = dp[i-1][w]                              if weights[i-1] > w
+dp[i][w] = max( dp[i-1][w],                        # skip item i-1
+                values[i-1] + dp[i-1][w-weights[i-1]] )  # take item i-1
+\end{verbatim}
+Return \texttt{dp[n][capacity]}. This runs in $O(nW)$ -- pseudo-polynomial (see the notes).
+
+\textbf{Example.} \texttt{knapsack\_value([1,3,4,5],[1,4,5,7],7) == 9} (items of weight
+$3{+}4$, value $4{+}5$).
+
+\subsection*{Problem 7 -- 0/1 Knapsack: Item Reconstruction}
+
+Implement \texttt{knapsack\_solution(weights, values, capacity)} returning
+\texttt{(best\_value, chosen\_indices)} (ascending indices into the original lists). After
+building the table, trace back: item $i-1$ was taken iff
+\texttt{dp[i][w] != dp[i-1][w]}; if so, subtract \texttt{weights[i-1]} from $w$ and
+continue. The chosen items must be distinct, fit within capacity, and have total value
+equal to the optimum.
+
+\newpage
+\section{More DP}
+
+\subsection*{Problem 8 -- Coin Change: Minimum Number of Coins (Unbounded)}
+
+Given coin denominations \texttt{coins} (unlimited supply) and a target \texttt{amount},
+find the minimum number of coins summing to \texttt{amount}, or $-1$ if impossible. Unlike
+Week 4's greedy coin change, this DP is correct for \emph{any} coin system. Implement
+\texttt{coin\_change\_min(coins, amount)}:
+\begin{verbatim}
+dp[0] = 0
+dp[a] = 1 + min( dp[a-c] for c in coins if c <= a ), else infinity
+\end{verbatim}
+Iterate $a$ from $1$ to \texttt{amount} \emph{ascending} (coins are reusable, so do NOT
+reverse the loop, unlike Problem 5). Return $-1$ if unreachable.
+
+\textbf{Example.} \texttt{coin\_change\_min([1,2,5], 11) == 3} ($5{+}5{+}1$);
+\texttt{coin\_change\_min([1,3,4], 6) == 2} ($3{+}3$, where greedy would give 3 coins).
+
+\subsection*{Problem 9 -- Coin Change: Number of Distinct Ways}
+
+Count the distinct \emph{combinations} of coins summing to \texttt{amount} (order does not
+matter: $1{+}2$ and $2{+}1$ are the same). Implement \texttt{coin\_change\_ways(coins,
+amount)}:
+\begin{verbatim}
+ways[0] = 1
+for c in coins:           # coin loop OUTSIDE
+    for a in c..amount:   # amount loop inside
+        ways[a] += ways[a-c]
+\end{verbatim}
+Putting the coin loop outside counts combinations (not permutations). There is exactly one
+way to make $0$ (choose nothing).
+
+\textbf{Example.} \texttt{coin\_change\_ways([1,2,5], 5) == 4}.
+
+\subsection*{Problem 10 -- Rod Cutting: Maximum Revenue and the Cut List}
+
+Given \texttt{prices} where \texttt{prices[i]} is the price of a piece of length $i+1$, cut
+a rod of length $n = \texttt{len(prices)}$ to maximize revenue. Implement
+\texttt{rod\_cutting(prices)} returning \texttt{(best\_revenue, cuts)}:
+\begin{verbatim}
+rev[0] = 0
+rev[L] = max over k in 1..L of ( prices[k-1] + rev[L-k] )
+\end{verbatim}
+Record, for each $L$, the first cut length $k$ achieving the maximum, then peel off pieces
+from $L = n$ downward to build \texttt{cuts}. The cut lengths must sum to $n$ and their
+prices must sum to \texttt{best\_revenue}.
+
+\textbf{Example.} For \texttt{prices = [1,5,8,9,10,17,17,20]} (lengths $1..8$), the optimum
+is $22$ (e.g.\ a length-2 plus a length-6 piece: $5 + 17$).
+
+\subsection*{Problem 11 -- Longest Increasing Subsequence ($O(n^2)$ DP)}
+
+Implement \texttt{longest\_increasing\_subsequence\_length(nums)} returning the length of
+the longest \emph{strictly} increasing subsequence, via the $O(n^2)$ DP:
+\[
+L[i] = 1 + \max(\{L[j] : j < i,\ \texttt{nums[j] < nums[i]}\} \cup \{0\}),
+\quad \text{answer} = \max_i L[i].
+\]
+The provided test checks your DP against a brute-force search over all subsequences on
+small random inputs.
+
+\textbf{Example.} \texttt{longest\_increasing\_subsequence\_length([10,9,2,5,3,7,101,18])
+== 4}.
+
+\subsection*{Problem 12 -- Memoization vs.\ Bottom-Up: Counting Subproblem Work}
+
+This problem makes the central DP idea measurable using the Fibonacci recurrence (the
+cleanest example of overlapping subproblems). Implement three instrumented functions:
+\begin{itemize}
+    \item \texttt{naive\_fib(n)} $\to$ \texttt{(fib(n), call\_count)}: plain recursion,
+    counting every call. This grows exponentially -- the call count for $\mathrm{fib}(n)$
+    is $2 \cdot \mathrm{Fib}(n{+}1) - 1$.
+    \item \texttt{memoized\_fib(n)} $\to$ \texttt{(fib(n), distinct\_subproblems)}:
+    top-down with a cache, counting cache \emph{misses}. This is linear: $n+1$ for $n \ge
+    2$.
+    \item \texttt{bottom\_up\_fib(n)} $\to$ \texttt{(fib(n), table\_writes)}: explicit
+    table, counting writes. Also linear: $n+1$.
+\end{itemize}
+The tests confirm the three values agree, the DP variants do linear work, and naive
+recursion does $> 100\times$ the work of memoization at $n = 25$.
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's dynamic-programming techniques
+(weighted interval scheduling, 0/1 and unbounded knapsack, 1-D DP) on the following
+\href{https://leetcode.com}{LeetCode} problems. Difficulty is LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/climbing-stairs/}{Climbing Stairs} -- \emph{Easy} -- 1-D DP.
+  \item \href{https://leetcode.com/problems/house-robber/}{House Robber} -- \emph{Medium} -- 1-D DP.
+  \item \href{https://leetcode.com/problems/house-robber-ii/}{House Robber II} -- \emph{Medium} -- 1-D DP.
+  \item \href{https://leetcode.com/problems/coin-change/}{Coin Change} -- \emph{Medium} -- unbounded knapsack.
+  \item \href{https://leetcode.com/problems/coin-change-2/}{Coin Change II} -- \emph{Medium} -- counting knapsack.
+  \item \href{https://leetcode.com/problems/partition-equal-subset-sum/}{Partition Equal Subset Sum} -- \emph{Medium} -- 0/1 knapsack.
+  \item \href{https://leetcode.com/problems/target-sum/}{Target Sum} -- \emph{Medium} -- 0/1 knapsack.
+  \item \href{https://leetcode.com/problems/ones-and-zeroes/}{Ones and Zeroes} -- \emph{Medium} -- 2-D knapsack.
+  \item \href{https://leetcode.com/problems/maximum-profit-in-job-scheduling/}{Maximum Profit in Job Scheduling} -- \emph{Hard} -- weighted interval scheduling.
+  \item \href{https://leetcode.com/problems/best-time-to-buy-and-sell-stock-with-cooldown/}{Best Time to Buy and Sell Stock with Cooldown} -- \emph{Medium} -- state-machine DP.
+\end{itemize}
+
+\end{document}

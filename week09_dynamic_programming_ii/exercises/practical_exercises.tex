@@ -1,0 +1,225 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 9: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{random\_string},
+\texttt{generate\_weighted\_graph}, \texttt{generate\_dag}, \texttt{adjacency\_list},
+\texttt{adjacency\_matrix}, \texttt{reconstruct\_path}, \texttt{grid\_from\_seed}, and the
+constant \texttt{INF}.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Sequence Alignment} (Problems 1--5): edit distance, alignment with custom
+    costs, reconstruction, longest common subsequence, and the LCS--edit-distance identity.
+    \item \textbf{Shortest Paths} (Problems 6--10): Bellman--Ford distances and
+    negative-cycle detection, Floyd--Warshall all-pairs distances, cross-verification, and
+    DAG shortest paths via topological order.
+    \item \textbf{More DP} (Problems 11--12): matrix chain multiplication with optimal
+    parenthesisation, and grid path counting / minimum-path-sum with reconstruction.
+\end{itemize}
+
+\newpage
+\section{Sequence Alignment}
+
+\subsection*{Problem 1 -- Edit Distance (Levenshtein)}
+
+Implement \texttt{edit\_distance(x, y)} returning the Levenshtein edit distance between two
+strings: the minimum number of single-character \emph{insertions}, \emph{deletions}, and
+\emph{substitutions} that turn \texttt{x} into \texttt{y}. Use the standard 2-D DP with
+recurrence
+\[
+\mathrm{OPT}(i,j) = \min\big( [x_i \ne y_j] + \mathrm{OPT}(i-1,j-1),\ 1 + \mathrm{OPT}(i-1,j),
+\ 1 + \mathrm{OPT}(i,j-1)\big),
+\]
+$\mathrm{OPT}(i,0) = i$, $\mathrm{OPT}(0,j) = j$.
+
+\textbf{Example.} \texttt{edit\_distance("kitten", "sitting") == 3}.
+
+\subsection*{Problem 2 -- Sequence Alignment with Custom Gap and Mismatch Costs}
+
+Implement \texttt{alignment\_cost(x, y, gap, mismatch)} returning the minimum total cost of
+aligning \texttt{x} and \texttt{y}, where each gap (insertion or deletion) costs
+\texttt{gap} and each mismatch (substituting one character for a different one) costs
+\texttt{mismatch}; matching equal characters costs $0$. This generalises Problem 1 (which is
+the case \texttt{gap == mismatch == 1}).
+
+\textbf{Example.} With \texttt{gap=2}, \texttt{mismatch=3}, aligning \texttt{"AT"} and
+\texttt{"AAT"} costs $2$ (insert one \texttt{A}; the rest matches).
+
+\subsection*{Problem 3 -- Reconstruct an Optimal Alignment}
+
+Implement \texttt{align(x, y, gap, mismatch)} returning \texttt{(cost, ax, ay)} where
+\texttt{ax} and \texttt{ay} are the two input strings padded with the gap symbol
+\texttt{'-'} so they have equal length and represent an optimal alignment (same cost as
+Problem 2). Fill the DP table, then \emph{trace back} from $(m,n)$ to $(0,0)$, emitting one
+column per step.
+
+\textbf{Example.} \texttt{align("AT", "AAT", gap=1, mismatch=1)} can return
+\texttt{(1, "-AT", "AAT")} (costs may tie; any optimal alignment of the right cost is
+accepted by the tests, which re-check the cost via Problem 2).
+
+\subsection*{Problem 4 -- Longest Common Subsequence (Length + One LCS)}
+
+Implement \texttt{lcs(x, y)} returning \texttt{(length, subseq)} where \texttt{length} is
+the length of a longest common subsequence of \texttt{x} and \texttt{y}, and \texttt{subseq}
+is one such subsequence (a string). Use the standard DP and trace back to build the
+subsequence.
+
+\textbf{Example.} \texttt{lcs("AGGTAB", "GXTXAYB")} returns \texttt{(4, "GTAB")}.
+
+\subsection*{Problem 5 -- Verify the LCS / Edit-Distance Relation}
+
+The insert/delete-only edit distance (no substitutions) satisfies $d(x,y) = |x| + |y| - 2L$,
+where $L$ is the LCS length. Implement \texttt{indel\_distance(x, y)} computing the minimum
+number of insertions and deletions to turn \texttt{x} into \texttt{y} \emph{directly} via DP
+(substitution forbidden -- i.e.\ a mismatch column is not allowed; only matches and gaps).
+Then implement \texttt{verify\_lcs\_relation(num\_trials, length, seed)} that, for
+\texttt{num\_trials} random string pairs (via \texttt{random\_string}), checks
+\texttt{indel\_distance(x, y) == len(x) + len(y) - 2 * lcs(x, y)[0]} for every pair, returning
+\texttt{True} iff the identity always holds.
+
+\newpage
+\section{Shortest Paths}
+
+\subsection*{Problem 6 -- Bellman--Ford Shortest-Path Distances}
+
+Implement \texttt{bellman\_ford(n, edges, source)} returning a list \texttt{dist} of length
+\texttt{n}, where \texttt{dist[v]} is the shortest-path distance from \texttt{source} to
+\texttt{v} (using \texttt{INF} for unreachable vertices). The graph
+\texttt{(n, edges)} may have \emph{negative} edge weights but is assumed to have no negative
+cycle reachable from the source. Relax all edges \texttt{n - 1} times.
+
+\textbf{Example.} For \texttt{n=3}, \texttt{edges=[(0,1,4),(0,2,5),(1,2,-3)]},
+\texttt{source=0}, the distances are \texttt{[0, 4, 1]} (the path $0\to1\to2$ costs
+$4 + (-3) = 1$).
+
+\subsection*{Problem 7 -- Bellman--Ford Negative-Cycle Detection}
+
+Implement \texttt{find\_negative\_cycle(n, edges)} returning \texttt{None} if the graph has
+no negative cycle, or otherwise a list of vertices \texttt{[c0, c1, ..., c0]} describing one
+negative cycle (start and end vertex repeated). Run Bellman--Ford-style relaxation
+(initialising all distances to $0$ so that \emph{every} vertex is a potential source), then
+do one extra pass: if some edge still relaxes, follow parent pointers \texttt{n} times to
+land inside the cycle, then walk it out.
+
+\textbf{Example.} \texttt{find\_negative\_cycle(2, [(0,1,1),(1,0,-3)])} returns a cycle of
+total weight $1 + (-3) = -2$, e.g.\ \texttt{[0, 1, 0]} (or \texttt{[1, 0, 1]}). The tests
+check that the returned cycle is genuine and has negative total weight.
+
+\subsection*{Problem 8 -- Floyd--Warshall All-Pairs Shortest Paths}
+
+Implement \texttt{floyd\_warshall(n, edges)} returning an \texttt{n}-by-\texttt{n} matrix
+\texttt{dist} where \texttt{dist[i][j]} is the shortest-path distance from \texttt{i} to
+\texttt{j} (\texttt{INF} if no path; \texttt{0} on the diagonal). Assume no negative cycle.
+Use the classic triple loop over \texttt{k, i, j}.
+
+\textbf{Example.} For \texttt{n=3}, \texttt{edges=[(0,1,4),(0,2,5),(1,2,-3)]},
+\texttt{dist[0]} is \texttt{[0, 4, 1]}.
+
+\subsection*{Problem 9 -- Verify Bellman--Ford Agrees with Floyd--Warshall}
+
+Implement \texttt{verify\_bf\_vs\_fw(num\_trials, n, m, seed)}: for each of
+\texttt{num\_trials} random graphs (via \texttt{generate\_weighted\_graph(n, m, seed=seed +
+trial)}) that contain \emph{no} negative cycle (skip / regenerate those that do, using
+Problem 7), check that for source \texttt{0}, \texttt{bellman\_ford(n, edges, 0)} equals row
+\texttt{0} of \texttt{floyd\_warshall(n, edges)}. Return \texttt{True} iff they always agree.
+
+\subsection*{Problem 10 -- DAG Shortest Path via Topological Order}
+
+Implement \texttt{dag\_shortest\_path(n, edges, source)} for a directed \emph{acyclic} graph:
+compute a topological order (e.g.\ Kahn's algorithm), then relax edges once in that order,
+returning the \texttt{dist} list. Then implement
+\texttt{verify\_dag\_matches\_bellman\_ford(num\_trials, n, m, seed)} that, on random DAGs
+(via \texttt{generate\_dag}), checks that the linear-time DAG sweep produces the same
+distances as the general Bellman--Ford -- confirming the simpler algorithm suffices on a DAG.
+
+\newpage
+\section{More DP}
+
+\subsection*{Problem 11 -- Matrix Chain Multiplication}
+
+Given dimensions \texttt{dims} (a list of length $n+1$, so matrix $A_i$ is
+\texttt{dims[i-1]} by \texttt{dims[i]} for $i = 1, \ldots, n$), implement
+\texttt{matrix\_chain(dims)} returning \texttt{(min\_cost, parenthesization)} where
+\texttt{min\_cost} is the minimum number of scalar multiplications and
+\texttt{parenthesization} is a string such as \texttt{"((A1A2)A3)"} describing one optimal
+order. Use the interval DP
+\[
+M(i,j) = \min_{i\le k<j}\big( M(i,k) + M(k+1,j) + p_{i-1}p_k p_j\big),
+\]
+storing the optimal split point to reconstruct the parenthesisation.
+
+\textbf{Example.} \texttt{matrix\_chain([10, 30, 5, 60])} returns
+\texttt{(4500, "((A1A2)A3)")} ($10\cdot30\cdot5 + 10\cdot5\cdot60 = 1500 + 3000 = 4500$,
+beating the alternative $30\cdot5\cdot60 + 10\cdot30\cdot60 = 27000$).
+
+\subsection*{Problem 12 -- Grid Unique Paths and Minimum Path Sum}
+
+For an \texttt{r}-by-\texttt{c} grid with movement restricted to \emph{right} and
+\emph{down}:
+\begin{itemize}
+    \item Implement \texttt{unique\_paths(r, c)} returning the number of distinct paths from
+    the top-left to the bottom-right corner ($P(i,j) = P(i-1,j) + P(i,j-1)$).
+    \item Implement \texttt{min\_path\_sum(grid)} returning \texttt{(cost, path)} where
+    \texttt{grid} is a list of lists of cell costs, \texttt{cost} is the minimum total cost
+    of a top-left-to-bottom-right path, and \texttt{path} is one optimal path as a list of
+    \texttt{(row, col)} coordinates (reconstructed by traceback).
+\end{itemize}
+
+\textbf{Example.} \texttt{unique\_paths(3, 3) == 6}.
+\texttt{min\_path\_sum([[1,3,1],[1,5,1],[4,2,1]])} returns cost \texttt{7} with path
+\texttt{[(0,0),(0,1),(0,2),(1,2),(2,2)]} (down the costs $1,3,1,1,1$).
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's dynamic-programming techniques
+(sequence alignment, LCS, grid DP, and shortest-path DP) on the following
+\href{https://leetcode.com}{LeetCode} problems. Difficulty is LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/longest-common-subsequence/}{Longest Common Subsequence} -- \emph{Medium} -- 2-D DP.
+  \item \href{https://leetcode.com/problems/edit-distance/}{Edit Distance} -- \emph{Medium} -- sequence alignment.
+  \item \href{https://leetcode.com/problems/delete-operation-for-two-strings/}{Delete Operation for Two Strings} -- \emph{Medium} -- LCS variant.
+  \item \href{https://leetcode.com/problems/minimum-ascii-delete-sum-for-two-strings/}{Minimum ASCII Delete Sum for Two Strings} -- \emph{Medium} -- sequence alignment.
+  \item \href{https://leetcode.com/problems/distinct-subsequences/}{Distinct Subsequences} -- \emph{Hard} -- 2-D DP.
+  \item \href{https://leetcode.com/problems/longest-increasing-subsequence/}{Longest Increasing Subsequence} -- \emph{Medium} -- DP / patience sorting.
+  \item \href{https://leetcode.com/problems/unique-paths/}{Unique Paths} -- \emph{Medium} -- grid DP.
+  \item \href{https://leetcode.com/problems/minimum-path-sum/}{Minimum Path Sum} -- \emph{Medium} -- grid DP.
+  \item \href{https://leetcode.com/problems/regular-expression-matching/}{Regular Expression Matching} -- \emph{Hard} -- 2-D DP.
+  \item \href{https://leetcode.com/problems/cheapest-flights-within-k-stops/}{Cheapest Flights Within K Stops} -- \emph{Medium} -- Bellman--Ford DP.
+\end{itemize}
+
+\end{document}
