@@ -1,0 +1,325 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 10: Theoretical Questions}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+Part A contains 16 questions requiring written explanations or short proofs. Part B is a
+10-question quiz (true/false and multiple choice). Attempt every question on your own
+before consulting Part C (Solutions) at the end of this document.
+
+\section*{Part A: Theory Questions}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item Define a \emph{flow network} precisely: what are its components (graph, capacities,
+source, sink), and what simplifying assumptions do we usually make about $s$ and $t$?
+
+\item Define an \emph{$s$-$t$ flow} and the \emph{value} of a flow. State the two
+conditions (capacity and conservation) precisely, and explain why conservation is required
+at internal nodes but \emph{not} at $s$ and $t$.
+
+\item Prove that for any $s$-$t$ flow, the net flow out of the source equals the net flow
+into the sink.
+
+\item Define an \emph{$s$-$t$ cut} $(S,T)$ and its \emph{capacity} $c(S,T)$. Emphasize
+which edges contribute to the capacity and which do not.
+
+\item Prove the \emph{flow-across-a-cut} identity: for any flow $f$ and any cut $(S,T)$,
+$v(f)$ equals the flow on $S \to T$ edges minus the flow on $T \to S$ edges.
+
+\item Prove \emph{weak duality}: for any flow $f$ and any cut $(S,T)$, $v(f) \le c(S,T)$.
+What does this immediately imply about $\max_f v(f)$ versus $\min_{(S,T)} c(S,T)$?
+
+\item Explain why a naive greedy ``find any $s$-$t$ path with spare capacity and saturate
+it'' algorithm can fail to find the maximum flow. Give a concrete small example (capacities
+and a bad path choice) where it gets stuck below the optimum.
+
+\item Define the \emph{residual graph} $G_f$ of a flow $f$: which forward and backward
+edges does it contain, and what are their residual capacities? What is the \emph{purpose}
+of the backward edges?
+
+\item Define an \emph{augmenting path} and its \emph{bottleneck}. Prove that augmenting a
+flow $f$ along an augmenting path with bottleneck $b$ yields a valid flow of value
+$v(f) + b$.
+
+\item State the \emph{Max-Flow Min-Cut Theorem}. Then prove the direction that does the
+real work: if the residual graph $G_f$ has no $s$-$t$ path, exhibit a cut $(S,T)$ with
+$c(S,T) = v(f)$, and explain why this proves $f$ is a maximum flow.
+
+\item Explain how, given a maximum flow, you extract a \emph{minimum cut} from it. Why is
+exactly one BFS in the final residual graph sufficient?
+
+\item State and prove the \emph{Integrality Theorem}: with integer capacities,
+Ford-Fulkerson terminates and produces an integral maximum flow. Why does this matter for
+applications such as bipartite matching?
+
+\item State the \emph{Edmonds-Karp} rule (which augmenting path to choose) and its
+running-time bound. Summarize at a high level why this choice bounds the number of
+augmentations by $O(VE)$, independent of the capacity values.
+
+\item Describe the reduction from \emph{maximum bipartite matching} to maximum flow:
+what nodes and edges (with what capacities) do you add? Why does an integral max flow
+correspond to a matching, and why does its value equal the maximum matching size?
+
+\item Describe the \emph{multiple-sources, multiple-sinks} reduction to a single-source,
+single-sink max-flow instance (the super-source / super-sink construction). What capacity
+do you put on the new edges, and why?
+
+\item State \emph{Menger's theorem} (the edge-disjoint-paths form) and explain how it
+follows from the Max-Flow Min-Cut theorem applied to a unit-capacity network. Why does
+integrality guarantee that the flow decomposes into edge-disjoint paths?
+
+\end{enumerate}
+
+\newpage
+\section*{Part B: Quiz}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{(True/False)} In an $s$-$t$ flow, conservation (flow in $=$ flow out) must
+hold at every node, including the source and the sink.
+
+\item \textbf{(Multiple choice)} The capacity of an $s$-$t$ cut $(S,T)$ is the sum of
+capacities of:
+\begin{enumerate}[label=(\alph*)]
+    \item all edges with at least one endpoint in $S$
+    \item edges directed from $T$ to $S$
+    \item edges directed from $S$ to $T$
+    \item all edges of the graph
+\end{enumerate}
+
+\item \textbf{(True/False)} For any flow $f$ and any cut $(S,T)$, it is always true that
+$v(f) \le c(S,T)$.
+
+\item \textbf{(Multiple choice)} A backward residual edge $(v,u)$ in $G_f$ (paired with an
+original edge $(u,v)$) exists with residual capacity equal to:
+\begin{enumerate}[label=(\alph*)]
+    \item $c(u,v) - f(u,v)$
+    \item $f(u,v)$
+    \item $c(u,v)$
+    \item always $\infty$
+\end{enumerate}
+
+\item \textbf{(Short answer)} A flow $f$ is a maximum flow if and only if its residual
+graph $G_f$ has what property?
+
+\item \textbf{(True/False)} If all capacities are integers, then some maximum flow assigns
+an integer value of flow to every edge.
+
+\item \textbf{(Multiple choice)} Edmonds-Karp chooses, at each step, an augmenting path
+that is:
+\begin{enumerate}[label=(\alph*)]
+    \item of maximum bottleneck capacity
+    \item a shortest path (fewest edges) found by BFS
+    \item found by depth-first search
+    \item chosen uniformly at random
+\end{enumerate}
+
+\item \textbf{(Short answer)} What is the running-time bound of Edmonds-Karp in terms of
+$V$ (number of nodes) and $E$ (number of edges)?
+
+\item \textbf{(Multiple choice)} To reduce maximum bipartite matching to max flow, the
+capacity placed on every edge (source$\to$left, left$\to$right, right$\to$sink) is:
+\begin{enumerate}[label=(\alph*)]
+    \item $\infty$
+    \item $1$
+    \item the degree of the vertex
+    \item $|V|$
+\end{enumerate}
+
+\item \textbf{(Short answer)} In the multiple-sources/multiple-sinks reduction, what
+capacity is placed on the edges from the super-source to the original sources (and from the
+original sinks to the super-sink), and why?
+
+\end{enumerate}
+
+\newpage
+\section*{Part C: Solutions}
+
+\subsection*{Part A}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item A \textbf{flow network} is a directed graph $G=(V,E)$ with a non-negative
+\textbf{capacity} $c(e) \ge 0$ on each edge, a distinguished \textbf{source} $s$, and a
+distinguished \textbf{sink} $t \ne s$. Common simplifying assumptions: no edge enters $s$
+and no edge leaves $t$ (so all flow originates at $s$ and terminates at $t$), and no
+parallel edges in the same direction. Capacities are usually taken to be integers.
+
+\item An \textbf{$s$-$t$ flow} is a function $f:E\to\mathbb{R}_{\ge0}$ with (i)
+\emph{capacity constraints} $0 \le f(e) \le c(e)$ for every edge $e$, and (ii)
+\emph{conservation} at every node $v \ne s,t$: total flow into $v$ equals total flow out
+of $v$. The \textbf{value} is $v(f) = (\text{flow out of }s) - (\text{flow into }s)$.
+Conservation is \emph{not} imposed at $s$ and $t$ precisely because $s$ is a net
+\emph{producer} of flow and $t$ a net \emph{consumer}; the whole point is that flow leaves
+$s$ and arrives at $t$, so in-/out-flow there are deliberately unbalanced (the imbalance is
+the value).
+
+\item Sum the conservation equation over all internal nodes $v \ne s,t$. Each edge $e =
+(u,w)$ with both endpoints internal contributes $+f(e)$ (out of $u$) and $-f(e)$ (into
+$w$), cancelling. After cancellation only terms incident to $s$ or $t$ remain, and
+rearranging yields $(\text{net out of }s) = (\text{net into }t)$. (Formally this is the
+special case $S=\{s\}\cup(\text{internal nodes})$ of the cut identity in A5, or directly
+$S = V\setminus\{t\}$.)
+
+\item An \textbf{$s$-$t$ cut} is a partition $(S,T)$ of $V$ with $s\in S$, $t\in T$. Its
+\textbf{capacity} is $c(S,T) = \sum_{e=(u,v):\,u\in S,\,v\in T} c(e)$ -- the total
+capacity of edges directed \emph{from $S$ to $T$} only. Edges directed from $T$ to $S$,
+and edges internal to $S$ or to $T$, do \emph{not} contribute.
+
+\item Start from $v(f) = \sum_{e\text{ out of }s} f(e) - \sum_{e\text{ into }s} f(e)$. For
+each $v \in S$ with $v \ne s$, add the (zero) quantity $\sum_{e\text{ out of }v} f(e) -
+\sum_{e\text{ into }v} f(e)$; the total is unchanged. Regroup the resulting sum by edges:
+an edge with both ends in $S$ contributes $+f(e)$ and $-f(e)$ (cancels); an $S\to T$ edge
+contributes $+f(e)$; a $T\to S$ edge contributes $-f(e)$. Hence
+$v(f) = \sum_{e:S\to T} f(e) - \sum_{e:T\to S} f(e)$.
+
+\item By A5, $v(f) = \sum_{e:S\to T} f(e) - \sum_{e:T\to S} f(e)$. Since $f(e)\ge0$, the
+subtracted term is $\ge 0$, so $v(f) \le \sum_{e:S\to T} f(e)$. Since $f(e)\le c(e)$, this
+is $\le \sum_{e:S\to T} c(e) = c(S,T)$. Therefore $v(f) \le c(S,T)$. Taking the maximum
+over $f$ and the minimum over cuts: $\max_f v(f) \le \min_{(S,T)} c(S,T)$ (the max-flow is
+at most the min-cut).
+
+\item Without the ability to reroute, an early path can saturate an edge that a better
+solution needed differently. Example: capacities all $1$ on edges $s\to a$, $s\to b$,
+$a\to b$, $a\to t$, $b\to t$. Greedy might pick $s\to a\to b\to t$, pushing $1$ unit and
+saturating $a\to b$; now $a\to t$ and $b\to t$ each still have capacity, but $a$ can no
+longer receive more from $s$ except via $s\to a$ (already used), so the naive method stops
+at value $1$. The true maximum is $2$ ($s\to a\to t$ and $s\to b\to t$), reachable only by
+``undoing'' the use of $a\to b$ -- exactly what residual backward edges allow.
+
+\item The \textbf{residual graph} $G_f$ has the same nodes and: for each original edge
+$(u,v)$ with $f(u,v) < c(u,v)$, a \emph{forward} residual edge $(u,v)$ with residual
+capacity $c(u,v)-f(u,v)$ (spare we can still push); and for each original edge $(u,v)$ with
+$f(u,v) > 0$, a \emph{backward} residual edge $(v,u)$ with residual capacity $f(u,v)$ (the
+amount we could cancel). The backward edges are what let the algorithm \emph{retract}
+poorly-placed flow, escaping the dead-ends that defeat naive greedy.
+
+\item An \textbf{augmenting path} is a simple $s$-$t$ path in $G_f$; its \textbf{bottleneck}
+$b$ is the minimum residual capacity along it. \emph{Proof that augmenting gives a valid
+flow of value $v(f)+b$:} On each forward edge of $P$ we add $b \le c(e)-f(e)$, so $f'\le
+c$; on each backward edge we subtract $b \le f(e)$, so $f'\ge 0$ -- capacity constraints
+hold. At each internal node of $P$, the path uses exactly one incoming and one outgoing
+residual edge, and both change the node's net balance by $+b$ and $-b$ (or are arranged so
+the change cancels), preserving conservation; nodes off $P$ are untouched. The first edge
+of $P$ leaves $s$ (forward, since nothing enters $s$), so the net out of $s$ increases by
+exactly $b$, giving $v(f') = v(f)+b$.
+
+\item \textbf{Max-Flow Min-Cut Theorem:} the maximum value of an $s$-$t$ flow equals the
+minimum capacity of an $s$-$t$ cut; equivalently, $f$ is maximum iff $G_f$ has no
+augmenting path. \emph{Proof of the key direction:} suppose $G_f$ has no $s$-$t$ path. Let
+$S$ be the set of nodes reachable from $s$ in $G_f$ and $T = V\setminus S$; then $s\in S$,
+$t\in T$. Every original edge $(u,v)$ with $u\in S$, $v\in T$ must be \emph{saturated}
+($f=c$): otherwise a forward residual edge $(u,v)$ would put $v$ in $S$. Every original
+edge $(v,u)$ with $v\in T$, $u\in S$ must carry \emph{zero} flow: otherwise a backward
+residual edge $(u,v)$ would put $v$ in $S$. By A5, $v(f) = \sum_{e:S\to T} f(e) -
+\sum_{e:T\to S} f(e) = \sum_{e:S\to T} c(e) - 0 = c(S,T)$. By weak duality every flow is
+$\le c(S,T) = v(f)$, so $f$ is maximum (and $(S,T)$ is a minimum cut).
+
+\item After computing a maximum flow $f$, run a single BFS (or DFS) from $s$ in the final
+residual graph $G_f$, following only edges with positive residual capacity. Let $S$ be the
+set of nodes reached; then $(S, V\setminus S)$ is a minimum cut (this is exactly the
+construction in A10). One traversal suffices because ``reachable from $s$ in $G_f$'' is a
+single connectivity query, and the proof in A10 shows that the resulting $S$ already gives
+a cut whose capacity equals $v(f)$ -- which weak duality certifies as minimum.
+
+\item \textbf{Integrality Theorem:} with integer capacities, Ford-Fulkerson terminates
+and yields an integral maximum flow. \emph{Proof:} the initial flow $f\equiv0$ is integral.
+If $f$ is integral, all residual capacities $c(e)-f(e)$ and $f(e)$ are integers, so the
+bottleneck $b$ of any augmenting path is a positive integer; augmenting preserves
+integrality. Each augmentation raises $v(f)$ by $b\ge1$, and $v(f)$ is bounded by the
+finite source-cut capacity, so only finitely many augmentations occur -- termination with
+an integral flow. \emph{Why it matters:} reductions like bipartite matching use unit
+capacities, and integrality guarantees the resulting flow is $0/1$ on every edge, so it can
+be read directly as a yes/no selection (a matching), with no fractional values to round.
+
+\item \textbf{Edmonds-Karp} always augments along a \emph{shortest} augmenting path (fewest
+edges), found by BFS; this gives an $O(VE^2)$ running time. \emph{Why $O(VE)$
+augmentations:} under shortest-path augmentation, BFS distances from $s$ are
+non-decreasing over time, and each edge can be the saturated ``bottleneck'' only $O(V)$
+times (between two saturations of an edge $(u,v)$, the distance to $u$ must increase by at
+least $2$, and distances range over $\{0,\dots,V-1\}$). With $O(VE)$ saturations and at
+least one saturation per augmentation, there are $O(VE)$ augmentations; each BFS costs
+$O(E)$, for $O(VE^2)$ total -- crucially independent of capacity magnitudes.
+
+\item Build a flow network: a super-source $s$ with a capacity-$1$ edge to each
+left-vertex; a capacity-$1$ edge $(\text{left } u, \text{right } v)$ for each allowed pair;
+and a capacity-$1$ edge from each right-vertex to a super-sink $t$. By integrality the max
+flow is $0/1$ on every edge; the saturated left$\to$right edges form a matching (the
+capacity-$1$ edges at each left and right vertex force at most one matched partner per
+vertex -- the conservation/capacity constraints encode ``each vertex used at most once'').
+Each unit of flow corresponds to one matched pair, so the max-flow value equals the maximum
+matching size.
+
+\item Add a \textbf{super-source} $S^*$ with an edge $S^*\to s_i$ to every original source
+$s_i$, and a \textbf{super-sink} $T^*$ with an edge $t_j\to T^*$ from every original sink
+$t_j$. Give these new edges capacity $+\infty$ (or any value $\ge$ the total possible
+flow), so they never constrain the solution -- they merely \emph{collect} flow from all
+sources and \emph{deliver} it to all sinks. A max flow from $S^*$ to $T^*$ then equals the
+maximum total flow the original sources can jointly deliver to the original sinks.
+
+\item \textbf{Menger's theorem (edge form):} the maximum number of pairwise
+\emph{edge-disjoint} $s$-$t$ paths equals the minimum number of edges whose removal
+disconnects $t$ from $s$ (the minimum $s$-$t$ edge cut). \emph{From max-flow min-cut:} give
+every edge capacity $1$. Then the min-cut capacity is exactly the minimum number of edges
+separating $s$ from $t$, and max-flow min-cut equates it with the max-flow value. By
+integrality the max flow is $0/1$ on each edge; the edges carrying flow form a subgraph in
+which every internal node has equal in/out flow, so it \emph{decomposes} into exactly
+$v(f)$ paths from $s$ to $t$, and since each edge carries at most $1$ unit these paths are
+edge-disjoint. Hence (number of edge-disjoint paths) $= v(f) = $ (min edge cut).
+
+\end{enumerate}
+
+\subsection*{Part B}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{False.} Conservation is required only at internal nodes; $s$ and $t$ are
+deliberately exempt, since $s$ produces and $t$ consumes the flow (their imbalance is the
+flow value).
+
+\item \textbf{(c) edges directed from $S$ to $T$.} Only forward-crossing edges count;
+edges from $T$ to $S$ are free.
+
+\item \textbf{True.} This is weak duality (A6): every cut upper-bounds every flow.
+
+\item \textbf{(b) $f(u,v)$.} A backward residual edge $(v,u)$ has residual capacity equal
+to the current flow on $(u,v)$ -- the amount that can be cancelled.
+
+\item $G_f$ has \textbf{no augmenting path} (no $s$-$t$ path in the residual graph).
+Equivalently, $t$ is unreachable from $s$ in $G_f$.
+
+\item \textbf{True.} This is the Integrality Theorem (A12): integer capacities yield an
+integral maximum flow.
+
+\item \textbf{(b) a shortest path (fewest edges) found by BFS.} That is precisely the
+Edmonds-Karp rule.
+
+\item $O(VE^2)$ -- $O(VE)$ augmentations, each with an $O(E)$ BFS.
+
+\item \textbf{(b) $1$.} Unit capacities on all three edge types ensure each vertex is
+matched at most once and (with integrality) the flow reads off as a matching.
+
+\item Capacity $+\infty$ (or any value at least the total achievable flow). These edges
+should never be the bottleneck; they exist only to merge all sources into one super-source
+and all sinks into one super-sink, so the true constraints come from the original edges.
+
+\end{enumerate}
+
+\end{document}
