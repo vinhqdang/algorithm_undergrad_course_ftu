@@ -1,0 +1,213 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 10: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper code lives in
+\texttt{starter\_code.py} at the week root: the \texttt{FlowNetwork} class (with
+\texttt{add\_edge}, an explicit residual-edge adjacency via \texttt{FlowEdge} objects and
+paired reverse edges, a reference \texttt{edmonds\_karp}, and \texttt{copy}/\texttt{value}
+utilities), plus the random generators \texttt{generate\_flow\_network} and
+\texttt{generate\_bipartite\_graph}.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Flow Networks \& Cuts} (Problems 1--3): the defining conditions of a
+    flow, cut capacity, and constructing the residual graph.
+    \item \textbf{Max-Flow Algorithms} (Problems 4--8): BFS augmenting paths,
+    Edmonds-Karp, DFS Ford-Fulkerson, and extracting a minimum cut from a maximum flow.
+    \item \textbf{Verification \& Applications} (Problems 9--12): bipartite matching,
+    multiple sources/sinks, edge-disjoint paths (Menger), and integrality -- the
+    reductions and structural guarantees that make flow so widely applicable.
+\end{itemize}
+
+\newpage
+\section{Flow Networks \& Cuts}
+
+\subsection*{Problem 1 -- Flow Feasibility Checker}
+
+Implement \texttt{verify\_flow(network, flow)}. Given a \texttt{FlowNetwork} and a
+candidate \texttt{flow} (a dict mapping each original edge \texttt{(u, v)} to a flow
+amount), check that the assignment is a valid flow: (1) every edge satisfies $0 \le f(e)
+\le c(e)$ (capacity constraints), and (2) flow is conserved at every node other than the
+source and sink (flow in $=$ flow out). Return \texttt{(True, value)} when valid, where
+\texttt{value} is the net flow leaving the source; return \texttt{(False, 0.0)} otherwise.
+A flow that references an edge not present in the network is invalid.
+
+\textbf{Example.} On the network with edges $s\!\to\!a(3)$, $s\!\to\!b(2)$, $a\!\to\!b(1)$,
+$a\!\to\!t(2)$, $b\!\to\!t(3)$, the assignment $\{sa{:}2, sb{:}2, at{:}2, bt{:}2\}$ is
+valid with value $4$.
+
+\subsection*{Problem 2 -- Cut Capacity}
+
+Implement \texttt{cut\_capacity(network, S)}. Given an $s$-$t$ cut described by a set
+\texttt{S} (which must contain the source and not the sink), return the cut capacity: the
+sum of capacities of edges going \emph{from} a node in \texttt{S} \emph{to} a node not in
+\texttt{S}. Edges from $T$ back into $S$ do not contribute. Raise \texttt{ValueError} if
+\texttt{S} omits the source or contains the sink.
+
+\textbf{Example.} On the network above, \texttt{cut\_capacity(G, \{"s"\})} $= 5$ (edges
+$s\!\to\!a$ and $s\!\to\!b$).
+
+\subsection*{Problem 3 -- Build the Residual Graph for a Given Flow}
+
+Implement \texttt{build\_residual\_graph(network, flow)}. For each original edge $(u,v)$
+with capacity $c$ and flow $f$: include a forward residual edge $u\!\to\!v$ with residual
+capacity $c-f$ when $c-f>0$, and a backward residual edge $v\!\to\!u$ with residual
+capacity $f$ when $f>0$. Return an adjacency dict mapping each node to a \emph{sorted} list
+of \texttt{(neighbour, residual\_capacity)} pairs, omitting zero-capacity residual edges.
+
+\textbf{Hint.} The backward edges are exactly what let an augmenting-path algorithm cancel
+previously routed flow.
+
+\newpage
+\section{Max-Flow Algorithms}
+
+\subsection*{Problem 4 -- BFS for an Augmenting Path}
+
+Implement \texttt{bfs\_augmenting\_path(network)}. Using the current edge flows stored in
+the \texttt{FlowNetwork} (each \texttt{FlowEdge} exposes \texttt{residual\_capacity()}),
+run a breadth-first search from the source and return a \emph{shortest} (fewest-edges)
+augmenting path as a list of nodes \texttt{[s, ..., t]}, or \texttt{None} if the sink is
+unreachable in the residual graph. If the source equals the sink, return \texttt{[s]}.
+
+\subsection*{Problem 5 -- Edmonds-Karp Maximum Flow}
+
+Implement \texttt{edmonds\_karp(network)}. Repeatedly find a shortest augmenting path by
+BFS; if none exists, stop. Otherwise compute the bottleneck (minimum residual capacity
+along the path) and push that much flow along it, updating forward and backward residual
+edges (use \texttt{FlowEdge.push}). Mutate the edge flows in place and return the max-flow
+value. This is Ford-Fulkerson with the BFS rule, giving the $O(VE^2)$ bound.
+
+\textbf{Example.} \texttt{edmonds\_karp(G) == 5.0} on the running example; on the
+unit-capacity ``diamond'' ($s\!\to\!a,s\!\to\!b,a\!\to\!b,a\!\to\!t,b\!\to\!t$) it returns
+\texttt{2.0}, demonstrating flow cancellation via the residual back-edges.
+
+\subsection*{Problem 6 -- Ford-Fulkerson with DFS Augmenting Paths}
+
+Implement \texttt{ford\_fulkerson(network)} using \emph{depth-first} search to find
+augmenting paths instead of BFS. Any augmenting path yields a correct max flow with integer
+capacities (DFS does not give the $O(VE^2)$ bound, but terminates on these small integer
+instances). Mutate the edge flows in place and return the value. It should agree with
+Edmonds-Karp on every instance.
+
+\subsection*{Problem 7 -- Verify Edmonds-Karp and Ford-Fulkerson Agree}
+
+Implement \texttt{verify\_algorithms\_agree(num\_trials, n, seed)}: for each of
+\texttt{num\_trials} random networks (\texttt{generate\_flow\_network(n, seed=seed +
+trial)}), compute the max flow with both your Edmonds-Karp (Problem 5) and your DFS
+Ford-Fulkerson (Problem 6), and return \texttt{True} iff the values match on every trial.
+Because the max-flow value is \emph{unique} (it equals the min-cut), any two correct
+augmenting-path methods must agree. Use \texttt{network.copy()} so each algorithm runs on
+its own copy (the flow mutations are in place).
+
+\subsection*{Problem 8 -- Extract the Minimum Cut from a Max Flow}
+
+Implement \texttt{min\_cut(network)}: compute a maximum flow, then let \texttt{S} be the
+set of nodes reachable from the source in the \emph{final} residual graph (BFS along
+positive-residual edges). Return \texttt{(S, max\_flow\_value)}; the cut $(S, V\setminus
+S)$ is a minimum cut whose capacity equals the max-flow value (Max-Flow Min-Cut). Also
+implement \texttt{verify\_max\_flow\_min\_cut(num\_trials, n, seed)} returning \texttt{True}
+iff, on every random network, \texttt{cut\_capacity(G, S)} equals the max-flow value and
+the sink is not in \texttt{S}.
+
+\newpage
+\section{Verification \& Applications}
+
+\subsection*{Problem 9 -- Bipartite Matching via Max Flow}
+
+Implement \texttt{max\_bipartite\_matching(left, right, edges)} by reducing to max flow:
+add a super-source with a unit-capacity edge to each left vertex, a unit-capacity edge for
+each allowed pair (left $u$ to right $v$), and a unit-capacity edge from each right vertex
+to a super-sink. The max-flow value equals the maximum matching size; by integrality the
+flow selects a valid set of matching edges. Label left vertices \texttt{("L", u)} and right
+vertices \texttt{("R", v)} so the two sides stay distinct.
+
+\textbf{Example.} With \texttt{left=right=3} and edges $\{(0,0),(1,1),(2,2)\}$ the matching
+size is $3$; with all of left pointing only at right vertex $0$, it is $1$.
+
+\subsection*{Problem 10 -- Multiple Sources/Sinks via Super-Source/Super-Sink}
+
+Implement \texttt{multi\_source\_sink\_max\_flow(nodes, edges, sources, sinks)} where each
+edge is a tuple \texttt{(u, v, capacity)}. Introduce a super-source connected to every
+original source by an infinite-capacity edge, and a super-sink fed by every original sink
+via an infinite-capacity edge; the max flow between them equals the maximum total flow the
+sources can deliver to the sinks. Return that value.
+
+\textbf{Example.} With sources $\{0,1\}$, sink $\{3\}$, and edges $0\!\to\!2(3),
+1\!\to\!2(2), 2\!\to\!3(10)$, the answer is $5$; lowering $2\!\to\!3$ to capacity $4$ makes
+it $4$.
+
+\subsection*{Problem 11 -- Edge-Disjoint Paths via Unit-Capacity Max Flow (Menger)}
+
+Implement \texttt{max\_edge\_disjoint\_paths(nodes, directed\_edges, s, t)}: the maximum
+number of pairwise edge-disjoint $s$-$t$ paths. By Menger's theorem (the edge form), this
+equals the max $s$-$t$ flow when \emph{every} edge has capacity $1$; with integral flow,
+each unit traces one edge-disjoint path. Return the count.
+
+\textbf{Example.} On $s\!\to\!a\!\to\!t$ and $s\!\to\!b\!\to\!t$ the answer is $2$; on a
+single chain $s\!\to\!a\!\to\!b\!\to\!t$ it is $1$.
+
+\subsection*{Problem 12 -- Integrality of the Computed Flow}
+
+Implement \texttt{flow\_is\_integral(network)}: assuming a flow has been computed, return
+\texttt{True} iff every original forward edge carries an integer flow. Then implement
+\texttt{verify\_integrality(num\_trials, n, seed)}: for each random integer-capacity
+network, compute the max flow and check the flow is integral on every edge and the total
+value is itself an integer. Return \texttt{True} iff this holds on every trial.
+
+\textbf{Background.} The Integrality Theorem guarantees this: starting from the all-zero
+flow with integer capacities, every augmentation pushes an integer bottleneck, so the flow
+stays integral throughout -- which is exactly what makes the $0/1$ matching and
+edge-disjoint-path reductions (Problems 9 and 11) work.
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's flow / min-cut / matching
+\emph{modelling} skills on the following \href{https://leetcode.com}{LeetCode} problems.
+Note that \emph{pure} max-flow problems are uncommon on LeetCode; the problems below are
+ones that are naturally modelled as flow, min-cut, or bipartite matching (and several are
+solved in practice by matching DP or BFS + min-cut intuition rather than a full
+Ford-Fulkerson implementation). Difficulty is LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/maximum-number-of-achievable-transfer-requests/}{Maximum Bipartite Matching $\to$ Maximum Number of Achievable Transfer Requests} -- \emph{Hard} -- flow / enumeration.
+  \item \href{https://leetcode.com/problems/maximum-students-taking-exam/}{Maximum Students Taking Exam} -- \emph{Hard} -- matching / bitmask.
+  \item \href{https://leetcode.com/problems/minimum-cost-to-connect-two-groups-of-points/}{Minimum Cost to Connect Two Groups of Points} -- \emph{Hard} -- assignment / min-cost matching.
+  \item \href{https://leetcode.com/problems/campus-bikes-ii/}{Campus Bikes II} -- \emph{Medium} -- assignment (min-cost matching).
+  \item \href{https://leetcode.com/problems/pizza-with-3n-slices/}{Pizza With 3n Slices} -- \emph{Hard} -- matching-style DP.
+  \item \href{https://leetcode.com/problems/escape-the-spreading-fire/}{Escape the Spreading Fire} -- \emph{Hard} -- BFS + min-cut intuition.
+\end{itemize}
+
+\end{document}
