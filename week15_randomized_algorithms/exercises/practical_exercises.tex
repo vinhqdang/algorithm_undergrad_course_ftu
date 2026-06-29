@@ -1,0 +1,207 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 15: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{make\_rng}, \texttt{generate\_array},
+\texttt{generate\_distinct\_array}, \texttt{generate\_stream}, \texttt{generate\_graph},
+\texttt{cut\_size}, \texttt{is\_prime\_trial\_division}.
+
+\textbf{Determinism is mandatory.} Every randomized routine must take a \texttt{seed} and
+route all randomness through \texttt{random.Random(seed)} (never the global \texttt{random}
+module). All tests seed their generators and assert on \emph{loose} statistical bounds, so
+a correct implementation passes every time and never flakes.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Randomized Sorting \& Selection} (Problems 1--3): Fisher--Yates shuffle,
+    randomized QuickSort, randomized Quickselect.
+    \item \textbf{Sampling \& Simulation} (Problems 4--5, 8--9): reservoir sampling,
+    contention resolution, Monte Carlo $\pi$, and Las Vegas vs.\ Monte Carlo.
+    \item \textbf{Randomized Graph \& Number Algorithms} (Problems 6--7, 10--12): Karger's
+    min-cut and amplification, Miller--Rabin primality, min-cut success-probability checks,
+    and universal hashing.
+\end{itemize}
+
+\newpage
+\section{Randomized Sorting and Selection}
+
+\subsection*{Problem 1 -- Fisher--Yates Shuffle}
+
+Implement \texttt{fisher\_yates\_shuffle(arr, seed)} that returns a uniformly random
+permutation of \texttt{arr} using the in-place Fisher--Yates (Knuth) shuffle: for $i$ from
+$n-1$ down to $1$, pick $j$ uniformly in $[0, i]$ and swap positions $i$ and $j$. Route all
+randomness through \texttt{random.Random(seed)}.
+
+\textbf{Verify} (deterministically): the result is always a permutation of the input; and
+over many seeded trials, the empirical distribution of the first element (or of a small
+permutation) is roughly uniform (a loose chi-square-style spread check).
+
+\subsection*{Problem 2 -- Randomized QuickSort}
+
+Implement \texttt{randomized\_quicksort(arr, seed)} returning a sorted copy, choosing each
+pivot uniformly at random (seeded). Also return, via \texttt{quicksort\_with\_comparisons(
+arr, seed)}, the number of element comparisons performed.
+
+\textbf{Verify}: the output equals \texttt{sorted(arr)} on many seeded instances; and the
+comparison count stays within a generous constant factor of $n\log_2 n$ (e.g.\ $\le 10\,n
+\log_2 n$ averaged over trials), confirming the expected $O(n\log n)$ behaviour.
+
+\subsection*{Problem 3 -- Randomized Quickselect}
+
+Implement \texttt{randomized\_quickselect(arr, k, seed)} returning the $k$-th smallest
+element ($1$-indexed) using random pivots (seeded), recursing into only the relevant side.
+
+\textbf{Verify}: for many seeded instances and every $k$, the result equals
+\texttt{sorted(arr)[k-1]}.
+
+\newpage
+\section{Sampling and Simulation}
+
+\subsection*{Problem 4 -- Reservoir Sampling}
+
+Implement \texttt{reservoir\_sample(stream, k, seed)} returning a uniform random $k$-subset
+of \texttt{stream} (any iterable of unknown length) in a single pass using $O(k)$ space:
+keep the first $k$ items, and for the $t$-th item ($t>k$) accept it with probability $k/t$,
+replacing a uniformly random reservoir slot.
+
+\textbf{Verify}: over many seeded trials on a stream of $n$ items, each element's empirical
+inclusion frequency is close to $k/n$ (a loose absolute-tolerance bound).
+
+\subsection*{Problem 5 -- Contention Resolution Simulation}
+
+Implement \texttt{simulate\_contention(n, seed)}: simulate $n$ processes that each attempt a
+shared resource with probability $p = 1/n$ per round; a process succeeds in a round iff it
+is the only one attempting. Return the number of rounds until \emph{all} $n$ have succeeded
+at least once. Then implement \texttt{average\_rounds(n, num\_trials, seed)} averaging this
+over seeded trials.
+
+\textbf{Verify}: the average number of rounds grows like $\Theta(n\log n)$ -- specifically,
+it lies within a loose constant-factor window of $n\ln n$ for a couple of sizes.
+
+\subsection*{Problem 8 -- Monte Carlo Estimation of $\pi$}
+
+Implement \texttt{estimate\_pi(num\_samples, seed)}: throw \texttt{num\_samples} random
+points uniformly into $[0,1]^2$ (seeded) and return $4\times$ the fraction landing inside
+the unit quarter-circle ($x^2 + y^2 \le 1$).
+
+\textbf{Verify}: for large \texttt{num\_samples} the estimate is within a loose tolerance of
+$\pi$ (e.g.\ $|\hat\pi - \pi| < 0.1$ at $2\times 10^5$ samples with a fixed seed).
+
+\subsection*{Problem 9 -- Las Vegas vs.\ Monte Carlo}
+
+For the task ``find an index of \texttt{target} in a list known to contain it,'' implement:
+\texttt{las\_vegas\_find(arr, target, seed)} that repeatedly probes random indices until it
+hits \texttt{target} (always correct, random time); and \texttt{monte\_carlo\_find(arr,
+target, max\_probes, seed)} that probes at most \texttt{max\_probes} random indices and
+returns an index or \texttt{None} (fixed time, may fail).
+
+\textbf{Verify}: the Las Vegas variant is \emph{always} correct over many seeded trials
+(returns an index $i$ with \texttt{arr[i] == target}); the Monte Carlo variant runs a
+bounded number of probes and may sometimes return \texttt{None} -- but is never \emph{wrong}
+when it returns an index.
+
+\newpage
+\section{Randomized Graph and Number Algorithms}
+
+\subsection*{Problem 6 -- Karger's Contraction (Single Run)}
+
+Implement \texttt{karger\_min\_cut(graph, seed)} performing one run of Karger's contraction:
+repeatedly contract a uniformly random edge (merging endpoints, keeping parallel edges,
+dropping self-loops) until two super-vertices remain; return the number of edges between
+them (the cut size of this run).
+
+\textbf{Verify}: on small connected graphs the returned value is always $\ge$ the true
+global min-cut and is a valid cut size; runs with different seeds may differ.
+
+\subsection*{Problem 7 -- Karger with Amplification}
+
+Implement \texttt{karger\_min\_cut\_amplified(graph, trials, seed)} that runs Problem~6
+\texttt{trials} times (with derived seeds) and returns the smallest cut found. Also provide
+\texttt{brute\_force\_min\_cut(graph)} computing the true global min-cut by trying all
+vertex bipartitions (for small $n$).
+
+\textbf{Verify}: with enough trials, the amplified result equals the brute-force min-cut on
+several small graphs (high probability; the seeds are fixed so the test is deterministic).
+
+\subsection*{Problem 10 -- Miller--Rabin Primality Test}
+
+Implement \texttt{miller\_rabin(n, seed, rounds=20)}: the Miller--Rabin probabilistic test
+with \texttt{rounds} random witnesses (seeded). Handle small/even cases directly.
+
+\textbf{Verify}: against \texttt{is\_prime\_trial\_division} (from \texttt{starter\_code.py})
+over a range of integers (e.g.\ $0\ldots500$), the two agree on every value with a fixed
+seed and \texttt{rounds=20}.
+
+\subsection*{Problem 11 -- Min-Cut Success-Probability Empirical Check}
+
+Implement \texttt{single\_run\_success\_rate(graph, num\_runs, seed)}: run Problem~6
+\texttt{num\_runs} times (derived seeds), and return the fraction of runs whose cut equals
+the true global min-cut (use \texttt{brute\_force\_min\_cut} from Problem~7).
+
+\textbf{Verify}: on a small graph the observed success fraction is at least the theoretical
+floor $1/\binom{n}{2}$ (with a comfortable margin and enough runs, deterministically
+seeded).
+
+\subsection*{Problem 12 -- Universal-Hashing Collision Count}
+
+Implement \texttt{universal\_hash\_family(p, m, seed)} returning a hash function
+$h(x) = ((a x + b)\bmod p)\bmod m$ with random $a\in\{1,\ldots,p-1\}, b\in\{0,\ldots,p-1\}$
+(seeded). Implement \texttt{count\_collisions(keys, h)} counting colliding \emph{pairs}, and
+\texttt{average\_collisions(n, m, num\_trials, seed)} averaging the collision count over
+seeded random hash functions on $n$ distinct keys.
+
+\textbf{Verify}: the average number of colliding pairs is near $\binom{n}{2}/m \approx
+n^2/(2m)$ over the trials (a loose relative-tolerance bound).
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's randomized techniques
+(Fisher--Yates, reservoir sampling, randomized quickselect, rejection sampling) on the
+following \href{https://leetcode.com}{LeetCode} problems. Difficulty is LeetCode's own
+label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/shuffle-an-array/}{Shuffle an Array} -- \emph{Medium} -- Fisher--Yates shuffle.
+  \item \href{https://leetcode.com/problems/random-pick-with-weight/}{Random Pick with Weight} -- \emph{Medium} -- prefix sums + binary search.
+  \item \href{https://leetcode.com/problems/random-pick-index/}{Random Pick Index} -- \emph{Medium} -- reservoir sampling.
+  \item \href{https://leetcode.com/problems/linked-list-random-node/}{Linked List Random Node} -- \emph{Medium} -- reservoir sampling.
+  \item \href{https://leetcode.com/problems/insert-delete-getrandom-o1/}{Insert Delete GetRandom O(1)} -- \emph{Medium} -- randomized data structure.
+  \item \href{https://leetcode.com/problems/implement-rand10-using-rand7/}{Implement Rand10() Using Rand7()} -- \emph{Medium} -- rejection sampling.
+  \item \href{https://leetcode.com/problems/kth-largest-element-in-an-array/}{Kth Largest Element in an Array} -- \emph{Medium} -- randomized quickselect.
+  \item \href{https://leetcode.com/problems/random-point-in-non-overlapping-rectangles/}{Random Point in Non-overlapping Rectangles} -- \emph{Medium} -- weighted random sampling.
+\end{itemize}
+
+\end{document}

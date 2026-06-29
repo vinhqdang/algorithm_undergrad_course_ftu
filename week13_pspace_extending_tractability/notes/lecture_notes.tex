@@ -1,0 +1,577 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 13: PSPACE and Extending Tractability}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction: Beyond NP}
+
+The previous weeks built up a sharp picture of the world of computation: some
+problems are solvable in polynomial time (the class \textbf{P}), many natural
+problems are \textbf{NP-complete} and (conjecturally) admit no polynomial-time
+algorithm, and reductions let us relate one hard problem to another. This week
+we push the picture in two directions.
+
+\begin{itemize}
+    \item \textbf{Upward}, to a larger complexity class: \textbf{PSPACE}, the
+    problems solvable using a polynomial amount of \emph{memory} (regardless of
+    time). PSPACE contains all of NP, and its canonical complete problem --
+    deciding a \emph{quantified} boolean formula (QSAT/QBF) -- captures the
+    flavor of \emph{games}, where two players alternate moves. Game playing is
+    naturally PSPACE-shaped: ``does there \emph{exist} a move for me such that
+    for \emph{all} replies of my opponent, there exists a move for me, \dots,
+    I win?''
+
+    \item \textbf{Sideways}, by \emph{extending tractability}: even when a
+    problem is NP-hard in general, we can often solve the instances we actually
+    care about, \emph{provably} and \emph{efficiently}, by exploiting (a) a
+    small \emph{parameter}, (b) special \emph{structure} in the input, or (c)
+    clever \emph{pruning} of an exponential search. These are the themes of
+    fixed-parameter tractability (FPT), dynamic programming on special graphs,
+    and branch-and-bound.
+\end{itemize}
+
+This follows Kleinberg \& Tardos, Chapters 9 (PSPACE) and 10 (extending the
+limits of tractability). The unifying message: \emph{NP-hardness is a
+worst-case statement}. It does not forbid us from solving real instances; it
+just tells us where to look for the leverage that makes a particular family of
+instances tractable.
+
+\section{PSPACE and Quantified Boolean Formulas}
+
+\subsection{The class PSPACE}
+
+\begin{definition}[PSPACE]
+A decision problem is in \textbf{PSPACE} if there is an algorithm that decides
+it using an amount of \emph{working memory} (space) bounded by a polynomial in
+the input size $n$. There is no restriction on running time (it may be
+exponential), only on space.
+\end{definition}
+
+Two basic facts position PSPACE relative to the classes we already know.
+
+\begin{theorem}
+$\textbf{P} \subseteq \textbf{NP} \subseteq \textbf{PSPACE}$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+$\textbf{P} \subseteq \textbf{NP}$ is immediate. For $\textbf{NP} \subseteq
+\textbf{PSPACE}$: an NP problem can be decided by trying every candidate
+certificate in turn and running the (polynomial-time) verifier on each. We can
+enumerate certificates one at a time, reusing the same polynomial-size memory
+for each verification, discarding it before the next -- so total \emph{space}
+stays polynomial even though we examine exponentially many certificates over
+exponential \emph{time}.
+\end{proof}
+
+The reuse-of-space idea is the heart of PSPACE: \emph{time can blow up
+exponentially, but space is recycled}. It is widely believed (but unproven)
+that $\textbf{NP} \neq \textbf{PSPACE}$, so PSPACE is plausibly strictly larger
+than NP.
+
+\subsection{Quantified Boolean Formulas (QBF / QSAT)}
+
+Recall that SAT asks whether \emph{there exists} a satisfying assignment:
+$\exists x_1 \exists x_2 \cdots \exists x_n\; \Phi(x_1,\dots,x_n)$. QSAT
+generalizes this by allowing \emph{alternating} quantifiers.
+
+\begin{definition}[QSAT / TQBF]
+A \emph{quantified boolean formula} has the form
+\[
+Q_1 x_1\; Q_2 x_2 \cdots Q_n x_n\; \Phi(x_1,\dots,x_n),
+\]
+where each $Q_i \in \{\exists, \forall\}$ and $\Phi$ is a boolean formula
+(often in CNF). The \textbf{QSAT} (also \textbf{TQBF}, ``true QBF'') problem is
+to decide whether the fully-quantified formula evaluates to \texttt{true}.
+\end{definition}
+
+A fully-quantified formula has a definite truth value (no free variables). It
+is evaluated by the obvious recursion: $\exists x_i\,\Psi$ is true iff $\Psi$
+is true for $x_i=\texttt{false}$ \emph{or} for $x_i=\texttt{true}$;
+$\forall x_i\,\Psi$ is true iff $\Psi$ is true for \emph{both} values. Problem
+1 asks you to implement exactly this recursive evaluator.
+
+\begin{theorem}[Stockmeyer--Meyer]
+QSAT is PSPACE-complete.
+\end{theorem}
+
+\begin{proof}[Why it is in PSPACE]
+The recursive evaluator above uses a recursion stack of depth $n$ (one frame
+per quantifier), each frame storing $O(1)$ extra information (the current value
+being tried for one variable). At a leaf we evaluate $\Phi$ on a complete
+assignment in polynomial space. Although the recursion explores a tree of up to
+$2^n$ leaves (exponential \emph{time}), at any instant only one root-to-leaf
+path is materialized, so the \emph{space} is $O(n + |\Phi|)$ -- polynomial.
+Completeness (that every PSPACE problem reduces to QSAT) is shown by encoding
+a polynomial-space computation as a quantified formula; we omit the
+construction (Kleinberg \& Tardos, Section 9.4).
+\end{proof}
+
+The alternation $\exists\forall\exists\forall\cdots$ is exactly the logical
+structure of a two-player game, which we turn to next.
+
+\section{Games as PSPACE Problems}
+
+\subsection{Game trees and minimax}
+
+Consider a finite, two-player, zero-sum, perfect-information game (tic-tac-toe,
+Nim, chess on a bounded board, \dots). Players alternate moves; one player
+(\textbf{Max}) wants to maximize the final payoff and the other (\textbf{Min})
+wants to minimize it. The set of all play sequences forms a \textbf{game tree}:
+internal nodes are positions (alternating between ``Max to move'' and ``Min to
+move''), edges are moves, and leaves carry payoffs.
+
+\begin{definition}[Minimax value]
+The \emph{minimax value} of a position is defined recursively: a leaf's value is
+its payoff; a Max node's value is the \emph{maximum} of its children's values; a
+Min node's value is the \emph{minimum} of its children's values. The minimax
+value of the root is the payoff achievable under optimal play by both sides.
+\end{definition}
+
+\begin{algorithm}[h]
+\caption{Minimax (value for the player to move)}
+\begin{algorithmic}[1]
+\Function{Minimax}{$node$, $maximizing$}
+    \If{$node$ is a leaf} \Return payoff$(node)$ \EndIf
+    \If{$maximizing$}
+        \State \Return $\max_{c \,\in\, \text{children}(node)} \textsc{Minimax}(c, \text{false})$
+    \Else
+        \State \Return $\min_{c \,\in\, \text{children}(node)} \textsc{Minimax}(c, \text{true})$
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The recursion mirrors a QBF exactly: ``does Max have a move ($\exists$) so that
+for all Min replies ($\forall$) Max still has a move ($\exists$), \dots,
+ending in a win?'' This is why deciding the winner of a generalized board game
+is typically PSPACE-complete. Problem 2 asks you to implement minimax on a
+nested-list game tree.
+
+\subsection{Alpha-beta pruning}
+
+Plain minimax explores the entire tree. \textbf{Alpha-beta pruning} computes
+the \emph{same} minimax value while skipping subtrees that cannot affect the
+result. It carries two bounds down the recursion:
+\begin{itemize}
+    \item $\alpha$ = the best (largest) value Max can already guarantee along
+    the current path;
+    \item $\beta$ = the best (smallest) value Min can already guarantee.
+\end{itemize}
+Whenever $\alpha \ge \beta$, the current node's remaining children are
+irrelevant -- the opponent already has a better option elsewhere -- so we
+\emph{prune}.
+
+\begin{algorithm}[h]
+\caption{Alpha-Beta Pruning}
+\begin{algorithmic}[1]
+\Function{AlphaBeta}{$node$, $maximizing$, $\alpha$, $\beta$}
+    \If{$node$ is a leaf} \Return payoff$(node)$ \EndIf
+    \If{$maximizing$}
+        \State $v \gets -\infty$
+        \For{each child $c$ of $node$}
+            \State $v \gets \max(v, \textsc{AlphaBeta}(c, \text{false}, \alpha, \beta))$
+            \State $\alpha \gets \max(\alpha, v)$
+            \If{$\alpha \ge \beta$} \textbf{break} \Comment{$\beta$ cut-off} \EndIf
+        \EndFor
+        \State \Return $v$
+    \Else
+        \State $v \gets +\infty$
+        \For{each child $c$ of $node$}
+            \State $v \gets \min(v, \textsc{AlphaBeta}(c, \text{true}, \alpha, \beta))$
+            \State $\beta \gets \min(\beta, v)$
+            \If{$\beta \le \alpha$} \textbf{break} \Comment{$\alpha$ cut-off} \EndIf
+        \EndFor
+        \State \Return $v$
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+Alpha-beta pruning returns the same value as plain minimax.
+\end{theorem}
+
+\begin{proof}[Proof idea]
+A subtree is pruned only when its parent already has a sibling value forcing
+$\alpha \ge \beta$. In that situation, the value of the pruned subtree could
+only move the node's $\max$/$\min$ in a direction the ancestor on the other side
+would never choose, so it cannot change any value on the path to the root.
+Hence the root value is unaffected by the pruning.
+\end{proof}
+
+With an ideal move ordering, alpha-beta examines only $O(b^{d/2})$ leaves
+instead of $O(b^d)$ -- effectively doubling the search depth reachable in the
+same time. Problem 3 asks you to implement alpha-beta and verify both that it
+returns the same value as minimax and that it visits strictly fewer leaves.
+
+\section{Extending Tractability I: Fixed-Parameter Tractability}
+
+NP-hardness is a worst-case statement over \emph{all} inputs of size $n$. Often
+the inputs we care about have a small \emph{parameter} $k$ -- the size of the
+solution, the treewidth, the number of clusters -- even when $n$ is large. FPT
+isolates the exponential blow-up in $k$ alone.
+
+\begin{definition}[Fixed-parameter tractable]
+A parameterized problem (with input size $n$ and parameter $k$) is
+\textbf{fixed-parameter tractable (FPT)} if it can be solved in time
+$f(k)\cdot \mathrm{poly}(n)$ for some function $f$ depending only on $k$. The
+exponential cost (if any) is confined to $f(k)$; the dependence on $n$ stays
+polynomial.
+\end{definition}
+
+The point: if $k$ is small (say $\le 20$) then $f(k)$ -- even $2^k$ -- is a
+fixed constant, and the algorithm is genuinely efficient on large $n$, in stark
+contrast to a $2^n$ brute force.
+
+\subsection{Bounded search trees: Vertex Cover in $O(2^k\, n)$}
+
+\begin{definition}[Vertex Cover]
+A \emph{vertex cover} of a graph $G=(V,E)$ is a set $C \subseteq V$ such that
+every edge has at least one endpoint in $C$. The decision problem: given $G$
+and an integer $k$, is there a vertex cover with $|C| \le k$?
+\end{definition}
+
+Vertex Cover is NP-complete, but parameterized by $k$ it is FPT, via a beautiful
+\textbf{bounded search tree}. The key observation:
+
+\begin{lemma}[Branching rule]
+For any edge $(u,v)$, every vertex cover must contain $u$ or $v$ (or both).
+\end{lemma}
+
+So we pick any uncovered edge $(u,v)$ and \emph{branch}: either $u \in C$ or
+$v \in C$. Each branch fixes one vertex and decrements the budget $k$ by one,
+giving a search tree of depth $\le k$ and branching factor $2$.
+
+\begin{algorithm}[h]
+\caption{FPT Vertex Cover (bounded search tree)}
+\begin{algorithmic}[1]
+\Function{VC}{$E$, $k$, $C$}
+    \If{$E = \emptyset$} \Return $C$ \Comment{all edges covered} \EndIf
+    \If{$k = 0$} \Return \textsc{None} \Comment{budget exhausted, edges remain} \EndIf
+    \State pick any edge $(u,v) \in E$
+    \For{$w \in \{u, v\}$}
+        \State $E' \gets$ edges of $E$ not incident to $w$
+        \State $R \gets \textsc{VC}(E', k-1, C \cup \{w\})$
+        \If{$R \neq \textsc{None}$} \Return $R$ \EndIf
+    \EndFor
+    \State \Return \textsc{None}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+\label{thm:vc-fpt}
+The bounded-search-tree algorithm decides whether a vertex cover of size $\le k$
+exists in time $O(2^k \cdot (n+m))$, and returns such a cover if one exists.
+\end{theorem}
+
+\begin{proof}
+\textbf{Correctness.} The recursion explores all ways of choosing, for each
+edge encountered, which endpoint enters the cover. By the branching lemma, every
+vertex cover is consistent with at least one such sequence of choices, so if a
+cover of size $\le k$ exists, some leaf of the search tree at depth $\le k$
+finds it; conversely every returned set covers all edges (we only return when
+$E=\emptyset$) and has size $\le k$ (each recursive level adds one vertex and
+decrements $k$). \textbf{Running time.} The recursion tree has depth $\le k$ and
+branching factor $2$, hence $\le 2^k$ leaves and $O(2^k)$ nodes; each node does
+$O(n+m)$ work to filter edges. Total $O(2^k(n+m))$.
+\end{proof}
+
+Note the contrast with the $\binom{n}{k}$ brute force over all $k$-subsets: the
+search tree depends \emph{exponentially only on $k$}. Problems 4--5 ask you to
+implement this decider and verify it against a brute-force minimum vertex cover
+on small graphs.
+
+\subsection{Kernelization}
+
+A second pillar of FPT is \textbf{kernelization}: in polynomial time, shrink
+the instance to an equivalent ``kernel'' whose size depends only on $k$, then
+run any (even brute-force) algorithm on the small kernel.
+
+For Vertex Cover, two reduction rules suffice for a first kernel:
+
+\begin{itemize}
+    \item \textbf{High-degree rule.} If a vertex $v$ has degree $> k$, then $v$
+    must be in every cover of size $\le k$. (If $v$ were \emph{not} in $C$, then
+    all $> k$ of its incident edges would need their \emph{other} endpoints in
+    $C$, forcing $|C| > k$.) So put $v$ in the cover, delete $v$ and its edges,
+    and decrement $k$.
+    \item \textbf{Isolated-vertex rule.} A degree-$0$ vertex covers no edge and
+    is never needed; remove it.
+\end{itemize}
+
+\begin{theorem}[Kernel size]
+After applying the two rules exhaustively, a yes-instance has at most $k^2$
+edges and at most $k^2 + k$ non-isolated vertices.
+\end{theorem}
+
+\begin{proof}
+Once no high-degree vertex remains, every vertex has degree $\le k$. A cover of
+size $\le k$ touches every edge, and each of its $\le k$ vertices covers
+$\le k$ edges, so there are at most $k \cdot k = k^2$ edges. Each such edge has
+$2$ endpoints, so at most $2k^2$ vertex-incidences and certainly
+$O(k^2)$ non-isolated vertices remain.
+\end{proof}
+
+Thus the original $n$ drops out entirely: brute force on the kernel costs only a
+function of $k$. Problem 6 asks you to implement these two reduction rules and
+return the reduced instance.
+
+\section{Extending Tractability II: Exploiting Special Structure}
+
+Even an NP-hard problem can become polynomial when restricted to inputs with
+special structure. The cleanest example is solving a hard graph problem on a
+\textbf{tree}.
+
+\subsection{Independent Set on trees via dynamic programming}
+
+\begin{definition}[Independent Set]
+An \emph{independent set} of $G=(V,E)$ is a set $S \subseteq V$ with no edge
+between any two members. Maximum Independent Set asks for the largest such $S$.
+It is NP-hard on general graphs.
+\end{definition}
+
+On a \emph{tree}, however, a root-to-leaf DP solves it in linear time. Root the
+tree anywhere and, for each vertex $v$, compute two quantities over the subtree
+rooted at $v$:
+\[
+\mathrm{incl}[v] = 1 + \!\!\sum_{c \,\in\, \mathrm{children}(v)}\!\! \mathrm{excl}[c],
+\qquad
+\mathrm{excl}[v] = \!\!\sum_{c \,\in\, \mathrm{children}(v)}\!\! \max(\mathrm{incl}[c], \mathrm{excl}[c]).
+\]
+The first is the best subtree solution \emph{including} $v$ (so no child may be
+included); the second is the best \emph{excluding} $v$ (each child is free to be
+included or not).
+
+\begin{algorithm}[h]
+\caption{Maximum Independent Set on a Tree}
+\begin{algorithmic}[1]
+\State root the tree at any vertex; compute a post-order of the vertices
+\For{each vertex $v$ in post-order (children before parents)}
+    \State $\mathrm{incl}[v] \gets 1 + \sum_{c} \mathrm{excl}[c]$
+    \State $\mathrm{excl}[v] \gets \sum_{c} \max(\mathrm{incl}[c], \mathrm{excl}[c])$
+\EndFor
+\State \Return $\max(\mathrm{incl}[\text{root}], \mathrm{excl}[\text{root}])$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+The DP computes a maximum independent set of an $n$-vertex tree in $O(n)$ time.
+\end{theorem}
+
+\begin{proof}
+\textbf{Correctness} is by induction on subtree size: $\mathrm{incl}[v]$ and
+$\mathrm{excl}[v]$ correctly record the best independent set of $v$'s subtree
+under the two cases for $v$, given (by induction) correct values for all
+children; including $v$ forbids including any child (hence $\mathrm{excl}[c]$),
+while excluding $v$ leaves each child free (hence $\max$). The root case
+$\max(\mathrm{incl},\mathrm{excl})$ allows or disallows the root.
+\textbf{Time}: each vertex is processed once, doing work proportional to its
+number of children; summing over the tree gives $O(n)$.
+\end{proof}
+
+This is a template: many NP-hard problems become tractable on trees (and, more
+generally, on graphs of bounded \emph{treewidth}) precisely because a tree
+admits such a clean subtree decomposition. Problem 7 asks you to implement the
+tree DP and verify it against a brute-force maximum independent set.
+
+\section{Extending Tractability III: Branch and Bound}
+
+Branch-and-bound keeps an exponential search structure but prunes aggressively
+using \emph{bounds}: an optimistic estimate (upper bound for maximization,
+lower bound for minimization) of the best completion of a partial solution. If
+the bound cannot beat the best complete solution found so far (the
+\emph{incumbent}), the whole subtree is discarded. The answer is always exact;
+only the search is faster.
+
+\subsection{Branch-and-bound for the 0/1 Knapsack}
+
+\begin{definition}[0/1 Knapsack]
+Given $n$ items with values $v_i$ and weights $w_i$, and capacity $W$, choose a
+subset maximizing total value subject to total weight $\le W$.
+\end{definition}
+
+We branch on each item (include / exclude) and bound with the
+\textbf{fractional relaxation}: sort items by value-to-weight ratio, greedily
+take whole items, then a fraction of the next to fill the remaining capacity.
+This is the optimal value of the LP relaxation, hence a valid \emph{upper
+bound} on any integral completion.
+
+\begin{algorithm}[h]
+\caption{Branch-and-Bound 0/1 Knapsack}
+\begin{algorithmic}[1]
+\State sort items by $v_i / w_i$ descending; $best \gets 0$
+\Function{Explore}{$i$, $curVal$, $curWt$}
+    \State $best \gets \max(best, curVal)$
+    \If{$i = n$} \Return \EndIf
+    \If{\textsc{FractionalBound}$(i, curVal, curWt) \le best$} \Return \Comment{prune} \EndIf
+    \If{$curWt + w_i \le W$} \textsc{Explore}$(i{+}1, curVal+v_i, curWt+w_i)$ \EndIf
+    \State \textsc{Explore}$(i{+}1, curVal, curWt)$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The optimum found must equal the value from the standard $O(nW)$ DP; Problem 8
+asks you to verify this on random instances.
+
+\subsection{Branch-and-bound for the TSP}
+
+\begin{definition}[Travelling Salesman Problem]
+Given a symmetric distance matrix on $n$ cities, find the shortest tour (cyclic
+permutation) visiting every city exactly once and returning to the start.
+\end{definition}
+
+We branch on the order in which cities are appended to a partial tour and prune
+with a \emph{lower bound} on the cost to complete it -- for instance, the cost
+so far plus, for the current city and every unvisited city, the cheapest edge
+that could still leave it. If this admissible bound already exceeds the best
+complete tour found, the partial tour is abandoned.
+
+\begin{algorithm}[h]
+\caption{Branch-and-Bound TSP}
+\begin{algorithmic}[1]
+\State $best \gets +\infty$; start the tour at city $0$
+\Function{Explore}{$current$, $count$, $cost$}
+    \If{$cost \ge best$} \Return \EndIf
+    \If{$count = n$} \State $best \gets \min(best, cost + d(current, 0))$; \Return \EndIf
+    \If{\textsc{LowerBound}$(current, cost) \ge best$} \Return \Comment{prune} \EndIf
+    \For{each unvisited city $j$}
+        \State mark $j$ visited; \textsc{Explore}$(j, count+1, cost + d(current, j))$; unmark $j$
+    \EndFor
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The optimum must match an exact baseline such as Held--Karp DP (in
+$O(2^n n^2)$) or brute force; Problem 9 asks you to verify this on small $n$.
+
+\section{A Polynomial Island: 2-SAT}
+
+Not every restriction of a hard problem stays hard. \textbf{2-SAT} -- SAT where
+every clause has exactly two literals -- is solvable in \emph{linear} time,
+even though $3$-SAT is NP-complete. The trick is the \textbf{implication
+graph}: a clause $(a \lor b)$ is equivalent to the two implications
+$(\lnot a \Rightarrow b)$ and $(\lnot b \Rightarrow a)$. Build a directed graph
+with two nodes per variable ($x$ and $\lnot x$) and these implication edges.
+
+\begin{theorem}[Aspvall--Plass--Tarjan]
+A 2-CNF formula is satisfiable iff no variable $x$ has both $x$ and $\lnot x$
+in the same strongly connected component (SCC) of the implication graph. If
+satisfiable, a satisfying assignment can be read off in linear time from the
+reverse topological order of the SCCs.
+\end{theorem}
+
+\begin{proof}[Proof idea]
+Implications are transitive, so within an SCC all literals must take the same
+truth value. If $x$ and $\lnot x$ are forced equal, the formula is
+contradictory. Otherwise, processing SCCs in reverse topological order and
+setting each not-yet-assigned literal to \texttt{true} (and its negation
+\texttt{false}) never violates an implication, because an implication
+$u \Rightarrow w$ cannot point from a later (true) SCC to an earlier (false)
+one.
+\end{proof}
+
+Computing SCCs via Kosaraju's or Tarjan's algorithm gives the whole procedure
+in $O(n+m)$. Problem 10 asks you to implement this and return an assignment or
+\texttt{None}.
+
+\section{State-Space Search: Iterative Deepening}
+
+Many PSPACE-flavored puzzles (sliding tiles, word ladders) reduce to finding a
+path in an enormous, implicitly-defined state graph. Breadth-first search finds
+a shortest path but needs memory proportional to the frontier -- often
+infeasible. \textbf{Iterative-deepening DFS (IDDFS)} combines BFS's optimality
+(shortest path in number of moves) with DFS's small memory footprint: run a
+depth-limited DFS with limit $1, 2, 3, \dots$ until the goal is found.
+
+\begin{algorithm}[h]
+\caption{Iterative-Deepening DFS}
+\begin{algorithmic}[1]
+\For{$\ell = 1, 2, 3, \dots$}
+    \State run depth-limited DFS from the start with depth limit $\ell$
+    \If{the goal is reached} \Return the path \EndIf
+\EndFor
+\end{algorithmic}
+\end{algorithm}
+
+Although shallow levels are re-explored, the cost is dominated by the deepest
+level (a geometric series), so the total work is within a constant factor of a
+single DFS to the solution depth, while space stays $O(\ell)$. Problem 11 asks
+you to solve a small sliding puzzle with IDDFS and return the solution path.
+
+\section{Set Cover by FPT/Bitmask Search}
+
+\begin{definition}[Set Cover]
+Given a universe $U$ and a family of subsets $S_1,\dots,S_m \subseteq U$, find
+the fewest subsets whose union is $U$.
+\end{definition}
+
+Set Cover is NP-hard, but parameterized by the solution size $k$ it admits a
+bounded-search-tree algorithm: pick any still-uncovered element $e$; some chosen
+set must contain $e$, so branch over the (often few) sets containing $e$,
+decrementing the budget. Representing covered elements as a \emph{bitmask}
+makes union and coverage tests $O(1)$ machine operations. Problem 12 asks you
+to implement this search parameterized by solution size and verify it against
+brute force.
+
+\section{Summary and Looking Ahead}
+
+This week extended our map of the computational landscape in two directions.
+
+\begin{itemize}
+    \item \textbf{PSPACE} captures polynomial-\emph{space} computation and
+    contains NP. Its complete problem, \textbf{QSAT/QBF}, has alternating
+    $\exists/\forall$ quantifiers -- the logic of two-player games. \textbf{Game
+    trees} are evaluated by \textbf{minimax}, sped up (without changing the
+    answer) by \textbf{alpha-beta pruning}.
+
+    \item \textbf{Fixed-parameter tractability} confines exponential cost to a
+    parameter $k$: \textbf{bounded search trees} give Vertex Cover in
+    $O(2^k n)$ (Theorem~\ref{thm:vc-fpt}), and \textbf{kernelization} shrinks an
+    instance to size depending only on $k$.
+
+    \item \textbf{Special structure} makes hard problems easy: Independent Set
+    is linear-time on \textbf{trees} via DP, and \textbf{2-SAT} is linear-time
+    via the implication-graph/SCC method even though 3-SAT is NP-complete.
+
+    \item \textbf{Branch-and-bound} solves Knapsack and TSP \emph{exactly} by
+    pruning with relaxation bounds, and \textbf{iterative-deepening} searches
+    huge state spaces with little memory.
+\end{itemize}
+
+The throughline: \emph{NP-hardness is a worst-case verdict, not a death
+sentence.} Real instances often have a small parameter, special structure, or
+bounds tight enough to prune the search dramatically.
+
+Next week (\textbf{Approximation Algorithms and Local Search}) we relax a
+different requirement: instead of guaranteeing an \emph{exact} optimum quickly,
+we will design polynomial-time algorithms that guarantee a solution provably
+\emph{close} to optimal (approximation ratios), and study local-search
+heuristics that iteratively improve a solution toward a local optimum.
+
+\end{document}

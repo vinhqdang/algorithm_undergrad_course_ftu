@@ -1,0 +1,551 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 11: Network Flow II/III: Bipartite Matching and Applications}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction: Flow as a Modeling Language}
+
+Last week we developed the theory of \textbf{maximum flow} and the
+\textbf{max-flow min-cut theorem}: in any flow network the value of a maximum
+$s$--$t$ flow equals the capacity of a minimum $s$--$t$ cut, and the
+Ford--Fulkerson family of algorithms (in particular Edmonds--Karp, which always
+augments along a shortest path) computes both. That theorem is powerful in its
+own right, but its real importance is as a \emph{modeling language}: a
+surprising number of combinatorial problems that have nothing to do with
+``pipes and fluid'' can be \emph{reduced} to a max-flow or a min-cut
+computation. This week (Kleinberg \& Tardos, Ch.\ 7) is about those reductions.
+
+The recurring pattern is always the same:
+\begin{enumerate}[label=(\arabic*)]
+    \item Start with a combinatorial problem (a matching, a set of disjoint
+    paths, a selection of projects, an image to segment).
+    \item \textbf{Build} a flow network whose structure encodes the constraints
+    of the problem.
+    \item \textbf{Prove} a correspondence: feasible/optimal solutions of the
+    original problem correspond exactly to flows/cuts of a certain value.
+    \item \textbf{Solve} the flow problem and \textbf{translate} the answer
+    back.
+\end{enumerate}
+
+The art is entirely in steps (2) and (3); step (4) is a black-box call to last
+week's algorithm. Throughout, we use the shared \texttt{MaxFlow} helper (an
+Edmonds--Karp implementation in \texttt{starter\_code.py}) as that black box, so
+the practical problems can focus on the \emph{reductions}.
+
+\subsection{Roadmap}
+
+We begin with the cleanest and most important application -- \textbf{bipartite
+matching} -- and the two beautiful min-max theorems that surround it
+(\textbf{Hall's theorem} and \textbf{K\H{o}nig's theorem}). We then treat
+\textbf{disjoint paths} (Menger's theorem), \textbf{circulations with demands
+and lower bounds} (a more expressive flow model), and finally a sequence of
+``killer app'' reductions: \textbf{bipartite assignment / survey design},
+\textbf{baseball elimination}, \textbf{project selection} (max-weight closure
+via min-cut), and \textbf{image segmentation} (also a min-cut). Practical
+Problems 1--12 implement essentially all of these.
+
+\section{Bipartite Matching via Max Flow}
+
+\subsection{Problem statement}
+
+\begin{definition}[Bipartite graph]
+A graph $G=(V,E)$ is \emph{bipartite} if $V$ can be partitioned into two sets
+$X$ and $Y$ such that every edge has one endpoint in $X$ and one in $Y$.
+Equivalently (and this is what Problem 1 checks), $G$ is bipartite iff it has no
+odd-length cycle, iff its vertices can be 2-colored so adjacent vertices differ.
+\end{definition}
+
+\begin{definition}[Matching]
+A \emph{matching} $M \subseteq E$ is a set of edges no two of which share an
+endpoint. A vertex is \emph{matched} (or \emph{saturated}) if it is an endpoint
+of some edge of $M$, and \emph{free} otherwise. A \textbf{maximum matching} is a
+matching of largest possible size. A \emph{perfect matching} saturates every
+vertex.
+\end{definition}
+
+The \textbf{Maximum Bipartite Matching Problem} asks for a maximum matching in a
+given bipartite graph $G=(X \cup Y, E)$. This models any ``pairing'' task:
+assigning workers to jobs, students to projects, applicants to positions, etc.
+
+\subsection{The flow reduction}
+
+\begin{algorithm}[h]
+\caption{Bipartite Matching via Max Flow}
+\begin{algorithmic}[1]
+\State Create a source $s$ and sink $t$.
+\State For each $x \in X$: add edge $s \to x$ with capacity $1$.
+\State For each $y \in Y$: add edge $y \to t$ with capacity $1$.
+\State For each edge $(x,y) \in E$: add edge $x \to y$ with capacity $1$.
+\State Compute a maximum integer $s$--$t$ flow $f$.
+\State \Return the set of edges $(x,y) \in E$ carrying one unit of flow.
+\end{algorithmic}
+\end{algorithm}
+
+The capacity-$1$ edges out of $s$ and into $t$ enforce that each $x$ is matched
+at most once and each $y$ is matched at most once. Problem 3 implements exactly
+this reduction; Problem 2 implements the direct combinatorial alternative
+(Kuhn's augmenting-path algorithm), and Problem 3's tests \emph{verify the two
+give equal matching size on random graphs}.
+
+\begin{theorem}[Matching = integer flow]
+\label{thm:matching-flow}
+The maximum matching size in $G$ equals the value of a maximum $s$--$t$ flow in
+the network above. Moreover, every integer flow corresponds to a matching, and
+vice versa.
+\end{theorem}
+
+\begin{proof}
+\textbf{Matching $\Rightarrow$ flow.} Given a matching $M$ of size $k$, route one
+unit of flow along $s \to x \to y \to t$ for each $(x,y) \in M$. Since $M$ is a
+matching, no two of these paths share an $x$ or a $y$, so every capacity-$1$
+edge carries at most one unit; this is a feasible flow of value $k$.
+
+\textbf{Flow $\Rightarrow$ matching.} Because all capacities are integers, by the
+integrality theorem (last week) there is an integer maximum flow $f$, in which
+every edge carries $0$ or $1$ unit. The middle edges $x \to y$ carrying one unit
+form a set $M$. Each $x$ has at most one unit entering it (from $s$) and hence at
+most one unit leaving it, so $x$ is in at most one edge of $M$; likewise each
+$y$. Thus $M$ is a matching, of size equal to the value of $f$.
+
+The two directions show the maximum matching size equals the maximum flow value.
+\end{proof}
+
+The reduction runs in $O(V \cdot E)$ time with Edmonds--Karp (each augmenting
+path increases the matching by one, and there are at most $\min(|X|,|Y|)$ of
+them), matching the running time of Kuhn's algorithm. Problem 6 reuses this
+machinery to answer an \emph{assignment feasibility} question: given people,
+tasks, and an ``allowed'' relation, can \emph{everyone} be assigned a distinct
+task? That is exactly asking whether a matching saturating all people exists.
+
+\section{Hall's Theorem and K\H{o}nig's Theorem}
+
+Two classical min-max theorems characterize bipartite matchings precisely. Both
+can be derived from max-flow min-cut, and both are implemented this week
+(Problems 4 and 5).
+
+\subsection{Hall's marriage theorem}
+
+\begin{definition}[Neighborhood and deficiency]
+For a set $S \subseteq X$, its \emph{neighborhood} $N(S) \subseteq Y$ is the set
+of all vertices adjacent to some vertex of $S$. We call $S$ \emph{deficient} if
+$|N(S)| < |S|$.
+\end{definition}
+
+\begin{theorem}[Hall, 1935]
+\label{thm:hall}
+A bipartite graph $G=(X \cup Y, E)$ has a matching saturating every vertex of
+$X$ (a \emph{perfect matching of $X$}) \textbf{if and only if} $|N(S)| \ge |S|$
+for every subset $S \subseteq X$.
+\end{theorem}
+
+\begin{proof}
+($\Rightarrow$) If a matching saturates $X$, then for any $S \subseteq X$ the
+matched partners of the vertices of $S$ are $|S|$ distinct vertices, all lying in
+$N(S)$; hence $|N(S)| \ge |S|$.
+
+($\Leftarrow$) We prove the contrapositive using max-flow min-cut. Build the flow
+network of Theorem~\ref{thm:matching-flow}. The matching saturates all of $X$
+iff the max flow value equals $|X|$, iff (max-flow min-cut) the minimum cut has
+capacity $|X|$. Consider any $s$--$t$ cut $(A,B)$ with $s \in A$. Let
+$S = X \cap B$ (the $X$-vertices on the sink side) and note $X \cap A$
+contributes capacity $|X \cap A|$ via the cut edges $s \to x$. To keep the cut
+finite (the middle edges have capacity $1$ but we may instead cut the
+$y \to t$ edges), an optimal finite cut places $N(S) \subseteq A$ on the source
+side -- otherwise an infinite-capacity... more carefully: the cheapest cut that
+``gives up'' on the vertices of $S$ must pay $1$ for each $s\to x$ with
+$x \in X\cap A = X \setminus S$, namely $|X|-|S|$, plus $1$ for each $y \to t$
+with $y \in N(S)$ on the source side, namely $|N(S)|$. So the minimum cut
+capacity is $\min_{S \subseteq X}\big(|X| - |S| + |N(S)|\big)$. This is less than
+$|X|$ exactly when some $S$ has $|N(S)| < |S|$, i.e.\ some deficient set exists.
+Hence: no $X$-saturating matching $\iff$ a deficient set exists. Contrapositive:
+if no set is deficient, an $X$-saturating matching exists.
+\end{proof}
+
+Problem 4 turns this proof into code: it decides whether $X$ has a perfect
+matching and, when not, \emph{returns an explicit deficient set $S$} (recovered
+from the alternating-path structure of a maximum matching). The deficient set is
+a \emph{certificate} of infeasibility -- a short, checkable reason why no perfect
+matching can exist.
+
+\subsection{K\H{o}nig's theorem: matching = vertex cover}
+
+\begin{definition}[Vertex cover]
+A \emph{vertex cover} of $G=(V,E)$ is a set $C \subseteq V$ such that every edge
+has at least one endpoint in $C$. The \textbf{minimum vertex cover} is a smallest
+such set.
+\end{definition}
+
+For \emph{any} graph, a matching and a vertex cover are in tension:
+
+\begin{lemma}[Weak duality]
+\label{lem:weak-duality}
+In any graph, $|M| \le |C|$ for every matching $M$ and every vertex cover $C$. In
+particular, $\max$-matching $\le \min$-vertex-cover.
+\end{lemma}
+
+\begin{proof}
+The edges of $M$ are pairwise disjoint, so they have $2|M|$ distinct endpoints.
+Every edge of $M$ must be covered, i.e.\ have an endpoint in $C$; distinct edges
+of $M$ need distinct cover vertices (they share no endpoint). Hence
+$|C| \ge |M|$.
+\end{proof}
+
+For \emph{general} graphs this inequality can be strict: a triangle has maximum
+matching $1$ but minimum vertex cover $2$ (Problem 12 exhibits exactly this). In
+\emph{bipartite} graphs, equality always holds:
+
+\begin{theorem}[K\H{o}nig, 1931]
+\label{thm:konig}
+In a bipartite graph, the size of a maximum matching equals the size of a
+minimum vertex cover.
+\end{theorem}
+
+\begin{proof}
+By Lemma~\ref{lem:weak-duality}, $\max$-matching $\le \min$-cover; we exhibit a
+vertex cover of size exactly $|M|$, where $M$ is a maximum matching. Let
+$U \subseteq X$ be the set of $X$-vertices left \emph{unmatched} by $M$. Mark
+every vertex reachable from $U$ by an \emph{alternating path} (a path that
+alternates non-matching edges $X \to Y$ and matching edges $Y \to X$). Let
+$Z$ be the set of marked vertices, and define
+\[
+   C \;=\; (X \setminus Z) \,\cup\, (Y \cap Z).
+\]
+\emph{$C$ is a cover.} Suppose some edge $(x,y)$ has neither endpoint in $C$,
+i.e.\ $x \in X \cap Z$ (marked) and $y \in Y \setminus Z$ (unmarked). If $(x,y)
+\notin M$, then from the marked $x$ we could extend an alternating path along the
+non-matching edge $(x,y)$ to reach $y$, marking it -- contradiction. If $(x,y)
+\in M$, then $x$ was marked only by arriving along the matching edge $(x,y)$ from
+$y$, so $y$ would be marked -- contradiction. Hence every edge is covered.
+
+\emph{$|C| = |M|$.} Every vertex of $C$ is saturated by $M$: a vertex in
+$X \setminus Z$ is matched (the unmatched $X$-vertices are all in $U \subseteq Z$),
+and a vertex in $Y \cap Z$ is matched (an unmatched $Y$-vertex would complete an
+augmenting path from $U$, contradicting maximality of $M$). Moreover no matching
+edge has \emph{both} endpoints in $C$: if $(x,y) \in M$ had $x \in X\setminus Z$
+and $y \in Y \cap Z$, then $y$ marked implies (since the only way to mark a
+matched $y$ is via its matching partner) that $x$ is marked, i.e.\ $x \in Z$,
+contradiction. So each edge of $M$ contributes exactly one endpoint to $C$, and
+every vertex of $C$ is the endpoint of exactly one matching edge -- giving a
+bijection between $M$ and $C$. Thus $|C| = |M|$.
+\end{proof}
+
+This proof is \emph{constructive}, and Problem 5 implements it directly: given a
+maximum matching (from Problem 2), it builds a vertex cover of size $|M|$ via the
+alternating-path marking, and the tests verify $|\text{cover}| = |\text{matching}|$
+on random bipartite graphs. Problem 12 ties everything together by checking
+$\max$-matching $\le \min$-cover for general graphs and equality for bipartite
+graphs via brute force.
+
+\begin{corollary}[Hall from K\H{o}nig]
+Hall's theorem follows from K\H{o}nig's: $X$ has a perfect matching iff
+$\min$-cover $= |X|$, and one checks that a cover smaller than $|X|$ exists iff
+some $S \subseteq X$ is deficient.
+\end{corollary}
+
+\section{Disjoint Paths}
+
+\subsection{Edge-disjoint paths and Menger's theorem}
+
+\begin{definition}[Edge-disjoint paths]
+A collection of $s$--$t$ paths is \emph{edge-disjoint} if no edge is used by more
+than one path.
+\end{definition}
+
+\begin{theorem}[Menger, edge version]
+\label{thm:menger-edge}
+The maximum number of edge-disjoint $s$--$t$ paths in a directed graph equals the
+minimum number of edges whose removal disconnects $t$ from $s$ (a minimum
+$s$--$t$ edge cut).
+\end{theorem}
+
+\begin{proof}
+Assign every edge capacity $1$ and compute a max flow. An integer flow of value
+$k$ decomposes (by repeatedly tracing $s$--$t$ paths along positive-flow edges,
+and discarding any cycles) into $k$ edge-disjoint $s$--$t$ paths, since each
+capacity-$1$ edge can belong to at most one path. Conversely $k$ edge-disjoint
+paths give a flow of value $k$. So $\max$ edge-disjoint paths $=$ max flow value
+$=$ min cut capacity (max-flow min-cut) $=$ min number of edges to delete.
+\end{proof}
+
+Problem 7 implements this: build the unit-capacity network, return the max flow.
+
+\subsection{Vertex-disjoint paths via node splitting}
+
+To forbid two paths from sharing an \emph{internal vertex}, we use the
+\textbf{node-splitting} gadget:
+
+\begin{algorithm}[h]
+\caption{Vertex-Disjoint Paths via Node Splitting}
+\begin{algorithmic}[1]
+\For{each internal vertex $v$ (i.e.\ $v \ne s,t$)}
+    \State Split $v$ into $v_{\text{in}}$ and $v_{\text{out}}$, with an edge
+    $v_{\text{in}} \to v_{\text{out}}$ of capacity $1$.
+\EndFor
+\State Replace each original edge $(u,v)$ by $u_{\text{out}} \to v_{\text{in}}$
+of capacity $1$.
+\State Compute a max $s$--$t$ flow; its value is the number of vertex-disjoint
+paths.
+\end{algorithmic}
+\end{algorithm}
+
+The internal capacity-$1$ edge $v_{\text{in}} \to v_{\text{out}}$ guarantees at
+most one unit of flow -- hence at most one path -- passes \emph{through} $v$.
+Problem 8 implements this and its tests contrast it with Problem 7: two paths
+that are edge-disjoint but share a middle vertex are counted by Problem 7 but not
+by Problem 8.
+
+\section{Circulations with Demands and Lower Bounds}
+
+So far every flow had a single source and sink. Many problems instead have
+\emph{multiple} supplies and demands and require \emph{minimum} as well as
+maximum amounts on edges. The \textbf{circulation} model captures this.
+
+\begin{definition}[Circulation with demands]
+Each vertex $v$ has a \emph{demand} $d_v$: if $d_v > 0$, $v$ must \emph{absorb}
+$d_v$ units (a sink); if $d_v < 0$, $v$ \emph{supplies} $-d_v$ units (a source).
+Each directed edge $e$ has a capacity $c_e$ and possibly a \emph{lower bound}
+$\ell_e \ge 0$. A \emph{feasible circulation} assigns a flow $f_e \in [\ell_e,
+c_e]$ to every edge so that for each vertex $v$,
+\[
+   \sum_{e \text{ into } v} f_e \;-\; \sum_{e \text{ out of } v} f_e \;=\; d_v .
+\]
+A necessary condition is $\sum_v d_v = 0$ (total supply equals total demand).
+\end{definition}
+
+\begin{theorem}[Feasibility reduces to max flow]
+\label{thm:circulation}
+A feasible circulation with demands and lower bounds can be decided by a single
+max-flow computation, as follows.
+\end{theorem}
+
+\begin{proof}[Construction]
+\textbf{Step 1 -- eliminate lower bounds.} For each edge $(u,v)$ with bounds
+$[\ell, c]$, ``pre-push'' $\ell$ units: set its capacity to $c - \ell$ and
+update demands $d_u \mathrel{+}= \ell$ and $d_v \mathrel{-}= \ell$. (We have
+committed $\ell$ units to leave $u$ and arrive at $v$; the residual problem has
+lower bound $0$.)
+
+\textbf{Step 2 -- super source and sink.} Add $S$ and $T$. For each vertex $v$
+with adjusted demand $d_v < 0$ (net supply), add $S \to v$ with capacity $-d_v$.
+For each $v$ with $d_v > 0$ (net demand), add $v \to T$ with capacity $d_v$.
+
+\textbf{Step 3 -- solve.} A feasible circulation exists \emph{iff} the maximum
+$S$--$T$ flow \emph{saturates every edge out of $S$} -- equivalently, equals
+$D := \sum_{v: d_v > 0} d_v$, the total adjusted demand (and this requires the
+adjusted supply and demand to balance). Saturating all source edges means every
+supply is fully shipped and every demand fully met, which is exactly a feasible
+circulation; conversely a feasible circulation yields such a saturating flow.
+\end{proof}
+
+Problem 11 implements this feasibility test, including the lower-bound
+elimination and the balance check ($\sum d_v = 0$ after adjustment). This model
+is the foundation for many scheduling and routing feasibility questions, and it
+generalizes the survey-design and assignment problems of the next section.
+
+\section{Flow Applications I: Bipartite Assignment and Survey Design}
+
+The bipartite-matching reduction generalizes smoothly when each vertex can be
+used several times. In \textbf{survey design}, a magazine wants each
+\emph{customer} $i$ to be asked between $c_i$ and $c_i'$ questions, and each
+\emph{product} $j$ to receive between $p_j$ and $p_j'$ reviews, where customer
+$i$ may only be asked about products they have purchased. Model it as a
+circulation / bounded flow:
+\begin{itemize}
+    \item $s \to$ customer $i$ with bounds $[c_i, c_i']$;
+    \item customer $i \to$ product $j$ with bounds $[0,1]$ if $i$ purchased $j$;
+    \item product $j \to t$ with bounds $[p_j, p_j']$;
+    \item a return edge $t \to s$ of unbounded capacity (turning the design into
+    a circulation).
+\end{itemize}
+A feasible integer flow is exactly a valid survey design. This is the
+``bounded-degree'' generalization of bipartite matching (Problem 6's assignment
+question is the special case where every bound is $[0,1]$ and we ask the flow to
+saturate all customers).
+
+\section{Flow Applications II: Baseball Elimination}
+
+A delightful, non-obvious use of max flow decides whether a sports team has been
+mathematically \emph{eliminated} from finishing first.
+
+\begin{definition}[Baseball elimination]
+We are given teams with current win totals $w_i$ and a schedule of $g_{ij}$
+games \emph{remaining} between teams $i$ and $j$. Team $x$ is \emph{eliminated}
+if there is \emph{no} way to assign winners to all remaining games so that $x$
+finishes with at least as many wins as every other team.
+\end{definition}
+
+Let $W = w_x + (\text{remaining games of } x)$ be the most wins $x$ can finish
+with. If some team already has $w_i > W$, $x$ is trivially eliminated. Otherwise
+build a flow network (Kleinberg \& Tardos, \S 7.12):
+
+\begin{algorithm}[h]
+\caption{Baseball Elimination as Max Flow}
+\begin{algorithmic}[1]
+\For{each unordered pair $\{i,j\}$ of \emph{other} teams with $g_{ij}>0$}
+    \State Add a \emph{game node} $\{i,j\}$ with edge $s \to \{i,j\}$ of
+    capacity $g_{ij}$.
+    \State Add edges $\{i,j\} \to i$ and $\{i,j\} \to j$ of capacity $\infty$.
+\EndFor
+\For{each other team $i$}
+    \State Add edge $i \to t$ of capacity $W - w_i$ \Comment{$i$'s remaining
+    ``win budget''}
+\EndFor
+\State Compute the max $s$--$t$ flow.
+\State \Return ``not eliminated'' iff the flow saturates \emph{all} game edges.
+\end{algorithmic}
+\end{algorithm}
+
+Each game $\{i,j\}$ sends one unit per game played; that unit must flow to the
+winner ($i$ or $j$), and the edge $i \to t$ caps how many additional wins team
+$i$ may accumulate before passing $W$. If \emph{all} remaining games can be
+routed (the flow saturates every $s \to \{i,j\}$ edge), then there is a way to
+play out the season with $x$ tied for first or better; otherwise $x$ is
+eliminated. Problem 9 implements this on a small dataset, including the trivial
+elimination shortcut.
+
+The minimum cut, by the way, yields a \emph{certificate of elimination}: a
+subset $R$ of teams whose combined current and remaining intra-group wins force
+their average above $W$ -- a human-readable reason why $x$ cannot catch up.
+
+\section{Flow Applications III: Project Selection (Max-Weight Closure)}
+
+\begin{definition}[Project selection]
+We have projects, each with a profit $p_v$ (possibly negative -- a cost).
+Some projects have \emph{prerequisites}: an edge $(p,q)$ means ``selecting $p$
+requires also selecting $q$.'' A set $S$ of projects is \emph{feasible} if it is
+\emph{closed} under prerequisites (if $p \in S$ and $(p,q)$ is a prerequisite,
+then $q \in S$). The goal is a feasible $S$ maximizing $\sum_{v \in S} p_v$.
+\end{definition}
+
+This is the \textbf{maximum-weight closure} problem, and it is solved by a
+\emph{minimum cut} (Kleinberg \& Tardos, \S 7.11):
+
+\begin{algorithm}[h]
+\caption{Project Selection via Min-Cut}
+\begin{algorithmic}[1]
+\State Let $P = \sum_{v : p_v > 0} p_v$ (sum of positive profits).
+\For{each project $v$ with $p_v > 0$} add $s \to v$ with capacity $p_v$.
+\EndFor
+\For{each project $v$ with $p_v < 0$} add $v \to t$ with capacity $-p_v$.
+\EndFor
+\For{each prerequisite $(p,q)$} add $p \to q$ with capacity $\infty$.
+\EndFor
+\State Compute the minimum $s$--$t$ cut, of value $C$.
+\State \Return profit $P - C$, and $S = \{v : v \text{ on the source side}\}$.
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+\label{thm:closure}
+The maximum profit equals $P - C$, where $C$ is the minimum cut, and the
+source side of the minimum cut is an optimal feasible project set.
+\end{theorem}
+
+\begin{proof}[Sketch]
+The infinite-capacity prerequisite edges guarantee that any \emph{finite} cut
+never separates a selected project from a prerequisite -- so the source side
+$S$ is always closed. For such a cut, the cut capacity equals
+$\sum_{v \in S, p_v < 0}(-p_v) + \sum_{v \notin S, p_v > 0} p_v$, i.e.\ the
+forgone positive profits plus the incurred costs. Minimizing this is the same as
+maximizing $\sum_{v \in S} p_v = P - (\text{cut})$. Hence min-cut $\Leftrightarrow$
+max-profit closure.
+\end{proof}
+
+Problem 10 implements both the min-cut solution and a brute-force search over all
+closed subsets, and the tests confirm they agree on random small instances. The
+source side of the cut is recovered with \texttt{MaxFlow.min\_cut\_reachable}.
+
+\section{Flow Applications IV: Image Segmentation as Min-Cut}
+
+A final, visually compelling application: \textbf{image segmentation}. We wish to
+label each pixel as \emph{foreground} or \emph{background}. Each pixel $i$ has a
+\emph{likelihood} $a_i \ge 0$ of being foreground and $b_i \ge 0$ of being
+background, and each pair of neighboring pixels $(i,j)$ has a
+\emph{separation penalty} $p_{ij} \ge 0$ we pay if we split them across the two
+labels (this enforces smooth, contiguous regions).
+
+We \emph{maximize} $\sum_{i \in F} a_i + \sum_{j \in B} b_j - \sum_{(i,j) \text{
+split}} p_{ij}$, which is equivalent to \emph{minimizing}
+$\sum_{i \in F} b_i + \sum_{j \in B} a_j + \sum_{(i,j) \text{ split}} p_{ij}$.
+Build a network with $s$ = ``foreground terminal,'' $t$ = ``background
+terminal'':
+\begin{itemize}
+    \item $s \to i$ of capacity $a_i$ for every pixel $i$;
+    \item $i \to t$ of capacity $b_i$ for every pixel $i$;
+    \item between neighbors, \emph{two} directed edges $i \to j$ and $j \to i$,
+    each of capacity $p_{ij}$.
+\end{itemize}
+A minimum $s$--$t$ cut places foreground pixels on the source side and background
+on the sink side; its capacity is exactly the quantity to be minimized, with the
+neighbor edges contributing $p_{ij}$ precisely when $i$ and $j$ end up on
+opposite sides. Thus image segmentation is \emph{another} min-cut problem -- the
+same machinery as project selection, with a different network. (The shared
+\texttt{MaxFlow.min\_cut\_reachable} helper would recover the foreground set.)
+
+\section{Summary and Looking Ahead}
+
+This week we treated max flow as a \textbf{modeling and reduction tool}, and saw
+how a single black-box algorithm (Edmonds--Karp, from Week 10) solves a wide
+range of combinatorial problems:
+
+\begin{itemize}
+    \item \textbf{Bipartite matching} $=$ unit-capacity max flow
+    (Theorem~\ref{thm:matching-flow}); Problems 2--3, 6.
+    \item \textbf{Hall's theorem} (Theorem~\ref{thm:hall}) and \textbf{K\H{o}nig's
+    theorem} (Theorem~\ref{thm:konig}): perfect matchings via the deficiency
+    condition, and $\max$-matching $=$ $\min$-vertex-cover in bipartite graphs;
+    Problems 4, 5, 12.
+    \item \textbf{Disjoint paths} (Menger, Theorem~\ref{thm:menger-edge}):
+    edge-disjoint via unit capacities, vertex-disjoint via node splitting;
+    Problems 7--8.
+    \item \textbf{Circulations with demands and lower bounds}
+    (Theorem~\ref{thm:circulation}): feasibility by one max-flow call; Problem 11.
+    \item \textbf{Min-cut applications}: baseball elimination (Problem 9),
+    project selection / max-weight closure (Theorem~\ref{thm:closure}, Problem
+    10), and image segmentation -- all decided by a minimum cut.
+\end{itemize}
+
+The unifying lesson is that the \emph{hard work is the reduction}: encoding
+constraints as capacities, recognizing when a min-max theorem applies, and
+proving the correspondence between combinatorial objects and flows/cuts. Once
+that is done, optimality and a polynomial running time come for free from the
+max-flow min-cut theorem.
+
+\textbf{Looking ahead.} Flow has given us a large catalog of problems that are
+\emph{efficiently solvable}. Next week we turn to the other side of the coin:
+\textbf{intractability} and \textbf{NP-completeness} (Kleinberg \& Tardos, Ch.\
+8). We will study \emph{reductions} again -- but now to argue that certain
+problems are \emph{at least as hard} as a whole class of others, so that a
+polynomial algorithm for one would solve them all. Many problems that look
+deceptively close to the matchings and cuts of this week (e.g.\ maximum matching
+in \emph{general} graphs is still polynomial, but maximum independent set, or
+3-dimensional matching, are NP-complete) sit just beyond the reach of flow --
+and understanding exactly where that boundary lies is the subject of the rest of
+the course.
+
+\end{document}

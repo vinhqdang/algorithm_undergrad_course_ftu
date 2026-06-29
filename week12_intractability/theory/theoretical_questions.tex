@@ -1,0 +1,378 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 12: Theoretical Questions}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+Part A contains 17 questions requiring written explanations or short proofs. Part B is a
+10-question quiz (true/false and multiple choice). Attempt every question on your own
+before consulting Part C (Solutions) at the end of this document.
+
+\section*{Part A: Theory Questions}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item Define a \emph{polynomial-time reduction} $X \le_p Y$. State precisely the two
+consequences of $X \le_p Y$ regarding the tractability of $X$ and $Y$, and explain which
+of the two is used to \emph{prove a problem hard}.
+
+\item Explain why the theory of NP-completeness restricts attention to \emph{decision
+problems} (yes/no answers). Show how the optimization problem ``find a maximum independent
+set'' can be solved using a polynomial number of calls to the decision problem ``does $G$
+have an independent set of size $\ge k$?''.
+
+\item Define the class $\mathrm{P}$ and the class $\mathrm{NP}$ in terms of algorithms,
+certificates, and verifiers. In one sentence each, contrast what $\mathrm{P}$ and
+$\mathrm{NP}$ capture.
+
+\item Prove that $\mathrm{P} \subseteq \mathrm{NP}$.
+
+\item For the \textsc{Independent Set} problem, describe explicitly: (a) what a certificate
+is, (b) what the verifier checks, and (c) why the verifier runs in polynomial time. Do the
+same for \textsc{3-SAT}.
+
+\item State precisely what it means for a problem to be \emph{NP-hard} and what it means to
+be \emph{NP-complete}. Why does NP-completeness require a separate proof that the problem is
+\emph{in} $\mathrm{NP}$, on top of the hardness argument?
+
+\item State the Cook--Levin theorem. In two or three sentences, describe the high-level
+idea of why \emph{every} problem in $\mathrm{NP}$ reduces to \textsc{SAT}.
+
+\item Prove that $\le_p$ is transitive: if $X \le_p Y$ and $Y \le_p Z$ then $X \le_p Z$.
+Then explain how transitivity, together with one known NP-complete problem, makes
+subsequent NP-completeness proofs much shorter.
+
+\item State the standard ``recipe'' (the list of steps) for proving that a problem $Y$ is
+NP-complete. Identify which step establishes membership in $\mathrm{NP}$ and which
+establishes NP-hardness.
+
+\item Prove the complementarity lemma: in any graph $G = (V, E)$ with $|V| = n$, a set $S$
+is an independent set iff $V \setminus S$ is a vertex cover. Deduce that $G$ has an
+independent set of size $\ge k$ iff it has a vertex cover of size $\le n - k$, and hence
+that \textsc{Independent Set} $\le_p$ \textsc{Vertex Cover}.
+
+\item Prove that $S$ is an independent set in $G$ iff $S$ is a clique in the complement
+graph $\overline{G}$, and conclude that \textsc{Independent Set} $\le_p$ \textsc{Clique}.
+
+\item Describe the reduction \textsc{3-SAT} $\le_p$ \textsc{Independent Set}: how many
+vertices does the constructed graph have, what are the ``triangle'' edges, what are the
+``conflict'' edges, and what is the target size $k$? Prove the forward direction (a
+satisfying assignment yields an independent set of size $k$).
+
+\item For the same reduction, prove the reverse direction: an independent set of size $k$
+yields a satisfying assignment. In particular, explain why such an independent set must
+contain exactly one vertex from each clause-triangle, and why the conflict edges guarantee
+the resulting assignment is consistent.
+
+\item Sketch the reduction \textsc{Hamiltonian Cycle} $\le_p$ \textsc{TSP} (decision
+version). What distances do you assign to edges and non-edges of the graph, what tour-length
+bound $D$ do you use, and why does a tour of length $\le D$ correspond exactly to a
+Hamiltonian cycle?
+
+\item \textsc{Subset Sum} has a dynamic-programming algorithm running in time $O(nW)$, where
+$W$ is the target. Explain why this does \emph{not} contradict the NP-completeness of
+\textsc{Subset Sum}. Define \emph{pseudo-polynomial} time and explain the distinction
+between the numeric value $W$ and the input size.
+
+\item A student writes: ``To prove \textsc{Vertex Cover} is NP-hard, I reduced
+\textsc{Vertex Cover} to \textsc{3-SAT}; since \textsc{3-SAT} is NP-complete, so is
+\textsc{Vertex Cover}.'' Identify the error precisely, and state what reduction the student
+should have constructed instead.
+
+\item \emph{Discussion (open-ended).} You are handed a brand-new optimization problem at
+work and asked whether there is an efficient algorithm. Describe a systematic process for
+(a) deciding whether to search for a polynomial-time algorithm or for an NP-completeness
+proof, and (b) if you suspect hardness, how you would go about constructing a reduction.
+What known NP-complete problems would you try first for a graph problem? a packing/number
+problem? an ordering/routing problem?
+
+\end{enumerate}
+
+\newpage
+\section*{Part B: Quiz}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{(True/False)} If $X \le_p Y$ and $Y$ has a polynomial-time algorithm, then
+$X$ has a polynomial-time algorithm.
+
+\item \textbf{(Multiple choice)} The class $\mathrm{NP}$ is the set of decision problems
+for which:
+\begin{enumerate}[label=(\alph*)]
+    \item a solution can be found in polynomial time
+    \item a proposed solution (certificate) can be verified in polynomial time
+    \item no polynomial-time algorithm can possibly exist
+    \item the answer is always ``yes''
+\end{enumerate}
+
+\item \textbf{(True/False)} Proving $\mathrm{P} = \mathrm{NP}$ would follow from finding a
+single polynomial-time algorithm for any one NP-complete problem.
+
+\item \textbf{(Multiple choice)} The Cook--Levin theorem establishes that:
+\begin{enumerate}[label=(\alph*)]
+    \item every problem in $\mathrm{NP}$ is in $\mathrm{P}$
+    \item \textsc{SAT} (and \textsc{3-SAT}) is NP-complete
+    \item \textsc{Subset Sum} can be solved in polynomial time
+    \item $\mathrm{P} \ne \mathrm{NP}$
+\end{enumerate}
+
+\item \textbf{(True/False)} To prove a problem $Y$ is NP-hard, it suffices to give a
+polynomial-time reduction \emph{from} a known NP-complete problem \emph{to} $Y$.
+
+\item \textbf{(Short answer)} In a graph $G$ on $n$ vertices, if the maximum independent
+set has size $13$, what is the size of the minimum vertex cover (in terms of $n$)?
+
+\item \textbf{(Multiple choice)} In the reduction \textsc{3-SAT} $\le_p$ \textsc{Independent
+Set}, a 3-SAT formula with $k$ clauses produces a graph in which we look for an independent
+set of size:
+\begin{enumerate}[label=(\alph*)]
+    \item $1$
+    \item $3$
+    \item $k$
+    \item $3k$
+\end{enumerate}
+
+\item \textbf{(True/False)} A set $S$ is a clique in $G$ if and only if $S$ is an
+independent set in the complement graph $\overline{G}$.
+
+\item \textbf{(Short answer)} \textsc{2-Coloring} is in $\mathrm{P}$ but \textsc{3-Coloring}
+is NP-complete. What classical polynomial-time test decides 2-colorability?
+
+\item \textbf{(Multiple choice)} An $O(nW)$ algorithm for \textsc{Subset Sum} (with target
+$W$) is best described as:
+\begin{enumerate}[label=(\alph*)]
+    \item polynomial in the input size
+    \item pseudo-polynomial (polynomial in the numeric value $W$, not in $\log W$)
+    \item proof that $\mathrm{P} = \mathrm{NP}$
+    \item exponential in $n$ for all inputs
+\end{enumerate}
+
+\end{enumerate}
+
+\newpage
+\section*{Part C: Solutions}
+
+\subsection*{Part A}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item $X \le_p Y$ means an arbitrary instance of $X$ can be solved using a polynomial
+number of basic steps plus a polynomial number of calls to an oracle (subroutine) for $Y$.
+The two consequences: (a) if $Y \in \mathrm{P}$ then $X \in \mathrm{P}$ (tractability flows
+forward); (b) if $X \notin \mathrm{P}$ then $Y \notin \mathrm{P}$ (intractability flows
+backward). To \emph{prove a problem $Y$ hard}, we use (b): we take a known-hard $X$ and
+show $X \le_p Y$, so $Y$ is at least as hard as $X$.
+
+\item Decision problems have a single bit of output, which makes ``polynomial time'' clean
+to define and lets reductions transform yes/no answers into yes/no answers. The restriction
+loses nothing essential because optimization reduces to decision: to find the size of a
+maximum independent set in $G$ on $n$ vertices, ask the decision oracle ``is there an
+independent set of size $\ge k$?'' for $k = n, n-1, \ldots$ (or binary-search on $k$ in
+$O(\log n)$ queries) to find the largest feasible $k^*$. To recover an actual set, fix
+vertices one at a time: for each vertex $v$, delete it and ask whether the remaining graph
+still has an independent set of size $k^*$; keep $v$ out (it was not needed) if so,
+otherwise it belongs to the set -- a polynomial number of oracle calls in total.
+
+\item $\mathrm{P}$ is the set of decision problems solvable by an algorithm that always
+halts in time polynomial in the input length. $\mathrm{NP}$ is the set of decision problems
+that have an \emph{efficient verifier}: a polynomial-time algorithm $B(s, t)$ such that $s$
+is a yes-instance iff there exists a polynomial-length certificate $t$ with $B(s,t) =
+\mathtt{yes}$. In one sentence each: $\mathrm{P}$ captures problems we can efficiently
+\emph{solve}; $\mathrm{NP}$ captures problems whose solutions we can efficiently
+\emph{check} once handed a candidate.
+
+\item Let $X \in \mathrm{P}$ via a polynomial-time algorithm $A$. Define a verifier $B(s,t)
+:= A(s)$ that ignores the certificate $t$ (take $t$ to be the empty string). Then $B$ runs
+in polynomial time, and $X(s) = \mathtt{yes}$ iff there exists a certificate (trivially,
+the empty one) with $B(s,t) = \mathtt{yes}$, namely exactly when $A(s) = \mathtt{yes}$.
+Hence $X \in \mathrm{NP}$, so $\mathrm{P} \subseteq \mathrm{NP}$.
+
+\item \textsc{Independent Set}, input $(G, k)$: (a) the certificate is a set $S$ of
+vertices; (b) the verifier checks $|S| \ge k$ and that no edge of $G$ has both endpoints in
+$S$; (c) this takes $O(|S|^2)$ or $O(|E|)$ time -- polynomial. \textsc{3-SAT}, input a CNF
+formula $\Phi$: (a) the certificate is a truth assignment to the variables; (b) the verifier
+evaluates each clause under the assignment and checks every clause is satisfied; (c) this is
+linear in the size of $\Phi$. In both cases the certificate has length polynomial in the
+input and the check is polynomial, so both problems are in $\mathrm{NP}$.
+
+\item $Y$ is \emph{NP-hard} if $X \le_p Y$ for every $X \in \mathrm{NP}$ (it is at least as
+hard as everything in $\mathrm{NP}$). $Y$ is \emph{NP-complete} if it is NP-hard \emph{and}
+$Y \in \mathrm{NP}$. We separately prove membership in $\mathrm{NP}$ because NP-hardness
+alone does not place $Y$ inside $\mathrm{NP}$ -- there are NP-hard problems (e.g.\ certain
+undecidable or PSPACE-hard problems) that are not in $\mathrm{NP}$ at all. ``Complete''
+means hardest \emph{within} the class, which requires being a member of the class.
+
+\item \textbf{Cook--Levin theorem:} \textsc{SAT} (and \textsc{3-SAT}) is NP-complete.
+High-level idea: take any $X \in \mathrm{NP}$ with efficient verifier $B$ running in
+polynomial time $p(|s|)$. The entire computation of $B$ on input $s$ and certificate $t$ --
+the memory contents at each of the $p(|s|)$ time steps -- can be encoded with polynomially
+many Boolean variables, and a polynomial-size CNF formula can express ``these variables
+describe a valid accepting computation of $B$ for some certificate $t$.'' That formula is
+satisfiable iff a valid certificate exists iff $s$ is a yes-instance, giving $X \le_p
+\textsc{SAT}$.
+
+\item \textbf{Transitivity.} Suppose $X \le_p Y$ and $Y \le_p Z$. Solve an instance of $X$
+using the first reduction: polynomially many steps and polynomially many calls to a
+$Y$-oracle. Replace each $Y$-oracle call by the second reduction, which solves $Y$ using
+polynomially many steps and polynomially many calls to a $Z$-oracle. Composing, $X$ is
+solved with a polynomial number of $Z$-oracle calls and polynomial overhead, so $X \le_p
+Z$. \emph{Why it shortens proofs:} once a single problem (\textsc{SAT}, via Cook--Levin) is
+known to be NP-complete, to show a new $Y$ is NP-hard we need only exhibit \emph{one}
+reduction from \emph{one} known NP-complete problem $X$ to $Y$; transitivity then chains it
+back through $X$ to \emph{every} problem in $\mathrm{NP}$, so we never have to re-encode
+arbitrary NP computations.
+
+\item \textbf{Recipe to prove $Y$ NP-complete:} (1) state $Y$ as a decision problem; (2)
+prove $Y \in \mathrm{NP}$ by giving a short certificate and a polynomial-time verifier
+[\emph{this is the membership step}]; (3) pick a known NP-complete problem $X$; (4)
+construct a polynomial-time reduction $X \le_p Y$ (the gadget); (5) prove correctness in
+both directions ($x$ yes $\iff f(x)$ yes); (6) check the reduction is polynomial-time
+[\emph{steps 3--6 establish NP-hardness}]. Membership (step 2) plus NP-hardness (steps 3--6)
+together give NP-completeness.
+
+\item \textbf{Complementarity.} ($\Rightarrow$) Let $S$ be independent. For any edge
+$(u,v) \in E$, $u$ and $v$ are not both in $S$ (independence), so at least one is in $V
+\setminus S$ -- hence $V \setminus S$ covers every edge, i.e.\ it is a vertex cover.
+($\Leftarrow$) Let $V \setminus S$ be a vertex cover. If some edge had both endpoints in
+$S$, that edge would be uncovered, a contradiction; so no edge lies inside $S$, i.e.\ $S$
+is independent. Since $|V \setminus S| = n - |S|$, an independent set of size $\ge k$
+corresponds exactly to a vertex cover of size $\le n - k$. This gives the reduction
+\textsc{Independent Set} $\le_p$ \textsc{Vertex Cover}: map $(G, k) \mapsto (G, n - k)$
+(constant work plus one oracle call), preserving the answer.
+
+\item $S$ is independent in $G$ $\iff$ no pair of vertices in $S$ is an edge of $G$ $\iff$
+every pair of vertices in $S$ is a \emph{non-edge} of $G$ $\iff$ every pair in $S$ is an
+edge of $\overline{G}$ (whose edges are precisely the non-edges of $G$) $\iff$ $S$ is a
+clique in $\overline{G}$. The reduction \textsc{Independent Set} $\le_p$ \textsc{Clique}
+maps $(G, k) \mapsto (\overline{G}, k)$; building $\overline{G}$ takes $O(n^2)$ time, and a
+$k$-independent set in $G$ exists iff a $k$-clique in $\overline{G}$ exists.
+
+\item \textbf{Construction.} For a formula with $k$ clauses, build a graph with $3k$
+vertices: three vertices per clause, one per literal. \emph{Triangle edges}: within each
+clause, join all three of its literal-vertices pairwise (forming a triangle). \emph{Conflict
+edges}: between any two vertices in different clauses whose literals are complementary (one
+is $x_i$, the other $\overline{x_i}$), add an edge. Target size $k$ = number of clauses.
+
+\textbf{Forward direction.} Suppose $\Phi$ has a satisfying assignment. Each clause has at
+least one literal evaluating to true; pick one such literal per clause and take its vertex.
+This selects exactly one vertex from each triangle (so no triangle edge is violated, since
+triangle edges only connect vertices \emph{within} a clause and we picked one), and no two
+selected vertices conflict: a conflict edge connects $x_i$ and $\overline{x_i}$, but under a
+single assignment these literals cannot both be true, so we never selected both. Hence the
+selected $k$ vertices form an independent set of size $k$.
+
+\item \textbf{Reverse direction.} Suppose $G$ has an independent set $S$ with $|S| = k$.
+Within each clause-triangle the three vertices are mutually adjacent, so $S$ contains at
+most one vertex per triangle. There are exactly $k$ triangles and $|S| = k$, so $S$ contains
+\emph{exactly one} vertex per triangle. Construct an assignment by setting, for each vertex
+in $S$ labelled with literal $\ell$, the underlying variable so that $\ell$ is true (e.g.\
+if $\ell = \overline{x_i}$ set $x_i$ false). This is well-defined and consistent: if $S$
+contained both an $x_i$-vertex and an $\overline{x_i}$-vertex, the conflict edge between
+them would violate independence -- but $S$ is independent, so no such pair exists, and we
+never demand contradictory values of any variable. Unconstrained variables are set
+arbitrarily. Since $S$ has a vertex in every clause-triangle and that vertex's literal is
+made true, every clause is satisfied, so $\Phi$ is satisfiable.
+
+\item \textbf{Reduction \textsc{Hamiltonian Cycle} $\le_p$ \textsc{TSP}.} Given a graph $G
+= (V, E)$ with $|V| = n$, create one city per vertex. Set the distance $d(i, j) = 1$ if
+$(i, j) \in E$ and $d(i, j) = 2$ (any value $> 1$, e.g.\ $\infty$) if $(i, j) \notin E$.
+Set the bound $D = n$. A tour visits all $n$ cities and returns to start, using exactly $n$
+edges; its length is $\ge n$, with equality iff \emph{all} $n$ tour-edges have distance $1$,
+i.e.\ all are edges of $G$. So a tour of length $\le n$ exists iff there is a cycle through
+all vertices using only edges of $G$ -- precisely a Hamiltonian cycle. The construction is
+$O(n^2)$, hence polynomial, and the equivalence is exact.
+
+\item The $O(nW)$ algorithm is \emph{pseudo-polynomial}: it is polynomial in $n$ and in the
+numeric \emph{value} $W$, but the \emph{input size} is the number of bits used to write the
+numbers, roughly $\sum_i \log w_i + \log W$, i.e.\ proportional to $\log W$, not $W$. When
+$W \approx 2^{m}$ for input size $\approx m$ bits, $O(nW) = O(n \cdot 2^m)$ is exponential
+in the input size. So the DP is fast only when the numbers are small (written in unary, or
+bounded by a polynomial in $n$); for the general problem, with numbers given in binary, it
+is exponential. This is fully consistent with NP-completeness, which is about polynomiality
+in the input \emph{size}.
+
+\item The error is the \emph{direction} of the reduction. The student reduced \textsc{Vertex
+Cover} $\le_p$ \textsc{3-SAT}, which only shows \textsc{Vertex Cover} is no \emph{harder}
+than \textsc{3-SAT} (i.e.\ \textsc{Vertex Cover} $\in \mathrm{NP}$, which we already knew);
+it says nothing about \textsc{Vertex Cover} being hard. To prove \textsc{Vertex Cover}
+NP-hard, the student must reduce a known NP-complete problem \emph{to} \textsc{Vertex
+Cover}, e.g.\ \textsc{3-SAT} $\le_p$ \textsc{Vertex Cover} (or \textsc{Independent Set}
+$\le_p$ \textsc{Vertex Cover} via complementarity). Hardness flows \emph{from} the known
+problem \emph{into} the target, so the known-hard problem must be the source of the arrow.
+
+\item A systematic process. \textbf{(a) Decide which way to bet.} First nail down the exact
+decision version and the input encoding. Try small instances by hand and look for structure
+that matches a paradigm you know (greedy, DP, flow, matroid) -- if a natural subproblem
+structure or exchange argument appears, pursue a polynomial algorithm. Simultaneously, look
+for ``combinatorial explosion'' signals: a need to choose a subset/permutation/assignment
+with global interacting constraints, the appearance of words like ``exactly,'' ``cover,''
+``Hamiltonian,'' ``3-coloring,'' or an obvious resemblance to a known NP-complete problem.
+If polynomial attempts keep failing and the problem smells like SAT/packing/routing, switch
+to seeking an NP-completeness proof. \textbf{(b) Build the reduction.} Identify the source
+problem whose ``logic'' your problem can encode, design gadgets that translate that
+problem's variables/constraints into your problem's objects, and verify both directions.
+\textbf{First problems to try:} for a \emph{graph} problem -- \textsc{Independent Set},
+\textsc{Vertex Cover}, \textsc{Clique}, \textsc{3-Coloring}, or \textsc{Hamiltonian Cycle};
+for a \emph{packing/number} problem -- \textsc{Subset Sum} or \textsc{Knapsack}; for an
+\emph{ordering/routing} problem -- \textsc{Hamiltonian Cycle} or \textsc{TSP}; and
+\textsc{3-SAT} as the universal fallback when the structure is logical/constraint-based.
+
+\end{enumerate}
+
+\subsection*{Part B}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{True.} This is the forward direction of a reduction: tractability of $Y$
+transfers to $X$ (Proposition: $X \le_p Y$ and $Y \in \mathrm{P}$ imply $X \in \mathrm{P}$).
+
+\item \textbf{(b)} A proposed solution (certificate) can be verified in polynomial time.
+This is the verifier-based definition of $\mathrm{NP}$; it does \emph{not} require that
+solutions can be \emph{found} quickly.
+
+\item \textbf{True.} If any NP-complete problem is in $\mathrm{P}$, then since every problem
+in $\mathrm{NP}$ reduces to it, all of $\mathrm{NP}$ is in $\mathrm{P}$, so $\mathrm{P} =
+\mathrm{NP}$.
+
+\item \textbf{(b)} \textsc{SAT} (and \textsc{3-SAT}) is NP-complete. Cook--Levin provides
+the first NP-complete problem; it does not resolve $\mathrm{P}$ vs.\ $\mathrm{NP}$.
+
+\item \textbf{True.} NP-hardness of $Y$ is exactly: some known NP-complete $X$ satisfies $X
+\le_p Y$ (and by transitivity all of $\mathrm{NP}$ reduces to $Y$). The arrow goes
+\emph{from} the known-hard problem \emph{to} $Y$.
+
+\item The minimum vertex cover has size $n - 13$, by complementarity ($|$min VC$| = n -
+|$max IS$|$).
+
+\item \textbf{(c) $k$.} The constructed graph has $3k$ vertices (a triangle per clause), but
+the target independent-set size is $k$ -- one vertex per clause.
+
+\item \textbf{True.} A clique in $G$ is a set in which all pairs are edges of $G$, i.e.\ no
+pair is an edge of $\overline{G}$, i.e.\ an independent set in $\overline{G}$ (and vice
+versa).
+
+\item Check whether the graph is \textbf{bipartite} (no odd cycle), via BFS/DFS 2-coloring.
+A graph is 2-colorable iff it is bipartite, which is decidable in linear time.
+
+\item \textbf{(b)} Pseudo-polynomial: polynomial in the numeric value $W$ but exponential
+in the input size $\log W$ when $W$ is given in binary -- consistent with \textsc{Subset
+Sum} being NP-complete.
+
+\end{enumerate}
+
+\end{document}

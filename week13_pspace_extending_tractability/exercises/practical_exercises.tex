@@ -1,0 +1,261 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 13: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures
+with \texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_}
+block with tests. Implement the missing functions so the tests pass. A reference
+solution is provided in \texttt{solutions/solution\_problemNN.py} -- try the
+problem yourself before looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions
+and data types live in \texttt{starter\_code.py} at the week root:
+\texttt{generate\_graph}, \texttt{generate\_tree}, \texttt{edges\_to\_adj},
+\texttt{is\_vertex\_cover}, \texttt{is\_independent\_set},
+\texttt{brute\_force\_vertex\_cover}, \texttt{brute\_force\_independent\_set},
+the QBF node classes (\texttt{Const}, \texttt{Var}, \texttt{Not}, \texttt{And},
+\texttt{Or}, \texttt{Quant}), \texttt{cnf\_is\_satisfied}, and
+\texttt{generate\_2sat}.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{PSPACE \& Games} (Problems 1--3): recursive evaluation of
+    quantified boolean formulas (the canonical PSPACE-complete problem), minimax
+    game-tree evaluation, and alpha-beta pruning.
+    \item \textbf{Fixed-Parameter Tractability \& Special Structure} (Problems
+    4--7, 10, 12): bounded-search-tree Vertex Cover, verification against brute
+    force, kernelization, maximum independent set on trees, 2-SAT via SCCs, and
+    FPT set cover.
+    \item \textbf{Branch and Bound \& State-Space Search} (Problems 8, 9, 11):
+    branch-and-bound knapsack and TSP, and iterative-deepening DFS.
+\end{itemize}
+
+\newpage
+\section{PSPACE and Games}
+
+\subsection*{Problem 1 -- Evaluate a Fully-Quantified Boolean Formula (QBF)}
+
+Deciding a quantified boolean formula (QSAT/TQBF) is the canonical
+PSPACE-complete problem. Implement \texttt{eval\_qbf(formula, env)} that
+recursively evaluates a quantified boolean formula and returns \texttt{True} or
+\texttt{False}. The formula is built from the node classes in
+\texttt{starter\_code.py}: \texttt{Const}, \texttt{Var}, \texttt{Not},
+\texttt{And}, \texttt{Or}, and \texttt{Quant}.
+
+A \texttt{Quant('E', var, body)} means ``$\exists$ var. body'' (true if body is
+true for var $=$ False \emph{or} var $=$ True); \texttt{Quant('A', var, body)}
+means ``$\forall$ var. body'' (true only if body is true for \emph{both}
+values). Evaluate by trying both values, recursing into the body, and combining
+with \texttt{any(...)} for $\exists$ and \texttt{all(...)} for $\forall$.
+
+\textbf{Example.} \texttt{eval\_qbf(Quant("A", "x", Or(Var("x"),
+Not(Var("x")))))} is \texttt{True} (the tautology $\forall x.\,(x \lor \lnot
+x)$), while \texttt{eval\_qbf(Quant("A", "x", Var("x")))} is \texttt{False}.
+
+\subsection*{Problem 2 -- Minimax Game-Tree Evaluation}
+
+Implement \texttt{minimax(node, maximizing)} returning the minimax value of a
+game tree \emph{for the player to move}. A game tree is a nested structure: an
+internal node is a non-empty list of child subtrees; a leaf is a number (the
+payoff from the maximizing player's viewpoint). If \texttt{maximizing} is
+\texttt{True}, return the max over children (each evaluated with
+\texttt{maximizing=False}); otherwise return the min (children with
+\texttt{maximizing=True}).
+
+\textbf{Example.} For the tree \texttt{[[3,5],[2,9]]} with the root maximizing:
+the two MIN children evaluate to $3$ and $2$, and the MAX root returns $3$.
+
+\subsection*{Problem 3 -- Alpha-Beta Pruning}
+
+Implement \texttt{alphabeta(node, maximizing, alpha, beta)} returning
+\texttt{(value, leaves\_visited)}. Carry the bounds $\alpha$ (best value the
+maximizer can guarantee) and $\beta$ (best the minimizer can guarantee) down the
+recursion, updating them after each child and \emph{breaking} out of the loop
+when $\alpha \ge \beta$.
+
+\textbf{Verify} that \texttt{alphabeta} returns the \emph{same value} as plain
+minimax (\texttt{minimax\_count}, provided) on every test tree, while visiting
+\emph{no more} leaves -- and strictly fewer leaves in total across all the test
+trees. This demonstrates that pruning speeds up the search without changing the
+answer.
+
+\newpage
+\section{Fixed-Parameter Tractability and Special Structure}
+
+\subsection*{Problem 4 -- Vertex Cover via Bounded-Search-Tree FPT}
+
+Implement \texttt{vertex\_cover\_fpt(n, edges, k)} deciding whether the graph
+has a vertex cover of size $\le k$, returning the cover (a set) or \texttt{None}.
+Use the bounded search tree: while uncovered edges remain and the budget is
+positive, pick any uncovered edge $(u,v)$ and branch on adding $u$ (recurse with
+budget $k-1$) and on adding $v$. The tree has depth $\le k$ and branching factor
+$2$, giving $O(2^k \cdot (n+m))$ time -- FPT in $k$.
+
+\textbf{Example.} On a triangle (edges $(0,1),(1,2),(0,2)$),
+\texttt{vertex\_cover\_fpt(3, ..., 1)} returns \texttt{None} but
+\texttt{vertex\_cover\_fpt(3, ..., 2)} returns a valid $2$-vertex cover.
+
+\subsection*{Problem 5 -- Verify FPT Vertex Cover vs Brute Force}
+
+Implement \texttt{verify\_fpt\_vertex\_cover(num\_trials, n, seed)}: for each of
+\texttt{num\_trials} random graphs (\texttt{generate\_graph(n, p=0.4, seed=seed
++ trial)}), find the minimum vertex cover size via both
+\texttt{brute\_force\_vertex\_cover} (\texttt{starter\_code.py}) and the FPT
+decider from Problem 4 (called with increasing $k$). Return \texttt{True} iff
+the sizes agree \emph{and} the FPT threshold is exact (a cover of size
+\texttt{opt} exists but none of size \texttt{opt}$-1$), for every trial. Also
+implement the helper \texttt{min\_vertex\_cover\_via\_fpt(n, edges)}.
+
+\subsection*{Problem 6 -- Kernelization for Vertex Cover}
+
+Implement \texttt{kernelize\_vertex\_cover(n, edges, k)} applying two reduction
+rules exhaustively for the parameterized question ``is there a cover of size
+$\le k$?'':
+\begin{verbatim}
+Rule 1 (high degree): any vertex of degree > k MUST be in every cover
+    of size <= k. Force it in, delete it and its edges, decrement k.
+Rule 2 (isolated): a degree-0 vertex covers nothing -- drop it.
+\end{verbatim}
+Return \texttt{(remaining\_vertices, remaining\_edges, k\_reduced, forced)},
+where \texttt{forced} is the set of vertices forced into the cover by Rule 1.
+The original instance is a yes-instance iff the reduced one is (with budget
+\texttt{k\_reduced}).
+
+\textbf{Example.} For a star with center $0$ and $5$ leaves with $k=1$: vertex
+$0$ has degree $5 > 1$, so it is forced; its edges vanish and the leaves become
+isolated and are dropped, leaving an empty instance with $k=0$.
+
+\subsection*{Problem 7 -- Maximum Independent Set on a Tree via DP}
+
+Implement \texttt{max\_independent\_set\_tree(n, edges)} returning a maximum
+independent set of a tree in linear time, via a post-order DP rooted at vertex
+$0$:
+\begin{verbatim}
+incl[v] = 1 + sum over children c of excl[c]
+excl[v] = sum over children c of max(incl[c], excl[c])
+\end{verbatim}
+The optimum size is \texttt{max(incl[root], excl[root])}; reconstruct the actual
+set by walking down from the root (if a vertex is included, all its children are
+excluded). Also implement \texttt{verify\_tree\_mis(num\_trials, n, seed)}
+confirming the DP size matches \texttt{brute\_force\_independent\_set} on random
+trees (\texttt{generate\_tree}).
+
+\textbf{Example.} On the path $0$--$1$--$2$--$3$--$4$ the maximum independent set
+has size $3$ (e.g.\ $\{0,2,4\}$).
+
+\subsection*{Problem 10 -- 2-SAT in Polynomial Time (Implication Graph + SCC)}
+
+Although 3-SAT is NP-complete, 2-SAT is solvable in linear time. Implement
+\texttt{two\_sat(num\_vars, clauses)} returning a satisfying assignment
+\texttt{\{var: bool\}} or \texttt{None} if the 2-CNF formula is unsatisfiable.
+Build the implication graph (each clause $(a \lor b)$ gives $\lnot a \Rightarrow
+b$ and $\lnot b \Rightarrow a$), compute strongly connected components (Kosaraju
+or Tarjan), and report unsatisfiable iff some variable $x$ has $x$ and $\lnot x$
+in the same SCC. Otherwise read off an assignment from the SCC order.
+
+\textbf{Verify} both directions against a brute-force satisfiability check over
+all $2^n$ assignments on random formulas (\texttt{generate\_2sat}); use
+\texttt{cnf\_is\_satisfied} (\texttt{starter\_code.py}) to check assignments.
+
+\subsection*{Problem 12 -- Set Cover via Bitmask / FPT Search}
+
+Implement \texttt{set\_cover\_fpt(universe, subsets, k)} returning the indices of
+at most $k$ subsets whose union is \texttt{universe} (the smallest found), or
+\texttt{None} if no cover of size $\le k$ exists. Use a bounded search tree
+parameterized by $k$: while elements remain uncovered and budget $> 0$, pick any
+uncovered element and branch over the subsets containing it. Represent covered
+elements as a \emph{bitmask} for fast union and coverage tests. Also implement
+\texttt{min\_set\_cover\_via\_fpt(universe, subsets)} (try $k=0,1,\dots$) and
+verify against \texttt{brute\_force\_set\_cover} (provided) on small random
+instances.
+
+\newpage
+\section{Branch and Bound and State-Space Search}
+
+\subsection*{Problem 8 -- Branch-and-Bound 0/1 Knapsack}
+
+Implement \texttt{knapsack\_branch\_and\_bound(values, weights, capacity)}
+returning the maximum total value of a 0/1 knapsack via branch and bound. Sort
+items by value/weight ratio (descending) for a tight relaxation, explore the
+include/exclude binary tree, and at each node compute the \emph{fractional}
+(LP-relaxation) upper bound (\texttt{fractional\_bound}, provided); prune a
+subtree when its bound does not exceed the best value found so far.
+
+\textbf{Verify} that the optimum equals the standard $O(nW)$ DP
+(\texttt{dp\_knapsack}, provided) on a fixed instance and on $200$ random
+instances.
+
+\subsection*{Problem 9 -- Branch-and-Bound TSP}
+
+Implement \texttt{tsp\_branch\_and\_bound(dist)} returning the length of the
+shortest Hamiltonian cycle through all cities, starting and ending at city $0$,
+for a symmetric distance matrix \texttt{dist}. Branch over the order in which
+cities are visited and prune a partial tour when \texttt{cost\_so\_far +
+lower\_bound} $\ge$ the best complete tour found so far. The provided
+\texttt{\_lower\_bound} adds, for the current city and each unvisited city, the
+cheapest edge that could still leave it -- an admissible (never-overestimating)
+bound.
+
+\textbf{Verify} that the optimum matches Held--Karp DP (\texttt{held\_karp},
+provided) on random instances with small $n$.
+
+\subsection*{Problem 11 -- Iterative-Deepening DFS on a State Space}
+
+Implement \texttt{iddfs(start, goal, side, max\_depth)} returning a
+\emph{shortest} solution path (a list of states from \texttt{start} to
+\texttt{goal} inclusive) for a sliding puzzle, or \texttt{None} if no solution
+within \texttt{max\_depth} moves. A state is a flattened tuple of a
+\texttt{side}$\times$\texttt{side} board with $0$ as the blank;
+\texttt{neighbors(state, side)} (provided) returns the states reachable by one
+slide. Run depth-limited DFS with limit $1, 2, 3, \dots$ until the goal is
+found; the first successful limit yields a shortest path. Track visited states
+on the current path to avoid cycles.
+
+\textbf{Example.} On the $2\times2$ puzzle, one slide from the goal returns a
+path of length $2$ (start, goal).
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's techniques (game
+search / minimax, FPT / bitmask search, state-space search, branch-and-bound) on
+the following \href{https://leetcode.com}{LeetCode} problems. Difficulty is
+LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/word-ladder/}{Word Ladder} -- \emph{Hard} -- State-space BFS.
+  \item \href{https://leetcode.com/problems/sliding-puzzle/}{Sliding Puzzle} -- \emph{Hard} -- State-space search.
+  \item \href{https://leetcode.com/problems/smallest-sufficient-team/}{Smallest Sufficient Team} -- \emph{Hard} -- Set cover (FPT / bitmask).
+  \item \href{https://leetcode.com/problems/stone-game/}{Stone Game} -- \emph{Medium} -- Game / minimax DP.
+  \item \href{https://leetcode.com/problems/stone-game-ii/}{Stone Game II} -- \emph{Medium} -- Game / minimax DP.
+  \item \href{https://leetcode.com/problems/can-i-win/}{Can I Win} -- \emph{Medium} -- Game search + memo.
+  \item \href{https://leetcode.com/problems/cat-and-mouse/}{Cat and Mouse} -- \emph{Hard} -- PSPACE game (BFS on states).
+  \item \href{https://leetcode.com/problems/maximum-students-taking-exam/}{Maximum Students Taking Exam} -- \emph{Hard} -- Bitmask FPT.
+\end{itemize}
+
+\end{document}

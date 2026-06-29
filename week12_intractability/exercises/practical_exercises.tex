@@ -1,0 +1,245 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 12: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{num\_variables},
+\texttt{all\_assignments}, \texttt{generate\_3sat}, \texttt{make\_graph},
+\texttt{generate\_graph}, \texttt{neighbors}, \texttt{complement\_graph},
+\texttt{is\_clique}, \texttt{generate\_subset\_sum}, and
+\texttt{generate\_distance\_matrix}.
+
+A \emph{CNF formula} is a list of clauses, each clause a list of signed integers (a
+positive literal \texttt{v} means ``variable $v$ is true,'' \texttt{-v} means false); a
+\emph{graph} is a pair \texttt{(n, edges)} with \texttt{edges} a set of
+\texttt{frozenset(\{u, v\})}. These problems concern \emph{intractable} (NP-hard) problems,
+so the reference algorithms are deliberately exponential brute-force / backtracking
+searches -- correct, but only practical for small inputs.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Verifiers \& Brute Force} (Problems 1--5): SAT verification and brute-force
+    solving; verifiers and brute-force optima for independent set, vertex cover, and clique,
+    including the complementarity identities $\mathrm{VC} = V \setminus \mathrm{IS}$ and
+    ``max clique in $G$ = max independent set in $\overline{G}$.''
+    \item \textbf{Reductions} (Problems 6, 12): the gadget reduction \textsc{3-SAT} $\to$
+    \textsc{Independent Set}, and an explicit mapping reduction between \textsc{Vertex
+    Cover} and \textsc{Independent Set} with the equivalence ``$x \in A \iff f(x) \in B$''
+    checked on random instances.
+    \item \textbf{Search} (Problems 7--11): brute-force \textsc{Subset Sum}; backtracking
+    \textsc{Hamiltonian Cycle}; exact \textsc{TSP} via Held--Karp bitmask DP (verified
+    against brute force); backtracking graph $k$-coloring and the chromatic number.
+\end{itemize}
+
+\newpage
+\section{Verifiers \& Brute Force}
+
+\subsection*{Problem 1 -- SAT Verifier}
+
+Implement \texttt{verify\_sat(formula, assignment)}: given a CNF \texttt{formula} (list of
+clauses, each a list of signed ints) and an \texttt{assignment} (a tuple/list of booleans
+where \texttt{assignment[v-1]} is the value of variable $v$), return \texttt{True} iff the
+assignment satisfies the formula -- i.e.\ every clause has at least one true literal. A
+literal \texttt{v > 0} is true iff \texttt{assignment[v-1]} is \texttt{True}; a literal
+\texttt{v < 0} is true iff \texttt{assignment[-v-1]} is \texttt{False}.
+
+\textbf{Example.} \texttt{verify\_sat([[1, -2], [2, 3]], (True, False, False)) == True}.
+The empty formula \texttt{[]} is satisfied by any assignment; a formula containing the
+empty clause \texttt{[[]]} is satisfied by none.
+
+\subsection*{Problem 2 -- Brute-Force SAT Solver}
+
+Implement \texttt{brute\_force\_sat(formula)}: try all $2^n$ assignments over the $n =
+\texttt{num\_variables(formula)}$ variables (use \texttt{all\_assignments} from
+\texttt{starter\_code.py}) and return the first satisfying assignment found (as a tuple of
+booleans), or \texttt{None} if the formula is unsatisfiable. This is the exponential
+``certificate search'' that the verifier of Problem~1 short-circuits when a certificate is
+already known.
+
+\subsection*{Problem 3 -- Independent-Set Verifier and Maximum Independent Set}
+
+Implement \texttt{is\_independent\_set(graph, subset)}: return \texttt{True} iff no two
+vertices of \texttt{subset} (an iterable of vertex labels) are joined by an edge of
+\texttt{graph}. Then implement \texttt{max\_independent\_set(graph)}: by checking all $2^n$
+vertex subsets (largest first), return a maximum independent set as a \texttt{frozenset}.
+Intended for $n \le 18$.
+
+\subsection*{Problem 4 -- Vertex-Cover Verifier, Minimum Vertex Cover, and Complementarity}
+
+Implement \texttt{is\_vertex\_cover(graph, subset)}: return \texttt{True} iff every edge of
+\texttt{graph} has at least one endpoint in \texttt{subset}. Implement
+\texttt{min\_vertex\_cover(graph)}: by brute force, return a minimum vertex cover as a
+\texttt{frozenset}. Finally implement \texttt{verify\_vc\_complement(graph)}: return
+\texttt{True} iff $V \setminus (\text{a maximum independent set})$ is a minimum vertex cover
+-- i.e.\ the sizes satisfy $|\mathrm{VC}| = n - |\mathrm{IS}|$ \emph{and} the complement of a
+maximum independent set is in fact a valid vertex cover.
+
+\subsection*{Problem 5 -- Clique Verifier, Maximum Clique, and the Complement Identity}
+
+Implement \texttt{is\_clique\_subset(graph, subset)}: return \texttt{True} iff every pair of
+vertices in \texttt{subset} is joined by an edge. Implement
+\texttt{max\_clique(graph)}: by brute force, return a maximum clique as a \texttt{frozenset}.
+Finally implement \texttt{verify\_clique\_is\_complement(graph)}: return \texttt{True} iff
+the size of a maximum clique in \texttt{graph} equals the size of a maximum independent set
+in \texttt{complement\_graph(graph)} (using \texttt{max\_independent\_set} from Problem~3).
+
+\newpage
+\section{Reductions}
+
+\subsection*{Problem 6 -- Reduction \textsc{3-SAT} \texorpdfstring{$\to$}{->} Independent Set}
+
+Implement \texttt{reduce\_3sat\_to\_independent\_set(formula)} returning \texttt{(graph, k)}:
+\begin{itemize}
+    \item Create one vertex per (clause, literal-position) pair, so a formula with $k$
+    clauses of $\le 3$ literals each yields up to $3k$ vertices.
+    \item Add \emph{triangle edges}: within each clause, join all of its literal-vertices
+    pairwise.
+    \item Add \emph{conflict edges}: between any two vertices in \emph{different} clauses
+    whose literals are complementary (one is \texttt{v}, the other \texttt{-v}).
+    \item Set $k$ = number of clauses.
+\end{itemize}
+Then implement \texttt{verify\_reduction(formula)}: return \texttt{True} iff
+\texttt{brute\_force\_sat(formula)} finds the formula satisfiable \emph{exactly when} the
+constructed graph has an independent set of size $\ge k$ (compute the latter with
+\texttt{max\_independent\_set} from Problem~3). This is the both-directions correctness
+check of the reduction, done computationally on small formulas.
+
+\textbf{Tip.} You may import \texttt{brute\_force\_sat} (Problem~2) and
+\texttt{max\_independent\_set} / \texttt{is\_independent\_set} (Problem~3) -- the reference
+solution re-implements the small pieces it needs so each file is self-contained.
+
+\subsection*{Problem 12 -- Reduction Certificate Demo: \textsc{Vertex Cover} \texorpdfstring{$\leftrightarrow$}{<->} \textsc{Independent Set}}
+
+Implement a poly-time mapping reduction and verify the certificate equivalence ``$x \in A
+\iff f(x) \in B$'' on random small instances.
+
+Define the decision predicates \texttt{has\_independent\_set(graph, k)} (does \texttt{graph}
+have an independent set of size $\ge k$?) and \texttt{has\_vertex\_cover(graph, k)} (size
+$\le k$?), each by brute force. Implement the mapping
+\texttt{reduce\_is\_to\_vc(graph, k)} returning \texttt{(graph, n - k)} (leave the graph
+unchanged, complement the threshold), reflecting the identity ``$G$ has an IS of size $\ge
+k$ iff $G$ has a VC of size $\le n - k$.'' Finally implement
+\texttt{verify\_mapping(num\_trials, n, seed)}: for \texttt{num\_trials} random graphs and
+a sweep of thresholds $k$, confirm \texttt{has\_independent\_set(graph, k)} equals
+\texttt{has\_vertex\_cover(*reduce\_is\_to\_vc(graph, k))} for every $(graph, k)$. Return
+\texttt{True} iff the equivalence holds in every case.
+
+\newpage
+\section{Search}
+
+\subsection*{Problem 7 -- Subset-Sum Verifier and Brute-Force Decision}
+
+Implement \texttt{verify\_subset\_sum(weights, subset\_indices, target)}: return
+\texttt{True} iff the items of \texttt{weights} at the given indices sum to exactly
+\texttt{target}. Then implement \texttt{subset\_sum\_exists(weights, target)}: by checking
+all $2^n$ subsets, return \texttt{True} iff some subset of \texttt{weights} sums exactly to
+\texttt{target}. Also return a witness via
+\texttt{find\_subset\_sum(weights, target)}, which returns a list of indices summing to
+\texttt{target}, or \texttt{None} if none exists.
+
+\textbf{Example.} \texttt{subset\_sum\_exists([3, 34, 4, 12, 5, 2], 9) == True}
+($4 + 5 = 9$).
+
+\subsection*{Problem 8 -- Hamiltonian Cycle by Backtracking}
+
+Implement \texttt{verify\_hamiltonian\_cycle(graph, cycle)}: given a candidate
+\texttt{cycle} (a list of vertices, \emph{without} repeating the start at the end), return
+\texttt{True} iff it visits every vertex exactly once and consecutive vertices (including
+the wrap-around from last to first) are joined by edges. Then implement
+\texttt{find\_hamiltonian\_cycle(graph)}: search by backtracking for a Hamiltonian cycle,
+returning it as a list of vertices (starting at vertex 0), or \texttt{None} if the graph
+has none.
+
+\textbf{Example.} The 4-cycle $0\!-\!1\!-\!2\!-\!3\!-\!0$ has a Hamiltonian cycle; a
+``path'' graph $0\!-\!1\!-\!2\!-\!3$ (no edge $3\!-\!0$) does not.
+
+\subsection*{Problem 9 -- TSP via Held--Karp Bitmask DP}
+
+Implement \texttt{tsp\_held\_karp(dist)}: given an $n \times n$ symmetric distance matrix,
+return the length of a shortest tour visiting every city exactly once and returning to the
+start (city 0), using the Held--Karp dynamic program over subsets:
+\begin{verbatim}
+dp[S][j] = shortest path that starts at 0, visits exactly the cities in S,
+           and ends at j (where 0 in S, j in S).
+answer  = min over j != 0 of dp[FULL][j] + dist[j][0].
+\end{verbatim}
+This runs in $O(n^2 2^n)$ time. Then implement \texttt{tsp\_brute\_force(dist)} that tries
+all $(n-1)!$ permutations of the non-start cities, and
+\texttt{verify\_tsp(num\_trials, n, seed)} returning \texttt{True} iff Held--Karp and brute
+force agree (within $10^{-9}$) on \texttt{num\_trials} random matrices.
+
+\subsection*{Problem 10 -- Graph $k$-Coloring by Backtracking}
+
+Implement \texttt{verify\_coloring(graph, coloring)}: given \texttt{coloring} (a list/dict
+mapping each vertex to a color index), return \texttt{True} iff it uses at most the intended
+colors and no edge joins two equally-colored vertices. Then implement
+\texttt{k\_coloring(graph, k)}: search by backtracking for a proper coloring of
+\texttt{graph} with colors $\{0, \ldots, k-1\}$, returning it as a list (indexed by vertex)
+or \texttt{None} if no proper $k$-coloring exists.
+
+\textbf{Example.} A triangle $K_3$ needs 3 colors: \texttt{k\_coloring} returns
+\texttt{None} for $k = 2$ and a valid coloring for $k = 3$.
+
+\subsection*{Problem 11 -- Chromatic Number (Trying $k = 1, 2, 3, \ldots$)}
+
+Implement \texttt{chromatic\_number(graph)}: using \texttt{k\_coloring} from Problem~10,
+return the smallest $k \ge 0$ for which \texttt{graph} has a proper $k$-coloring (a graph
+with no edges and $\ge 1$ vertex needs $1$ color; the empty graph on $0$ vertices needs
+$0$). Then implement \texttt{is\_three\_colorable(graph)} returning \texttt{True} iff
+$\texttt{chromatic\_number(graph)} \le 3$. \emph{Sanity check (reduction intuition):} a
+bipartite graph (e.g.\ an even cycle) has chromatic number $\le 2$, while an odd cycle has
+chromatic number $3$.
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's intractability techniques
+(verification, reductions, and exponential backtracking / bitmask DP for NP-hard problems)
+on the following \href{https://leetcode.com}{LeetCode} problems. NP-complete problems are
+attacked here with exponential backtracking / branch-and-bound. Difficulty is LeetCode's
+own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/subsets/}{Subsets} -- \emph{Medium} -- Backtracking.
+  \item \href{https://leetcode.com/problems/combination-sum/}{Combination Sum} -- \emph{Medium} -- Backtracking.
+  \item \href{https://leetcode.com/problems/palindrome-partitioning/}{Palindrome Partitioning} -- \emph{Medium} -- Backtracking.
+  \item \href{https://leetcode.com/problems/word-search/}{Word Search} -- \emph{Medium} -- Backtracking.
+  \item \href{https://leetcode.com/problems/n-queens/}{N-Queens} -- \emph{Hard} -- Backtracking.
+  \item \href{https://leetcode.com/problems/sudoku-solver/}{Sudoku Solver} -- \emph{Hard} -- Constraint backtracking.
+  \item \href{https://leetcode.com/problems/partition-to-k-equal-sum-subsets/}{Partition to K Equal Sum Subsets} -- \emph{Medium} -- NP-hard (subset-sum).
+  \item \href{https://leetcode.com/problems/flower-planting-with-no-adjacent/}{Flower Planting With No Adjacent} -- \emph{Medium} -- Graph coloring.
+  \item \href{https://leetcode.com/problems/find-the-shortest-superstring/}{Find the Shortest Superstring} -- \emph{Hard} -- TSP / bitmask DP.
+\end{itemize}
+
+\end{document}

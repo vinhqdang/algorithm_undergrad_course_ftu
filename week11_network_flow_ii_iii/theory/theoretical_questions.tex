@@ -1,0 +1,396 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 11: Theoretical Questions}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+Part A contains 17 questions requiring written explanations or short proofs
+(including the key proofs of Hall's and K\H{o}nig's theorems). Part B is a
+10-question quiz (true/false and multiple choice). Attempt every question on
+your own before consulting Part C (Solutions) at the end of this document.
+
+\section*{Part A: Theory Questions}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item Define a \emph{bipartite graph} in two equivalent ways: via a vertex
+2-coloring, and via cycle lengths. Briefly explain why a BFS/DFS 2-coloring
+algorithm (Problem 1) detects non-bipartiteness exactly when it finds an edge
+between two same-colored vertices.
+
+\item State the Maximum Bipartite Matching problem precisely (input, what a
+matching is, objective). Then describe the standard reduction to maximum flow:
+which vertices and edges are added, and what capacities they receive.
+
+\item Prove that, in the matching-to-flow reduction, the maximum matching size
+equals the maximum $s$--$t$ flow value. Where is the \emph{integrality theorem}
+used, and why is it essential?
+
+\item Kuhn's algorithm (Problem 2) repeatedly searches for an \emph{augmenting
+path}. Define an augmenting path with respect to a matching $M$, and explain why
+finding one lets you increase the matching size by exactly one. Why does the
+algorithm terminate, and how many augmentations occur in the worst case?
+
+\item Define the \emph{neighborhood} $N(S)$ of a set $S \subseteq X$ and a
+\emph{deficient} set. State \textbf{Hall's theorem} precisely.
+
+\item Prove the ``easy'' (necessity) direction of Hall's theorem: if a matching
+saturates all of $X$, then $|N(S)| \ge |S|$ for every $S \subseteq X$.
+
+\item Prove the ``hard'' (sufficiency) direction of Hall's theorem using
+max-flow min-cut: if every $S \subseteq X$ satisfies $|N(S)| \ge |S|$, then an
+$X$-saturating matching exists. (Hint: show the minimum cut of the matching
+network equals $\min_{S}\,(|X| - |S| + |N(S)|)$.)
+
+\item When no perfect matching of $X$ exists, Problem 4 returns a deficient set
+$S$ as a \emph{certificate}. Explain why a deficient set is a convincing,
+easily-checkable proof that no $X$-saturating matching can exist.
+
+\item Define a \emph{vertex cover}. Prove the weak-duality bound: in \emph{any}
+graph, $|M| \le |C|$ for every matching $M$ and vertex cover $C$.
+
+\item State \textbf{K\H{o}nig's theorem}. Give a concrete example of a
+\emph{non-bipartite} graph where maximum matching $<$ minimum vertex cover
+(so K\H{o}nig fails), and report both values.
+
+\item Prove K\H{o}nig's theorem constructively: starting from a maximum matching
+$M$, build a vertex cover of size $|M|$ using alternating paths from the
+unmatched $X$-vertices. (This is exactly the construction implemented in
+Problem 5.)
+
+\item Explain how Hall's theorem can be derived as a corollary of K\H{o}nig's
+theorem.
+
+\item State \textbf{Menger's theorem} (edge version) and explain the reduction
+(Problem 7) that computes the maximum number of edge-disjoint $s$--$t$ paths.
+Why does using capacity-$1$ edges, together with the integrality theorem,
+guarantee the paths are edge-disjoint?
+
+\item Describe the \emph{node-splitting} gadget (Problem 8) for computing
+\emph{vertex-disjoint} paths. Give a small example of a graph in which the number
+of edge-disjoint $s$--$t$ paths is strictly greater than the number of
+vertex-disjoint $s$--$t$ paths.
+
+\item State the \emph{circulation with demands and lower bounds} problem. Explain
+the two-step reduction to max flow (Problem 11): how lower bounds are eliminated,
+and how a super-source/super-sink decide feasibility. What is the role of the
+condition $\sum_v d_v = 0$?
+
+\item Describe the \emph{project selection / maximum-weight closure} problem and
+its min-cut reduction (Problem 10). Why are the prerequisite edges given
+\emph{infinite} capacity, and what does the source side of the minimum cut
+represent?
+
+\item Both \textbf{baseball elimination} (Problem 9) and \textbf{image
+segmentation} are solved with flow/cut. For each, state in one or two sentences
+what the flow/cut value represents and how the answer is read off. What do these
+two applications, together with project selection, have in common at the level of
+the reduction technique?
+
+\end{enumerate}
+
+\newpage
+\section*{Part B: Quiz}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{(True/False)} A graph is bipartite if and only if it contains no
+odd-length cycle.
+
+\item \textbf{(Multiple choice)} In the standard reduction of bipartite matching
+to max flow, the edges between the two sides $X$ and $Y$ are given capacity:
+\begin{enumerate}[label=(\alph*)]
+    \item $0$
+    \item $1$
+    \item $\infty$
+    \item the degree of the endpoint in $X$
+\end{enumerate}
+
+\item \textbf{(Short answer)} A bipartite graph has $X = \{x_1, x_2\}$,
+$Y = \{y_1\}$, with edges $x_1 y_1$ and $x_2 y_1$. Does $X$ have a perfect
+matching? If not, give a deficient set $S$ and the values $|S|$ and $|N(S)|$.
+
+\item \textbf{(True/False)} In every graph, the size of a maximum matching equals
+the size of a minimum vertex cover.
+
+\item \textbf{(Multiple choice)} K\H{o}nig's theorem states that maximum matching
+equals minimum vertex cover in:
+\begin{enumerate}[label=(\alph*)]
+    \item all graphs
+    \item bipartite graphs
+    \item planar graphs
+    \item trees only
+\end{enumerate}
+
+\item \textbf{(True/False)} To count \emph{vertex-disjoint} $s$--$t$ paths, one
+splits each internal vertex $v$ into $v_{\text{in}} \to v_{\text{out}}$ with
+capacity $1$.
+
+\item \textbf{(Short answer)} In the project-selection min-cut network, why must
+the prerequisite edges have infinite capacity?
+
+\item \textbf{(Multiple choice)} In baseball elimination, team $x$ is declared
+\emph{not eliminated} when the maximum flow:
+\begin{enumerate}[label=(\alph*)]
+    \item is zero
+    \item saturates every edge \emph{into} the sink $t$
+    \item saturates every game edge \emph{out of} the source $s$
+    \item equals the number of teams
+\end{enumerate}
+
+\item \textbf{(Short answer)} In a circulation with demands, after eliminating an
+edge's lower bound $\ell$ on edge $(u,v)$, how do the demands of $u$ and $v$
+change, and how does the edge's capacity change?
+
+\item \textbf{(True/False)} Image segmentation (foreground/background labeling
+with separation penalties) can be solved by computing a minimum $s$--$t$ cut.
+
+\end{enumerate}
+
+\newpage
+\section*{Part C: Solutions}
+
+\subsection*{Part A}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item A graph is \textbf{bipartite} if its vertices split into $X \cup Y$ with
+every edge crossing between $X$ and $Y$; equivalently, if the vertices can be
+2-colored (say colors $0$ and $1$) so that adjacent vertices get different
+colors. A second equivalent characterization: a graph is bipartite iff it has
+\emph{no odd-length cycle}. The BFS 2-coloring algorithm colors a start vertex
+$0$ and alternates colors across edges; if it ever finds an edge whose endpoints
+already have the \emph{same} color, the two BFS paths to those endpoints, plus
+that edge, close an \emph{odd} cycle -- so the graph cannot be bipartite. If no
+such edge is ever found, the coloring is a valid bipartition.
+
+\item \textbf{Input:} a bipartite graph $G = (X \cup Y, E)$. A \textbf{matching}
+$M \subseteq E$ is a set of edges no two of which share an endpoint. The
+\textbf{objective} is to find a matching of maximum size. \textbf{Reduction to
+flow:} add a source $s$ and sink $t$; add $s \to x$ of capacity $1$ for each
+$x \in X$; add $y \to t$ of capacity $1$ for each $y \in Y$; orient each original
+edge as $x \to y$ with capacity $1$. The maximum $s$--$t$ flow value equals the
+maximum matching size.
+
+\item \emph{Matching $\Rightarrow$ flow:} a matching $M$ of size $k$ yields a
+flow of value $k$ by routing one unit along $s \to x \to y \to t$ for each
+$(x,y) \in M$; disjointness of $M$ keeps every capacity-$1$ edge within its
+capacity. \emph{Flow $\Rightarrow$ matching:} by the \textbf{integrality
+theorem}, since all capacities are integers there is a maximum flow that is
+\emph{integral}, so each edge carries $0$ or $1$ unit. The saturated middle edges
+form a set $M$; each $x$ receives at most $1$ unit from $s$, so it sends at most
+$1$ unit onward, i.e.\ $x$ is in at most one edge of $M$ (likewise each $y$). So
+$M$ is a matching with $|M| = $ flow value. Integrality is \emph{essential}:
+without it a max flow could split a unit fractionally across two middle edges,
+which would not correspond to any matching.
+
+\item An \textbf{augmenting path} (w.r.t.\ $M$) is a path that starts and ends at
+\emph{free} vertices and \emph{alternates} between edges not in $M$ and edges in
+$M$. Because the two endpoints are free and the path alternates, it contains one
+more non-matching edge than matching edge; \emph{flipping} the path (removing its
+matching edges from $M$ and adding its non-matching edges) yields a valid
+matching with exactly one more edge. Kuhn's algorithm tries to find an augmenting
+path from each $X$-vertex; each success increases $|M|$ by $1$, and since
+$|M| \le \min(|X|,|Y|)$ there are at most that many augmentations, after which no
+augmenting path remains and $M$ is maximum (Berge's theorem).
+
+\item For $S \subseteq X$, $N(S) = \{y \in Y : y \text{ adjacent to some }
+x \in S\}$. $S$ is \textbf{deficient} if $|N(S)| < |S|$. \textbf{Hall's theorem:}
+a bipartite graph has a matching saturating all of $X$ if and only if
+$|N(S)| \ge |S|$ for every $S \subseteq X$ (i.e.\ no deficient set exists).
+
+\item Suppose a matching $M$ saturates every vertex of $X$. Fix any
+$S \subseteq X$. Each $x \in S$ is matched to a distinct partner $\mu(x) \in Y$,
+and $\mu(x) \in N(S)$ since $x \in S$ is adjacent to it. The map $x \mapsto
+\mu(x)$ is injective (a matching pairs distinct $x$'s with distinct $y$'s), so
+$N(S)$ contains at least $|S|$ distinct vertices: $|N(S)| \ge |S|$.
+
+\item Build the matching network. An $X$-saturating matching exists iff the
+maximum flow value is $|X|$, iff (max-flow min-cut) the minimum cut capacity is
+$|X|$. Take any finite-capacity $s$--$t$ cut $(A,B)$, $s\in A$. Let
+$S = X \cap B$. A finite cut cannot include any infinite-capacity edge; here all
+edges are finite, but the \emph{cheapest} cut that ``abandons'' $S$ to the sink
+side must (i) cut the edges $s \to x$ for each $x \in X \cap A = X \setminus S$,
+costing $|X| - |S|$, and (ii) cut the edges $y \to t$ for every $y \in N(S)$ that
+it keeps on the source side, costing $|N(S)|$ (it must keep $N(S)$ on the source
+side, because each middle edge $x \to y$ with $x \in S$ would otherwise be a
+source-to-sink crossing it has to pay for, and putting $N(S)$ on the source side
+and cutting $y \to t$ is at least as cheap). Hence the minimum cut equals
+$\min_{S \subseteq X}\big(|X| - |S| + |N(S)|\big)$. This is $< |X|$ exactly when
+some $S$ has $|N(S)| < |S|$. So if \emph{no} set is deficient, the minimum cut is
+$|X|$, the max flow is $|X|$, and an $X$-saturating matching exists.
+
+\item A deficient set $S$ has $|N(S)| < |S|$. Any matching can match the vertices
+of $S$ \emph{only} to vertices of $N(S)$ (those are their only neighbors), and a
+matching pairs them injectively; but there are fewer than $|S|$ available
+partners in $N(S)$, so at least one vertex of $S$ must go unmatched. Hence no
+matching can saturate $X$. The certificate is \emph{easy to check}: given $S$,
+one computes $N(S)$ in $O(E)$ time and verifies $|N(S)| < |S|$ -- no need to
+re-run any matching algorithm.
+
+\item A \textbf{vertex cover} $C$ is a set of vertices such that every edge has
+at least one endpoint in $C$. \emph{Weak duality:} let $M$ be any matching and
+$C$ any vertex cover. Each edge of $M$ must be covered, so it has an endpoint in
+$C$. Distinct edges of $M$ share no endpoint, so they require \emph{distinct}
+cover vertices. Therefore $|C| \ge |M|$. Taking the maximum matching and minimum
+cover gives $\max$-matching $\le$ $\min$-cover.
+
+\item \textbf{K\H{o}nig's theorem:} in a \emph{bipartite} graph, maximum matching
+size $=$ minimum vertex cover size. \emph{Non-bipartite counterexample:} the
+triangle $K_3$ on vertices $\{1,2,3\}$ with edges $\{12,23,31\}$. Its maximum
+matching has size $1$ (any two edges share a vertex), but its minimum vertex
+cover has size $2$ (one vertex covers only two of the three edges). So
+$1 < 2$, and K\H{o}nig fails for this non-bipartite graph. (This is precisely the
+example checked in Problem 12.)
+
+\item Let $M$ be a maximum matching. Let $U \subseteq X$ be the unmatched
+$X$-vertices. \emph{Mark} every vertex reachable from $U$ by an alternating path
+(non-matching edge $X\to Y$, then matching edge $Y \to X$, repeating); call the
+marked set $Z$. Define $C = (X \setminus Z) \cup (Y \cap Z)$.
+\emph{$C$ covers every edge:} if some edge $(x,y)$ had $x \in X \cap Z$ and
+$y \in Y \setminus Z$, then either $(x,y) \notin M$ (and we could extend the
+alternating path from the marked $x$ to mark $y$ -- contradiction) or $(x,y) \in M$
+(and $x$ could only have been marked via its matching partner $y$, so $y$ is
+marked -- contradiction). \emph{$|C| = |M|$:} every vertex of $C$ is matched (an
+unmatched $X$-vertex lies in $U \subseteq Z$ so is excluded from $X \setminus Z$;
+an unmatched $Y$-vertex in $Z$ would give an augmenting path, contradicting
+maximality), and no matching edge has both endpoints in $C$. Hence each matching
+edge contributes exactly one endpoint to $C$, giving a bijection $M
+\leftrightarrow C$ and $|C| = |M|$. Combined with weak duality ($|M| \le |C|$),
+$C$ is a minimum cover of size exactly the maximum matching.
+
+\item By K\H{o}nig's theorem, the minimum vertex cover of a bipartite graph has
+size equal to the maximum matching. $X$ has a perfect matching iff the maximum
+matching size is $|X|$, iff the minimum vertex cover has size $|X|$. One then
+shows directly that a vertex cover smaller than $|X|$ exists iff some $S
+\subseteq X$ is deficient: a cover that omits some $x \in S$ must include all of
+$N(\{x\})$, and aggregating over a deficient $S$ produces a cover of size
+$< |X|$; conversely a small cover yields a deficient set. Thus ``no perfect
+matching'' $\iff$ ``a deficient set exists'' -- which is Hall's theorem.
+
+\item \textbf{Menger's theorem (edge version):} the maximum number of
+edge-disjoint $s$--$t$ paths equals the minimum number of edges whose removal
+disconnects $t$ from $s$. \emph{Reduction:} give every edge capacity $1$ and
+compute a max flow. By the integrality theorem the max flow is integral, so each
+edge carries $0$ or $1$ unit; the positive-flow edges decompose into $s$--$t$
+paths, and since each edge carries at most one unit, \emph{no edge is shared} --
+the paths are edge-disjoint. The number of such paths equals the flow value,
+which by max-flow min-cut equals the minimum edge cut.
+
+\item \textbf{Node-splitting:} replace each internal vertex $v$ by two vertices
+$v_{\text{in}}, v_{\text{out}}$ joined by an edge of capacity $1$; reroute every
+original edge $(u,v)$ as $u_{\text{out}} \to v_{\text{in}}$ (capacity $1$). The
+capacity-$1$ internal edge forces at most one path through $v$, so a max flow
+counts \emph{vertex}-disjoint paths. \emph{Example:} vertices $s, a, b, m, t$
+with edges $s\to a, s\to b, a\to m, b\to m, m\to t$. There are $2$
+\emph{edge}-disjoint paths ($s\,a\,m\,t$ and $s\,b\,m\,t$ -- they share no edge),
+but only $1$ \emph{vertex}-disjoint path, since both must pass through the single
+internal vertex $m$. (This is the contrast tested between Problems 7 and 8.)
+
+\item \textbf{Problem:} each vertex $v$ has a demand $d_v$ ($>0$ absorb, $<0$
+supply); each edge has a lower bound $\ell_e$ and capacity $c_e$; we seek a flow
+$f_e \in [\ell_e, c_e]$ with net flow into each $v$ equal to $d_v$.
+\emph{Reduction:} (1) \emph{eliminate lower bounds}: for each edge $(u,v)$ with
+bound $[\ell, c]$, set its capacity to $c - \ell$ and update $d_u \mathrel{+}=
+\ell$, $d_v \mathrel{-}= \ell$ (we have committed to push $\ell$ units). (2) Add
+a super-source $S$ and super-sink $T$: for each $v$ with adjusted $d_v < 0$, add
+$S \to v$ of capacity $-d_v$; for each $v$ with adjusted $d_v > 0$, add $v \to T$
+of capacity $d_v$. A feasible circulation exists iff the max $S$--$T$ flow
+saturates all $S$-edges (equivalently equals the total positive demand). The
+condition $\sum_v d_v = 0$ (after adjustment, total supply $=$ total demand) is
+\emph{necessary}: flow conservation forces everything supplied to be absorbed,
+so unequal totals make feasibility impossible -- Problem 11 checks this balance
+before (or alongside) the flow computation.
+
+\item \textbf{Project selection:} each project $v$ has profit $p_v$ (possibly
+negative); a prerequisite $(p,q)$ requires that selecting $p$ forces selecting
+$q$; we seek a prerequisite-closed set $S$ maximizing $\sum_{v\in S} p_v$.
+\emph{Min-cut reduction:} $s \to v$ with capacity $p_v$ for $p_v > 0$;
+$v \to t$ with capacity $-p_v$ for $p_v < 0$; prerequisite edges $p \to q$ with
+\emph{infinite} capacity. The infinite capacities ensure no \emph{finite} cut
+ever separates $p$ (source side) from a prerequisite $q$ (sink side) -- so the
+source side is always a \emph{closed} set, i.e.\ feasible. The source side of the
+minimum cut is the optimal project set, and the maximum profit is
+$\big(\sum_{p_v>0} p_v\big) - (\text{min cut})$.
+
+\item \textbf{Baseball elimination:} the max flow equals the number of remaining
+games (among the other teams) that can be distributed without any team exceeding
+$x$'s best-possible win total $W$. Team $x$ is \emph{not eliminated} iff the flow
+\emph{saturates all game edges} (every remaining game can be ``played'' in the
+model); otherwise it is eliminated, and the minimum cut names a set of teams that
+collectively must accumulate too many wins. \textbf{Image segmentation:} the
+minimum $s$--$t$ cut's capacity equals the total cost
+$\sum_{i\in F} b_i + \sum_{j \in B} a_j + \sum_{\text{split}} p_{ij}$, and the
+source/sink sides of the cut give the foreground/background labeling.
+\emph{Common technique:} all three (baseball, project selection, segmentation)
+are \textbf{min-cut} reductions -- they encode a combinatorial trade-off as the
+capacity of a cut, then read the optimal partition off the source side. (Baseball
+is most naturally posed as a \emph{saturation} check, which is the max-flow side
+of the same coin.)
+
+\end{enumerate}
+
+\subsection*{Part B}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{True.} A graph is bipartite iff it can be 2-colored iff it has no
+odd cycle -- these are three equivalent characterizations.
+
+\item \textbf{(b) $1$.} The middle edges $x \to y$ get capacity $1$; the
+capacity-$1$ edges from $s$ and into $t$ then enforce that each vertex is matched
+at most once. (Using capacity $\infty$ on middle edges also works since the
+endpoint edges already cap usage, but capacity $1$ is the standard choice.)
+
+\item \textbf{No}, $X$ has no perfect matching. Both $x_1$ and $x_2$ have their
+only neighbor $y_1$, so $S = \{x_1, x_2\}$ is deficient: $|S| = 2$ but
+$|N(S)| = |\{y_1\}| = 1 < 2$.
+
+\item \textbf{False.} This equality (K\H{o}nig's theorem) holds only for
+bipartite graphs. In general, $\max$-matching $\le \min$-cover, and the triangle
+$K_3$ shows the inequality can be strict ($1 < 2$).
+
+\item \textbf{(b) bipartite graphs.} K\H{o}nig's theorem is specifically about
+bipartite graphs; the analogous statement fails for general graphs.
+
+\item \textbf{True.} The internal edge $v_{\text{in}} \to v_{\text{out}}$ of
+capacity $1$ limits the flow through $v$ to one unit, forcing the paths to be
+vertex-disjoint.
+
+\item Infinite capacity guarantees that \emph{no finite-capacity cut} ever cuts a
+prerequisite edge, so a project $p$ on the source side can never be separated
+from its prerequisite $q$. This forces the source side of any minimum (finite)
+cut to be \emph{closed} under prerequisites -- i.e.\ a feasible project set.
+
+\item \textbf{(c) saturates every game edge out of the source $s$.} If all
+remaining inter-team games can be routed to winners without pushing any team past
+$W = w_x + (\text{remaining}_x)$, then $x$ can still finish (tied for) first.
+
+\item The capacity becomes $c - \ell$ (we ``pre-pushed'' $\ell$ units), the
+demand of $u$ increases by $\ell$ ($d_u \mathrel{+}= \ell$, since $u$ must now
+also account for sending those $\ell$ units), and the demand of $v$ decreases by
+$\ell$ ($d_v \mathrel{-}= \ell$, since $v$ already receives those $\ell$ units).
+
+\item \textbf{True.} Foreground/background labeling with per-pixel likelihoods
+and pairwise separation penalties is exactly a minimum $s$--$t$ cut: $s$ is the
+foreground terminal, $t$ the background terminal, and the cut capacity equals the
+total cost being minimized.
+
+\end{enumerate}
+
+\end{document}
