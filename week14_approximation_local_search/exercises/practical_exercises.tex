@@ -1,0 +1,203 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 14: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{generate\_graph},
+\texttt{generate\_points}, \texttt{generate\_jobs}, \texttt{euclidean},
+\texttt{distance\_matrix}, \texttt{neighbors}, \texttt{is\_vertex\_cover},
+\texttt{cut\_value}.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Approximation Algorithms} (Problems 1--9): Vertex Cover via maximal
+    matching, greedy Set Cover, greedy load balancing and LPT, greedy $k$-center, MST-based
+    metric TSP, and the Knapsack FPTAS -- each with an empirical check against a brute-force
+    optimum or a provable bound.
+    \item \textbf{Local Search} (Problems 10--12): Max-Cut local search (vertex flips),
+    hill climbing with random restarts, and a simulated-annealing-style randomized search.
+    \item \textbf{Empirical Ratios} (woven through Problems 2, 4, 5, 6, 8, 9, 11): measure
+    the actual approximation ratio achieved and confirm it stays within the proven
+    guarantee.
+\end{itemize}
+
+\newpage
+\section{Approximation Algorithms}
+
+\subsection*{Problem 1 -- Vertex Cover via Maximal Matching}
+
+Implement \texttt{vertex\_cover\_matching(graph)}, where \texttt{graph} is a tuple
+\texttt{(n, edges)}. Scan the edges; whenever an edge $(u,v)$ has \emph{neither} endpoint
+already in the cover, add \emph{both} $u$ and $v$ to the cover. Return the cover as a
+\texttt{set} of vertices. Use \texttt{is\_vertex\_cover} from \texttt{starter\_code.py} to
+sanity-check the result.
+
+\textbf{Example.} On the path $0 - 1 - 2 - 3$ (edges $(0,1),(1,2),(2,3)$), scanning in
+order adds $\{0,1\}$ for edge $(0,1)$, skips $(1,2)$ (vertex $1$ already in), and adds
+$\{2,3\}$ for $(2,3)$, giving cover $\{0,1,2,3\}$.
+
+\subsection*{Problem 2 -- Verifying the 2-Approximation for Vertex Cover}
+
+Implement \texttt{brute\_force\_min\_vertex\_cover(graph)} that returns the size of a
+\emph{minimum} vertex cover by trying all $2^n$ vertex subsets (smallest first) and
+returning the first that covers every edge. Then implement
+\texttt{verify\_vc\_2approx(num\_trials, n, p, seed)}: for each random graph
+(\texttt{generate\_graph(n, p, seed=seed+trial)}), check that the matching cover (Problem
+1) has size $\le 2\times$ the optimum. Return \texttt{True} iff this holds on every trial.
+Intended for $n \le 15$.
+
+\subsection*{Problem 3 -- Greedy Set Cover}
+
+A Set Cover instance is a universe \texttt{universe} (a set/frozenset of elements) and a
+list \texttt{subsets} of sets whose union is the universe. Implement
+\texttt{greedy\_set\_cover(universe, subsets)}: repeatedly pick the subset covering the
+\emph{most} currently-uncovered elements, until all elements are covered. Return the list
+of chosen subset \emph{indices}, in the order chosen.
+
+\textbf{Example.} \texttt{universe = \{1,2,3,4,5\}}, \texttt{subsets = [\{1,2,3\}, \{2,4\},
+\{3,4\}, \{4,5\}]}: greedy first picks index $0$ (covers $3$), then index $3$ (covers
+$\{4,5\}$), giving \texttt{[0, 3]}.
+
+\subsection*{Problem 4 -- Greedy Set Cover vs.\ the Optimum}
+
+Implement \texttt{brute\_force\_min\_set\_cover(universe, subsets)} that returns the
+minimum number of subsets needed (try all sub-collections of size $1, 2, \ldots$ until one
+covers the universe). Then implement \texttt{set\_cover\_ratio(universe, subsets)}
+returning \texttt{greedy\_size / opt\_size} as a float. Verify on the small instances in
+the test block that greedy's size never exceeds the optimum by more than the $H_n$ factor
+($H_n = \sum_{k=1}^{n} 1/k$).
+
+\subsection*{Problem 5 -- Load Balancing: Greedy List Scheduling}
+
+Implement \texttt{greedy\_list\_scheduling(times, m)}: assign each job (in the given order)
+to a machine of currently minimum load. Return \texttt{(loads, makespan)} where
+\texttt{loads} is the list of $m$ machine loads and \texttt{makespan} is their maximum.
+Then implement \texttt{verify\_greedy\_makespan(num\_trials, n, m, seed)}: for each random
+instance (\texttt{generate\_jobs(n, seed=seed+trial)}), check that the makespan is
+$\le 2\times$ the lower bound $\max(\max_j t_j,\ \frac1m\sum_j t_j)$. Return \texttt{True}
+iff this holds on every trial.
+
+\subsection*{Problem 6 -- Longest-Processing-Time (LPT) Scheduling}
+
+Implement \texttt{lpt\_scheduling(times, m)}: sort the jobs in \emph{decreasing} order,
+then run greedy list scheduling (Problem 5). Return \texttt{(loads, makespan)}. Then
+implement \texttt{verify\_lpt\_makespan(num\_trials, n, m, seed)}: check that the LPT
+makespan is $\le \frac43 \times$ the lower bound $\max(\max_j t_j,\ \frac1m\sum_j t_j)$ on
+every random instance. Return \texttt{True} iff so. (We use a small tolerance for
+floating-point comparisons.)
+
+\subsection*{Problem 7 -- Center Selection (Greedy Farthest-Point $k$-Center)}
+
+Implement \texttt{greedy\_k\_center(points, k, seed)}: pick a first center (deterministically,
+e.g.\ index 0, after optionally shuffling with \texttt{seed} for reproducibility);
+repeatedly add the point \emph{farthest} from the current center set, until $k$ centers are
+chosen. Return \texttt{(centers, radius)} where \texttt{centers} is the list of chosen
+point \emph{indices} and \texttt{radius} $= \max_p \min_{c} d(p, c)$ is the covering
+radius. Use \texttt{euclidean} from \texttt{starter\_code.py}.
+
+\subsection*{Problem 8 -- Metric TSP 2-Approximation via MST Preorder}
+
+Implement \texttt{mst\_tsp\_tour(points)}: build a minimum spanning tree of the complete
+Euclidean graph (Prim's algorithm is fine), then return \texttt{(tour, tour\_length)}
+where \texttt{tour} is the preorder DFS order of the MST (a list of point indices, not
+repeating the start) and \texttt{tour\_length} is the closed-tour length (summing
+consecutive distances and the wrap-around edge back to the start). Then implement
+\texttt{verify\_tsp\_2approx(num\_trials, n, seed)}: for each random point set, check that
+\texttt{tour\_length} $\le 2 \times w(\text{MST})$. Return \texttt{True} iff so.
+
+\subsection*{Problem 9 -- Knapsack FPTAS (Rounding and Scaling)}
+
+Implement \texttt{knapsack\_exact(profits, weights, capacity)} via the standard
+weight-indexed DP, returning the optimal total profit. Then implement
+\texttt{knapsack\_fptas(profits, weights, capacity, epsilon)}: set $\mu = \varepsilon\,
+p_{\max}/n$, round each profit down to $\hat p_i = \lfloor p_i/\mu\rfloor$, solve exactly
+on the rounded profits (profit-indexed DP), and return the \emph{true} total profit of the
+chosen items. Then implement \texttt{verify\_fptas(num\_trials, n, epsilon, seed)}: check
+that the FPTAS value is $\ge (1 - \varepsilon) \times$ the exact optimum on every random
+instance. Return \texttt{True} iff so.
+
+\newpage
+\section{Local Search}
+
+\subsection*{Problem 10 -- Max-Cut Local Search (Vertex Flips)}
+
+Implement \texttt{max\_cut\_local\_search(graph, seed)}: start from a (seeded) random
+partition \texttt{side} (a list of $0$/$1$ per vertex); while some vertex has more edges to
+its own side than to the other side, flip it (this strictly increases the cut). Return
+\texttt{(side, cut)}. Then implement \texttt{verify\_local\_optimum\_half(num\_trials, n,
+p, seed)}: check that the returned cut is $\ge m/2$ (where $m$ is the edge count) on every
+random graph. Return \texttt{True} iff so. Use \texttt{cut\_value} from
+\texttt{starter\_code.py}.
+
+\subsection*{Problem 11 -- Hill Climbing with Random Restarts vs.\ Brute Force}
+
+Implement \texttt{brute\_force\_max\_cut(graph)} that returns the maximum cut value by
+trying all $2^{n-1}$ partitions (fix vertex $0$ on side $0$ to avoid the symmetric
+double-count). Then implement \texttt{hill\_climbing\_restarts(graph, restarts, seed)}:
+run \texttt{max\_cut\_local\_search} from \texttt{restarts} different seeds and return the
+best cut found. Verify in the test block that, with enough restarts, the best cut found
+matches the brute-force optimum on the small test graphs, and that even a single restart
+never exceeds the optimum. Intended for $n \le 12$.
+
+\subsection*{Problem 12 -- Simulated-Annealing-Style Randomized Max-Cut}
+
+Implement \texttt{simulated\_annealing\_max\_cut(graph, seed, iterations, t\_start,
+t\_end)}: starting from a seeded random partition, on each iteration pick a random vertex
+and consider flipping it; if the flip improves the cut, accept it; otherwise accept it with
+probability $e^{-\Delta/T}$ where $\Delta \ge 0$ is the decrease in cut value and $T$ is
+the current temperature (cooled geometrically from \texttt{t\_start} to \texttt{t\_end}
+over the iterations). Track and return \texttt{(best\_side, best\_cut)} -- the best
+partition \emph{ever} seen. Then verify that the annealing result is \emph{never worse}
+than the plain hill-climbing local optimum (Problem 10) baseline on the tested seeded
+instances. (All randomness must be seeded so the test is deterministic.)
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's techniques -- greedy
+approximation, binary-search-on-the-answer, and local search -- on the following
+\href{https://leetcode.com}{LeetCode} problems. Difficulty is LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/koko-eating-bananas/}{Koko Eating Bananas} -- \emph{Medium} -- binary search on answer.
+  \item \href{https://leetcode.com/problems/capacity-to-ship-packages-within-d-days/}{Capacity To Ship Packages Within D Days} -- \emph{Medium} -- binary search on answer.
+  \item \href{https://leetcode.com/problems/split-array-largest-sum/}{Split Array Largest Sum} -- \emph{Hard} -- binary search on answer.
+  \item \href{https://leetcode.com/problems/minimize-max-distance-to-gas-station/}{Minimize Max Distance to Gas Station} -- \emph{Hard} -- binary search on answer.
+  \item \href{https://leetcode.com/problems/minimize-the-maximum-difference-of-pairs/}{Minimize the Maximum Difference of Pairs} -- \emph{Medium} -- binary search + greedy.
+  \item \href{https://leetcode.com/problems/maximum-performance-of-a-team/}{Maximum Performance of a Team} -- \emph{Hard} -- greedy + heap.
+  \item \href{https://leetcode.com/problems/smallest-sufficient-team/}{Smallest Sufficient Team} -- \emph{Hard} -- set cover approximation.
+  \item \href{https://leetcode.com/problems/minimum-number-of-arrows-to-burst-balloons/}{Minimum Number of Arrows to Burst Balloons} -- \emph{Medium} -- greedy cover.
+\end{itemize}
+
+\end{document}

@@ -1,0 +1,606 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 14: Approximation Algorithms and Local Search}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction: Coping with NP-Hardness}
+
+In earlier weeks we showed that many natural optimization problems are
+\textbf{NP-hard}: unless $\mathrm{P} = \mathrm{NP}$, no algorithm can solve them
+\emph{exactly} in polynomial time on all inputs. But these problems do not go away --
+we still need to route vehicles, place facilities, schedule machines, and cover
+networks. This week we study two of the most important strategies for coping with
+NP-hardness while keeping a \emph{provable} handle on solution quality:
+
+\begin{itemize}
+    \item \textbf{Approximation algorithms} (Kleinberg \& Tardos, Ch.\ 11): polynomial-time
+    algorithms that come with a \emph{guarantee} -- the solution they return is always
+    within a fixed factor of the optimum, on \emph{every} input.
+    \item \textbf{Local search} (Kleinberg \& Tardos, Ch.\ 12): start with any feasible
+    solution and repeatedly move to a ``neighbouring'' solution that improves the
+    objective, until no improving move remains. Sometimes a local optimum carries a
+    provable approximation guarantee; often it is a powerful heuristic.
+\end{itemize}
+
+The intellectual shift from the greedy weeks is this: there, a clever local rule gave us
+the \emph{exact} optimum, and the whole game was the correctness proof. Here, we accept
+that we will \emph{not} get the optimum, and the game becomes proving how \emph{close} we
+get. The central tool is the same in spirit as a greedy correctness proof, but turned
+into an inequality: we relate the algorithm's output to a \emph{lower bound} (for
+minimization) or \emph{upper bound} (for maximization) on the optimum that we can compute
+or reason about, even though we cannot compute the optimum itself.
+
+\subsection{Approximation ratios}
+
+\begin{definition}[Approximation ratio]
+Let $\Pi$ be an optimization problem and $A$ a polynomial-time algorithm for it. For an
+instance $I$, let $A(I)$ denote the value of the solution $A$ produces and
+$\mathrm{OPT}(I)$ the value of an optimal solution. We say $A$ is a
+\textbf{$\rho$-approximation algorithm} (with $\rho \ge 1$) if:
+\begin{itemize}
+    \item for a \emph{minimization} problem, $A(I) \le \rho \cdot \mathrm{OPT}(I)$ for
+    every instance $I$;
+    \item for a \emph{maximization} problem, $A(I) \ge \tfrac{1}{\rho}\,\mathrm{OPT}(I)$
+    for every instance $I$.
+\end{itemize}
+The quantity $\rho$ is the \emph{approximation ratio} (or \emph{performance guarantee});
+smaller is better, and $\rho = 1$ means $A$ is exact.
+\end{definition}
+
+A recurring difficulty is that we cannot compare $A(I)$ to $\mathrm{OPT}(I)$ directly --
+computing $\mathrm{OPT}(I)$ is exactly the NP-hard problem we are avoiding. The trick that
+makes \emph{every} proof this week work is to find a quantity $B(I)$ that we
+\emph{can} reason about and that \emph{bounds} the optimum:
+\[
+    B(I) \;\le\; \mathrm{OPT}(I) \quad(\text{lower bound, for minimization}),
+\]
+and then prove $A(I) \le \rho \cdot B(I)$. Chaining these gives $A(I) \le \rho \cdot
+\mathrm{OPT}(I)$ \emph{without ever computing $\mathrm{OPT}$}. Spotting the right bound
+$B$ is the heart of the design.
+
+\subsection{A spectrum of guarantees}
+
+Not all approximation guarantees are equal:
+\begin{itemize}
+    \item A \textbf{constant-factor} approximation has $\rho = c$ for a fixed constant
+    (e.g.\ $2$ for Vertex Cover, metric TSP, $k$-center, and load balancing).
+    \item A \textbf{logarithmic} approximation has $\rho = O(\log n)$ (Set Cover); this is
+    weaker, but for Set Cover it is essentially the best possible unless
+    $\mathrm{P}=\mathrm{NP}$.
+    \item A \textbf{PTAS} (polynomial-time approximation scheme) achieves $\rho = 1 +
+    \varepsilon$ for any fixed $\varepsilon > 0$, in time polynomial in $n$ (but possibly
+    exponential in $1/\varepsilon$).
+    \item An \textbf{FPTAS} (fully polynomial-time approximation scheme) achieves $1 +
+    \varepsilon$ in time polynomial in \emph{both} $n$ and $1/\varepsilon$. Knapsack
+    famously admits an FPTAS.
+\end{itemize}
+
+\section{Vertex Cover via Maximal Matching}
+
+\begin{definition}[Vertex Cover]
+Given an undirected graph $G = (V, E)$, a \emph{vertex cover} is a set $S \subseteq V$
+such that every edge has at least one endpoint in $S$. The \textbf{Minimum Vertex Cover}
+problem asks for a cover of smallest size. (This problem is NP-hard.)
+\end{definition}
+
+A natural-sounding greedy rule -- ``repeatedly add the highest-degree vertex'' -- does
+\emph{not} give a constant-factor guarantee (its ratio can grow like $\Theta(\log n)$).
+The following far simpler algorithm does.
+
+\begin{algorithm}[h]
+\caption{Vertex Cover via Maximal Matching (Problem 1)}
+\begin{algorithmic}[1]
+\State $S \gets \emptyset$, $M \gets \emptyset$ \Comment{$M$ is a matching}
+\For{each edge $(u,v) \in E$}
+    \If{neither $u$ nor $v$ is in $S$}
+        \State $S \gets S \cup \{u, v\}$ \Comment{add \emph{both} endpoints}
+        \State $M \gets M \cup \{(u,v)\}$
+    \EndIf
+\EndFor
+\State \Return $S$
+\end{algorithmic}
+\end{algorithm}
+
+The set $M$ of edges we ``commit to'' is a \emph{maximal matching}: a set of pairwise
+vertex-disjoint edges to which no further edge can be added. The cover $S$ is exactly the
+set of endpoints of $M$, so $|S| = 2|M|$.
+
+\begin{theorem}
+\label{thm:vc}
+The algorithm returns a vertex cover $S$ with $|S| \le 2\,\mathrm{OPT}$, where
+$\mathrm{OPT}$ is the size of a minimum vertex cover. It is a $2$-approximation.
+\end{theorem}
+
+\begin{proof}
+\textbf{$S$ is a cover.} Suppose some edge $(x, y)$ were uncovered, i.e.\ $x \notin S$ and
+$y \notin S$. Then when the loop processed $(x,y)$, neither endpoint was in $S$, so the
+algorithm would have added them -- contradiction. Hence every edge is covered.
+
+\textbf{Lower bound on $\mathrm{OPT}$.} The edges of $M$ are pairwise vertex-disjoint
+(once we add $(u,v)$, both endpoints are in $S$, so no later edge sharing $u$ or $v$ is
+added). \emph{Any} vertex cover must contain at least one endpoint of each edge in $M$,
+and since the edges of $M$ share no endpoints, these chosen endpoints are all distinct.
+Therefore every vertex cover -- in particular the optimum -- has size at least $|M|$:
+\[
+    \mathrm{OPT} \;\ge\; |M|.
+\]
+\textbf{Combining.} $|S| = 2|M| \le 2\,\mathrm{OPT}$.
+\end{proof}
+
+The maximal matching $M$ is precisely the computable \emph{lower bound} $B$ on
+$\mathrm{OPT}$ promised in the introduction. Problem 2 asks you to verify the factor of
+$2$ empirically by computing the true optimum on small graphs by brute force.
+
+\medskip
+\noindent\emph{Remark.} It is a famous open-style fact that no polynomial-time algorithm
+is known with ratio better than $2 - o(1)$, and (under the Unique Games Conjecture) none
+can do better. The trivial-looking matching algorithm is, essentially, the best we know.
+
+\section{The Greedy Set Cover Algorithm}
+
+\begin{definition}[Set Cover]
+Given a universe $U = \{e_1, \ldots, e_n\}$ of $n$ elements and a collection of subsets
+$S_1, \ldots, S_m \subseteq U$ whose union is $U$, a \emph{set cover} is a sub-collection
+whose union is still all of $U$. The \textbf{Minimum Set Cover} problem asks for a cover
+using the fewest sets. (NP-hard; Vertex Cover is the special case where every element/edge
+lies in exactly two sets/vertices.)
+\end{definition}
+
+\begin{algorithm}[h]
+\caption{Greedy Set Cover (Problem 3)}
+\begin{algorithmic}[1]
+\State $C \gets \emptyset$ (chosen sets); $R \gets U$ (uncovered elements)
+\While{$R \ne \emptyset$}
+    \State Pick the set $S_i$ maximizing $|S_i \cap R|$ \Comment{covers most uncovered elements}
+    \State $C \gets C \cup \{S_i\}$; \quad $R \gets R \setminus S_i$
+\EndWhile
+\State \Return $C$
+\end{algorithmic}
+\end{algorithm}
+
+Let $H_n = \sum_{k=1}^{n} \tfrac{1}{k}$ denote the $n$-th harmonic number; recall $H_n =
+\ln n + O(1) = \Theta(\log n)$.
+
+\begin{theorem}
+\label{thm:setcover}
+Greedy Set Cover returns a cover of size at most $H_n \cdot \mathrm{OPT} = O(\log n)\cdot
+\mathrm{OPT}$, where $n = |U|$ and $\mathrm{OPT}$ is the minimum number of sets in a
+cover.
+\end{theorem}
+
+\begin{proof}
+We use a \emph{charging argument}. When the greedy algorithm picks a set $S$ that covers
+$t$ previously-uncovered elements, distribute a total ``cost'' of $1$ (one set was used)
+evenly among those $t$ elements: each newly-covered element $e$ is charged
+$\mathrm{cost}(e) = 1/t$. Each element is charged exactly once (when first covered), so the
+number of sets greedy uses equals $\sum_{e \in U} \mathrm{cost}(e)$.
+
+\textbf{Key claim.} For \emph{any} set $S_j$ in the optimal cover, the elements of $S_j$
+receive total charge at most $H_{|S_j|} \le H_n$. To see this, order the elements of
+$S_j$ by the time they were covered by greedy, say $e_1, e_2, \ldots, e_{|S_j|}$ (the
+order in which greedy first covers them). Consider the moment just before greedy covers
+$e_k$. At that point, at least the elements $e_k, e_{k+1}, \ldots, e_{|S_j|}$ of $S_j$ are
+still uncovered -- so $S_j$ itself could cover at least $|S_j| - k + 1$ uncovered
+elements. Since greedy picks the set covering the \emph{most} uncovered elements, the set
+$S$ greedy actually picks covers at least $|S_j| - k + 1$ uncovered elements, so each gets
+charged at most $\frac{1}{|S_j| - k + 1}$. In particular $\mathrm{cost}(e_k) \le
+\frac{1}{|S_j| - k + 1}$. Summing over $k = 1, \ldots, |S_j|$:
+\[
+    \sum_{e \in S_j} \mathrm{cost}(e) \;\le\; \sum_{k=1}^{|S_j|} \frac{1}{|S_j| - k + 1}
+    \;=\; \sum_{i=1}^{|S_j|} \frac{1}{i} \;=\; H_{|S_j|} \;\le\; H_n .
+\]
+\textbf{Combining.} Let $\mathcal{O} = \{S_{j_1}, \ldots, S_{j_{\mathrm{OPT}}}\}$ be an
+optimal cover. Every element lies in at least one $S_j \in \mathcal{O}$, so
+\[
+    |\,\text{greedy cover}\,| = \sum_{e \in U} \mathrm{cost}(e)
+    \;\le\; \sum_{S_j \in \mathcal{O}} \ \sum_{e \in S_j} \mathrm{cost}(e)
+    \;\le\; \sum_{S_j \in \mathcal{O}} H_n
+    \;=\; \mathrm{OPT}\cdot H_n .
+\]
+\end{proof}
+
+Problem 4 asks you to compare greedy's cover size to the brute-force optimum on small
+instances and report the empirical ratio (which is typically much better than the $H_n$
+worst case).
+
+\section{Load Balancing (Makespan Minimization)}
+
+\begin{definition}[Load Balancing]
+We have $m$ identical machines and $n$ jobs with processing times $t_1, \ldots, t_n$.
+Assign each job to a machine; the \emph{load} $L_k$ of machine $k$ is the sum of the
+processing times of jobs assigned to it. The \textbf{makespan} is $\max_k L_k$, and we
+wish to minimize it. (NP-hard, even for $m = 2$ -- it contains Partition.)
+\end{definition}
+
+\begin{algorithm}[h]
+\caption{Greedy List Scheduling (Problem 5)}
+\begin{algorithmic}[1]
+\State $L_k \gets 0$ for all machines $k = 1, \ldots, m$
+\For{each job $j = 1$ to $n$ (in the given order)}
+    \State Assign job $j$ to a machine $k^\ast$ of currently \emph{minimum} load
+    \State $L_{k^\ast} \gets L_{k^\ast} + t_j$
+\EndFor
+\State \Return the assignment and makespan $\max_k L_k$
+\end{algorithmic}
+\end{algorithm}
+
+We need two lower bounds on the optimal makespan $\mathrm{OPT}$.
+
+\begin{lemma}
+\label{lem:lb}
+$\mathrm{OPT} \ge \frac{1}{m}\sum_j t_j$ \ (the average load) and $\mathrm{OPT} \ge \max_j
+t_j$ \ (the largest single job).
+\end{lemma}
+
+\begin{proof}
+The total work $\sum_j t_j$ is split over $m$ machines, so some machine receives at least
+the average $\frac{1}{m}\sum_j t_j$; hence the makespan is at least that. And whichever
+machine runs the largest job has load at least $\max_j t_j$.
+\end{proof}
+
+\begin{theorem}[Graham, 1966]
+\label{thm:graham}
+Greedy list scheduling produces a makespan at most $2\,\mathrm{OPT}$: it is a
+$2$-approximation.
+\end{theorem}
+
+\begin{proof}
+Let machine $k$ achieve the final makespan $L = L_k$, and let job $j$ be the
+\emph{last} job assigned to $k$. Just before $j$ was placed, machine $k$ had load $L -
+t_j$, and -- because greedy puts each job on a currently \emph{least}-loaded machine --
+\emph{every} machine had load at least $L - t_j$ at that moment. Summing over all $m$
+machines, the total work assigned so far was at least $m(L - t_j)$, so
+\[
+    \sum_{i} t_i \;\ge\; m(L - t_j) \quad\Longrightarrow\quad
+    L - t_j \;\le\; \frac{1}{m}\sum_i t_i \;\le\; \mathrm{OPT}
+\]
+by the first bound of Lemma~\ref{lem:lb}. Also $t_j \le \max_i t_i \le \mathrm{OPT}$ by
+the second bound. Adding,
+\[
+    L = (L - t_j) + t_j \;\le\; \mathrm{OPT} + \mathrm{OPT} = 2\,\mathrm{OPT}.
+\]
+\end{proof}
+
+\subsection{Longest-Processing-Time first (LPT)}
+
+A small change improves the guarantee: sort jobs in \emph{decreasing} order before running
+greedy. The intuition is that big jobs, scheduled first, are balanced out by the many small
+jobs that follow.
+
+\begin{algorithm}[h]
+\caption{Longest-Processing-Time First, LPT (Problem 6)}
+\begin{algorithmic}[1]
+\State Sort jobs so that $t_1 \ge t_2 \ge \cdots \ge t_n$
+\State Run Greedy List Scheduling on this sorted order
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}[Graham, 1969]
+\label{thm:lpt}
+LPT produces a makespan at most $\frac{4}{3}\,\mathrm{OPT}$ (more precisely $\le
+(\tfrac{4}{3} - \tfrac{1}{3m})\mathrm{OPT}$).
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Re-run the analysis of Theorem~\ref{thm:graham} with the critical (last) job $j$ on the
+bottleneck machine. If $j$ is not the only job on its machine, then since jobs are sorted
+in decreasing order, $j$ is among the smaller jobs; one shows that if $t_j > \frac{1}{3}
+\mathrm{OPT}$, then in the optimal solution \emph{every} machine runs at most two jobs,
+and a direct case analysis of two-jobs-per-machine optima shows LPT is in fact optimal in
+that regime. Otherwise $t_j \le \frac{1}{3}\mathrm{OPT}$, and the bound $L = (L - t_j) +
+t_j \le \mathrm{OPT} + \frac{1}{3}\mathrm{OPT} = \frac{4}{3}\mathrm{OPT}$ follows exactly
+as before. The full case analysis is in Kleinberg \& Tardos, Section 11.1.
+\end{proof}
+
+Problem 6 verifies the $\tfrac{4}{3}$ bound empirically on random instances against a
+lower bound, and Problem 5 verifies the $2$-bound for plain greedy.
+
+\section{Center Selection ($k$-Center)}
+
+\begin{definition}[$k$-Center]
+Given a set of sites $P$ in a metric space (distances satisfy the triangle inequality) and
+an integer $k$, choose a set $C \subseteq P$ of $k$ \emph{centers} to minimize the
+\emph{covering radius} $r(C) = \max_{p \in P} \min_{c \in C} d(p, c)$ -- the farthest any
+site is from its nearest center. (NP-hard.)
+\end{definition}
+
+\begin{algorithm}[h]
+\caption{Greedy Farthest-Point $k$-Center (Problem 7)}
+\begin{algorithmic}[1]
+\State Pick any site $c_1$; set $C \gets \{c_1\}$
+\For{$i = 2$ to $k$}
+    \State Let $p$ be the site \emph{farthest} from $C$, i.e.\ maximizing $\min_{c \in C} d(p, c)$
+    \State $C \gets C \cup \{p\}$
+\EndFor
+\State \Return $C$ and $r(C)$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+\label{thm:kcenter}
+The greedy farthest-point algorithm is a $2$-approximation: $r(C) \le 2\, r^\ast$, where
+$r^\ast$ is the optimal covering radius.
+\end{theorem}
+
+\begin{proof}
+Let $r = r(C)$ be the radius returned, achieved by some site $p$ at distance $r$ from its
+nearest chosen center. We exhibit $k + 1$ sites that are pairwise more than $r$ apart
+(if $r > 2 r^\ast$), which is impossible under $k$ optimal centers.
+
+Consider the $k$ chosen centers together with $p$: that is $k+1$ sites. Each chosen center
+$c_i$, at the moment it was selected, was the point farthest from the centers chosen
+before it -- by the greedy rule, distances of newly selected centers to the current center
+set are non-increasing, and the final ``leftover'' distance is exactly $r$ (the radius). It
+follows that every pair among these $k+1$ sites is at distance at least $r$ from one
+another.
+
+Now suppose for contradiction $r > 2 r^\ast$. By pigeonhole, two of these $k+1$ sites,
+say $a$ and $b$, are served by the \emph{same} optimal center $c^\ast$ -- so $d(a,
+c^\ast) \le r^\ast$ and $d(b, c^\ast) \le r^\ast$. By the triangle inequality,
+\[
+    d(a, b) \;\le\; d(a, c^\ast) + d(c^\ast, b) \;\le\; 2 r^\ast \;<\; r,
+\]
+contradicting that all pairs are at distance $\ge r$. Hence $r \le 2 r^\ast$.
+\end{proof}
+
+The triangle inequality is essential: without a metric, no constant-factor approximation
+for $k$-center is possible. Problem 7 asks you to implement this and return both the
+centers and the radius.
+
+\section{Metric TSP via a Minimum Spanning Tree}
+
+\begin{definition}[Metric TSP]
+Given $n$ cities and symmetric distances $d(i,j)$ satisfying the triangle inequality, a
+\emph{tour} visits every city exactly once and returns to the start. The
+\textbf{Metric Traveling Salesman Problem} asks for a minimum-total-length tour. (NP-hard.)
+\end{definition}
+
+\begin{algorithm}[h]
+\caption{MST-Based Metric TSP $2$-Approximation (Problem 8)}
+\begin{algorithmic}[1]
+\State Compute a minimum spanning tree $T$ of the complete weighted graph on the cities
+\State Pick any root; list the vertices in the order of a depth-first \emph{preorder} walk of $T$
+\State \Return the tour that visits the cities in that order (then returns to start)
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+\label{thm:tsp}
+The MST-based tour has length at most $2\,w(T) \le 2\,\mathrm{OPT}$, where $w(T)$ is the
+weight of the MST. It is a $2$-approximation for Metric TSP.
+\end{theorem}
+
+\begin{proof}
+\textbf{Lower bound $w(T) \le \mathrm{OPT}$.} Take any optimal tour and delete one of its
+edges: what remains is a path visiting all $n$ cities, which is in particular a spanning
+tree. Its weight is at most the tour length, so the \emph{minimum} spanning tree has
+weight $w(T) \le \mathrm{OPT}$.
+
+\textbf{Upper bound on the tour.} Consider the ``doubled'' tree $2T$ (each tree edge
+duplicated). Every vertex now has even degree, so $2T$ has an Eulerian circuit -- a closed
+walk traversing each edge exactly once, of total length exactly $2\,w(T)$. Walk along this
+Eulerian circuit and \emph{shortcut}: whenever the walk would revisit an
+already-visited city, skip directly to the next unvisited city. This produces exactly the
+preorder visiting order. By the triangle inequality, each shortcut replaces a sub-walk by
+a direct edge of no greater length, so the resulting tour has length at most $2\,w(T)$.
+
+\textbf{Combining.} $\text{tour} \le 2\,w(T) \le 2\,\mathrm{OPT}$.
+\end{proof}
+
+\noindent\emph{Remark.} Christofides's algorithm refines this to a $\tfrac{3}{2}$-approximation
+by adding a minimum-weight perfect matching on the odd-degree vertices of $T$ instead of
+naively doubling; we do not pursue it here, but it is the same MST-plus-shortcutting idea.
+Problem 8 asks you to verify $\text{tour} \le 2\,w(T)$ directly.
+
+\section{Knapsack and an FPTAS}
+
+\begin{definition}[0/1 Knapsack]
+Given $n$ items with profits $p_1, \ldots, p_n$ and weights $w_1, \ldots, w_n$, and a
+capacity $W$, choose a subset $S$ with $\sum_{i \in S} w_i \le W$ maximizing $\sum_{i \in
+S} p_i$. (NP-hard.)
+\end{definition}
+
+Knapsack has a dynamic program that runs in time $O(n \cdot P)$, where $P = \sum_i p_i$ is
+the total profit -- \emph{pseudo}-polynomial, since $P$ can be exponential in the input
+size. The FPTAS controls this by \emph{rounding and scaling} the profits so that $P$
+becomes small, at the cost of a controlled error.
+
+\begin{algorithm}[h]
+\caption{Knapsack FPTAS (Problem 9)}
+\begin{algorithmic}[1]
+\State \textbf{Input:} items $(p_i, w_i)$, capacity $W$, and $\varepsilon \in (0, 1)$
+\State Let $p_{\max} = \max_i p_i$ and set scaling factor $\mu = \dfrac{\varepsilon\, p_{\max}}{n}$
+\State Round each profit \emph{down}: $\hat p_i = \left\lfloor p_i / \mu \right\rfloor$
+\State Solve Knapsack \emph{exactly} on profits $\hat p_i$ (weights and $W$ unchanged) by the profit-indexed DP
+\State \Return the chosen item set $S$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+\label{thm:fptas}
+For any fixed $\varepsilon \in (0,1)$, the algorithm runs in time polynomial in $n$ and
+$1/\varepsilon$ and returns a set $S$ with $\sum_{i \in S} p_i \ge (1 - \varepsilon)\,
+\mathrm{OPT}$. It is an FPTAS.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+\textbf{Quality.} Let $O$ be an optimal set under the \emph{true} profits. Rounding loses
+at most $\mu$ per item: $\mu\,\hat p_i \le p_i \le \mu\,\hat p_i + \mu$. The DP returns the
+optimum $S$ under the rounded profits, so $\sum_{i \in S}\hat p_i \ge \sum_{i \in O}\hat
+p_i$. Multiplying by $\mu$ and accounting for the per-item rounding loss over the at-most-$n$
+items of $O$,
+\[
+    \sum_{i \in S} p_i \;\ge\; \mu \sum_{i \in S}\hat p_i \;\ge\; \mu \sum_{i \in O}\hat
+    p_i \;\ge\; \sum_{i \in O} p_i - n\mu \;=\; \mathrm{OPT} - \varepsilon\, p_{\max}.
+\]
+Since $\mathrm{OPT} \ge p_{\max}$ (any single item fits, assuming $w_i \le W$; otherwise
+discard oversize items first), $\varepsilon\, p_{\max} \le \varepsilon\,\mathrm{OPT}$,
+giving $\sum_{i\in S} p_i \ge (1 - \varepsilon)\mathrm{OPT}$.
+
+\textbf{Running time.} After scaling, every $\hat p_i \le p_{\max}/\mu = n/\varepsilon$, so
+the total rounded profit is at most $n^2/\varepsilon$. The profit-indexed DP runs in
+$O(n \cdot \sum_i \hat p_i) = O(n^3/\varepsilon)$ -- polynomial in both $n$ and
+$1/\varepsilon$.
+\end{proof}
+
+Problem 9 asks you to implement the scaled DP and verify $\text{value} \ge (1-\varepsilon)
+\cdot \mathrm{OPT}$ against the exact optimum on small instances.
+
+\section{Local Search}
+
+Local search abandons the ``build a solution once and analyze it'' template. Instead:
+\begin{enumerate}[label=(\arabic*)]
+    \item start from \emph{any} feasible solution;
+    \item define a \emph{neighbourhood}: the set of solutions reachable by a small
+    modification (a ``move'');
+    \item repeatedly move to a neighbour with strictly better objective value (this is
+    \emph{hill climbing});
+    \item stop at a \emph{local optimum}, where no neighbouring move improves.
+\end{enumerate}
+
+The neighbourhood is the key design choice. A larger neighbourhood gives better local
+optima but costs more per step; a smaller one is cheaper but more easily trapped. For some
+problems a local optimum carries a \emph{provable} approximation guarantee, as we now show
+for Max-Cut.
+
+\subsection{Max-Cut local search}
+
+\begin{definition}[Maximum Cut]
+Given an undirected graph $G = (V, E)$ with $m = |E|$ edges, partition $V$ into two sides
+$(A, B)$ to maximize the number of \emph{cut} edges -- edges with one endpoint in each
+side. (NP-hard.)
+\end{definition}
+
+\begin{algorithm}[h]
+\caption{Max-Cut Local Search (Flip a Vertex) (Problem 10)}
+\begin{algorithmic}[1]
+\State Start from any partition $(A, B)$ \Comment{the neighbourhood: move one vertex to the other side}
+\While{some vertex $v$ has more edges to its \emph{own} side than to the other side}
+    \State Move $v$ to the opposite side \Comment{this strictly increases the cut}
+\EndWhile
+\State \Return the partition and its cut value
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+\label{thm:maxcut}
+Any local optimum of single-vertex flips cuts at least $\tfrac{m}{2}$ edges. Since
+$\mathrm{OPT} \le m$, this is a $2$-approximation.
+\end{theorem}
+
+\begin{proof}
+For a vertex $v$, let $d_{\mathrm{cut}}(v)$ be the number of its edges that cross the cut
+and $d_{\mathrm{same}}(v)$ the number that stay on its side; these sum to $\deg(v)$. If we
+flipped $v$, the cut would change by $d_{\mathrm{same}}(v) - d_{\mathrm{cut}}(v)$. At a
+\emph{local optimum}, flipping never helps, so for every $v$:
+\[
+    d_{\mathrm{same}}(v) \;\le\; d_{\mathrm{cut}}(v),
+    \qquad\text{hence}\qquad d_{\mathrm{cut}}(v) \;\ge\; \tfrac{1}{2}\deg(v).
+\]
+Summing over all vertices, each cut edge is counted twice (once per endpoint) in $\sum_v
+d_{\mathrm{cut}}(v)$, and $\sum_v \deg(v) = 2m$:
+\[
+    2 \cdot (\text{cut size}) = \sum_v d_{\mathrm{cut}}(v) \;\ge\; \tfrac12 \sum_v \deg(v)
+    = \tfrac12 (2m) = m,
+\]
+so the cut size is at least $m/2$. Finally $\mathrm{OPT} \le m$ trivially, so the local
+optimum is within a factor of $2$ of optimal.
+\end{proof}
+
+Each improving flip increases the (integer) cut value by at least $1$, and the cut is
+bounded by $m$, so local search terminates after at most $m$ flips. Problem 10 verifies
+the $\ge m/2$ guarantee, and Problem 11 compares hill-climbing (with random restarts) to
+the brute-force optimum on small graphs.
+
+\subsection{Escaping local optima: restarts and simulated annealing}
+
+Hill climbing gets \emph{stuck} at the first local optimum it reaches, which may be far
+from global. Two standard remedies:
+
+\begin{itemize}
+    \item \textbf{Random restarts.} Run hill climbing from many random starting points and
+    keep the best local optimum found. Different starts fall into different ``basins,''
+    so more restarts increase the chance of finding the global optimum. Problem 11
+    explores this for Max-Cut.
+
+    \item \textbf{Simulated annealing.} Borrowing from the physics of slowly cooling
+    metals, occasionally accept a \emph{worsening} move -- with probability
+    $e^{-\Delta/T}$, where $\Delta > 0$ is the amount the objective worsens and $T$ is a
+    ``temperature'' parameter -- to escape local optima. The temperature starts high
+    (almost any move accepted, exploring broadly) and is gradually lowered toward $0$
+    (only improving moves accepted, settling into a good solution). With a slow enough
+    cooling schedule it provably converges to the global optimum, though typically too
+    slowly to be practical; in practice it is a robust, widely-used heuristic. Problem 12
+    implements a seeded simulated-annealing-style search for Max-Cut and checks that it
+    never returns worse than a plain hill-climbing baseline on the tested instances.
+\end{itemize}
+
+This is the general theme of local search: a cheap, broadly applicable framework whose
+\emph{worst-case} quality is hard to pin down in general, but which (a) sometimes admits
+clean guarantees, as for Max-Cut, and (b) is one of the most effective practical tools for
+large NP-hard optimization problems.
+
+\section{Summary and Looking Ahead}
+
+This week we studied two strategies for living with NP-hardness while keeping provable
+control over solution quality.
+
+\textbf{Approximation algorithms} (with the lower-/upper-bound proof pattern):
+\begin{itemize}
+    \item \textbf{Vertex Cover}: take both endpoints of a maximal matching;
+    $2$-approximation (Theorem~\ref{thm:vc}).
+    \item \textbf{Set Cover}: greedily cover the most uncovered elements; $H_n = O(\log
+    n)$ approximation via a charging argument (Theorem~\ref{thm:setcover}).
+    \item \textbf{Load Balancing}: greedy list scheduling is a $2$-approximation
+    (Theorem~\ref{thm:graham}); sorting longest-first (LPT) improves it to $\tfrac{4}{3}$
+    (Theorem~\ref{thm:lpt}).
+    \item \textbf{$k$-Center}: greedy farthest-point is a $2$-approximation using the
+    triangle inequality (Theorem~\ref{thm:kcenter}).
+    \item \textbf{Metric TSP}: MST preorder walk with shortcutting is a $2$-approximation
+    (Theorem~\ref{thm:tsp}); Christofides improves it to $\tfrac32$.
+    \item \textbf{Knapsack}: rounding-and-scaling profits yields an FPTAS --
+    $(1-\varepsilon)$ of optimal in time polynomial in $n$ and $1/\varepsilon$
+    (Theorem~\ref{thm:fptas}).
+\end{itemize}
+
+\textbf{Local search}: hill climbing over a neighbourhood until no improving move remains.
+For Max-Cut, every single-flip local optimum cuts $\ge m/2$ edges, a $2$-approximation
+(Theorem~\ref{thm:maxcut}); random restarts and simulated annealing help escape poor local
+optima.
+
+The unifying lesson is the \textbf{bounding technique}: we never compute $\mathrm{OPT}$, yet
+we bound it -- by a matching, by harmonic sums, by an average load, by an MST, by the
+triangle inequality -- and squeeze the algorithm's value against that bound.
+
+Next week (\emph{Randomized Algorithms}, Kleinberg \& Tardos Ch.\ 13) we add a new
+resource -- randomness -- to the toolkit. We will see randomized contention resolution,
+the power of randomized rounding for approximation, a randomized min-cut algorithm, and
+how a coin flip alone gives a $\tfrac12$-approximation for Max-Cut \emph{in expectation},
+complementing this week's deterministic local-search guarantee.
+
+\end{document}
