@@ -1,0 +1,496 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 9: Dynamic Programming II: Sequence Alignment and Shortest Paths}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction: Two-Dimensional Dynamic Programming}
+
+Last week (Dynamic Programming I) we introduced the dynamic-programming paradigm through
+problems whose subproblems were indexed by a \emph{single} parameter -- weighted interval
+scheduling (``the best solution using the first $i$ requests'') and the knapsack problem
+(``the best value achievable with the first $i$ items and capacity $w$''). This week
+(following Kleinberg \& Tardos, Ch.\ 6) we push the same idea further in two directions.
+
+First, we study \textbf{sequence alignment} (a.k.a.\ \emph{edit distance}), where the
+subproblems are indexed by \emph{two} parameters -- a prefix of one string and a prefix of
+another -- giving a two-dimensional table. This single recurrence underlies the diff
+utility, spell checkers, and biological sequence comparison (DNA/protein alignment), and
+its close cousin the \textbf{longest common subsequence (LCS)} problem.
+
+Second, we revisit \textbf{shortest paths}, but now in a setting Dijkstra's algorithm
+\emph{cannot} handle: graphs with \textbf{negative edge weights}. We will see that
+shortest paths have a clean DP formulation -- the \textbf{Bellman--Ford} algorithm -- that
+not only tolerates negative edges but can also \emph{detect negative cycles}. We then
+generalise to all pairs of vertices with the elegant \textbf{Floyd--Warshall} algorithm,
+and finish with the special (and especially fast) case of shortest/longest paths in a
+\textbf{directed acyclic graph (DAG)}.
+
+\subsection{The recurring recipe}
+
+Every algorithm this week follows the same four-step DP recipe:
+\begin{enumerate}[label=(\arabic*)]
+    \item \textbf{Define subproblems.} Identify a small set of subproblems, each indexed by
+    one or more parameters, whose optimal solutions can be combined into a solution of the
+    whole.
+    \item \textbf{Write a recurrence.} Express the optimal value of a subproblem in terms
+    of the optimal values of ``smaller'' subproblems, by reasoning about the \emph{last
+    decision} an optimal solution must make.
+    \item \textbf{Order the computation.} Fill in a table so that every subproblem is
+    solved before it is needed (smallest first, or in topological order).
+    \item \textbf{Reconstruct.} Trace back through the table (or store ``parent'' pointers)
+    to recover an optimal solution itself, not just its value.
+\end{enumerate}
+
+The hard step is almost always (2): finding the right way to reason about the last
+decision. Once the recurrence is correct, the implementation is mechanical and the running
+time is just (number of subproblems) $\times$ (work per subproblem).
+
+\section{Sequence Alignment and Edit Distance}
+
+\subsection{Problem statement}
+
+\begin{definition}[Edit Distance / Sequence Alignment]
+Given two strings $X = x_1 x_2 \cdots x_m$ and $Y = y_1 y_2 \cdots y_n$, an
+\emph{alignment} is a way of writing the two strings one above the other, inserting
+\emph{gap} symbols (``$-$'') into either string, so that the two padded strings have the
+same length and no column consists of two gaps. Each column then either
+\emph{matches} two equal characters, \emph{mismatches} two unequal characters, or pairs a
+character with a gap (an \emph{insertion} or \emph{deletion}). Given a \emph{gap cost}
+$\delta \ge 0$ and a \emph{mismatch cost} $\alpha_{pq} \ge 0$ for substituting character
+$p$ by $q$ (with $\alpha_{pp} = 0$), the cost of an alignment is the sum of its column
+costs, and the goal is to find an alignment of \textbf{minimum total cost}.
+\end{definition}
+
+The \textbf{Levenshtein edit distance} is the special case $\delta = 1$ and
+$\alpha_{pq} = 1$ for all $p \ne q$: it counts the minimum number of single-character
+\emph{insertions}, \emph{deletions}, and \emph{substitutions} needed to turn $X$ into $Y$.
+Problem 1 asks you to implement exactly this; Problem 2 generalises to arbitrary $\delta$
+and $\alpha$.
+
+\subsection{The structural insight}
+
+Consider an optimal alignment of $X$ and $Y$, and look at its \emph{last} column. There are
+exactly three possibilities for what happens to $x_m$ and $y_n$:
+\begin{itemize}
+    \item $x_m$ and $y_n$ are aligned together (a match if $x_m = y_n$, else a mismatch);
+    \item $x_m$ is aligned with a gap ($x_m$ is deleted);
+    \item $y_n$ is aligned with a gap ($y_n$ is inserted).
+\end{itemize}
+Crucially, no other column may involve \emph{both} $x_m$ and $y_n$: alignments preserve
+order, so once we have decided what happens to the last characters, the rest of the
+alignment is an optimal alignment of the two remaining prefixes. This ``what happens to the
+last character'' reasoning is the heart of the recurrence.
+
+\subsection{The recurrence}
+
+Let $\mathrm{OPT}(i,j)$ denote the minimum cost of aligning the prefix $x_1 \cdots x_i$
+with the prefix $y_1 \cdots y_j$. Then:
+\[
+\mathrm{OPT}(i,j) = \min
+\begin{cases}
+\alpha_{x_i y_j} + \mathrm{OPT}(i-1, j-1) & \text{(align $x_i$ with $y_j$)}\\[2pt]
+\delta + \mathrm{OPT}(i-1, j) & \text{(delete $x_i$, gap in $Y$)}\\[2pt]
+\delta + \mathrm{OPT}(i, j-1) & \text{(insert $y_j$, gap in $X$)}
+\end{cases}
+\]
+with base cases $\mathrm{OPT}(i, 0) = i\,\delta$ (delete all of $X$'s first $i$ characters)
+and $\mathrm{OPT}(0, j) = j\,\delta$ (insert all of $Y$'s first $j$ characters). The answer
+is $\mathrm{OPT}(m, n)$.
+
+\begin{theorem}
+\label{thm:align}
+The recurrence above correctly computes the minimum-cost alignment of $X$ and $Y$.
+\end{theorem}
+
+\begin{proof}
+We argue that $\mathrm{OPT}(i,j)$ equals the true optimal alignment cost of $x_1\cdots x_i$
+and $y_1\cdots y_j$, by induction on $i+j$. The base cases ($i=0$ or $j=0$) are forced:
+aligning a non-empty prefix with the empty string requires exactly one gap per character,
+at total cost $i\delta$ (resp.\ $j\delta$). For the inductive step with $i,j \ge 1$,
+consider any optimal alignment $A$ of the two prefixes and examine its last column. By the
+structural insight, that column is one of the three cases above. If it aligns $x_i$ with
+$y_j$, then deleting this column leaves an alignment of $x_1\cdots x_{i-1}$ and
+$y_1\cdots y_{j-1}$, which must itself be optimal (else we could improve $A$); by induction
+its cost is $\mathrm{OPT}(i-1,j-1)$, so $A$ costs $\alpha_{x_i y_j} + \mathrm{OPT}(i-1,j-1)$.
+The other two cases are symmetric and give the other two terms. Hence the cost of $A$ is at
+least the minimum of the three expressions, so $\mathrm{OPT}(i,j) \le \mathrm{cost}(A)$.
+Conversely, each of the three expressions corresponds to a \emph{valid} alignment (take an
+optimal alignment of the relevant smaller prefixes and append the appropriate last column),
+so $\mathrm{OPT}(i,j)$ is achievable. Therefore $\mathrm{OPT}(i,j)$ equals the optimum.
+\end{proof}
+
+\subsection{Running time and the table}
+
+There are $(m+1)(n+1)$ subproblems, each solved in $O(1)$ time from three already-computed
+neighbours (the cell directly above, to the left, and diagonally up-left). Filling the
+table row by row (or column by column) therefore takes $\mathbf{O(mn)}$ time and
+$O(mn)$ space. This is a quadratic-time algorithm for a problem whose naive solution
+(enumerating all alignments) is exponential.
+
+\subsection{Reconstructing an optimal alignment}
+
+The value $\mathrm{OPT}(m,n)$ is only the \emph{cost}. To recover the alignment itself
+(Problem 3), trace back from cell $(m,n)$ to $(0,0)$: at each cell $(i,j)$, check which of
+the three terms attained the minimum, emit the corresponding column (a match/mismatch, a
+deletion, or an insertion), and move to the predecessor cell. Reversing the emitted columns
+gives the two aligned strings (with gap symbols). The traceback visits at most $m+n$ cells,
+so reconstruction is $O(m+n)$ given the filled table.
+
+\begin{algorithm}[h]
+\caption{Sequence Alignment (fill table, then trace back)}
+\begin{algorithmic}[1]
+\State $\mathrm{OPT}[i][0] \gets i\,\delta$ for all $i$; \quad $\mathrm{OPT}[0][j] \gets j\,\delta$ for all $j$
+\For{$i = 1$ to $m$}
+    \For{$j = 1$ to $n$}
+        \State $\mathrm{OPT}[i][j] \gets \min\big(\alpha_{x_i y_j} + \mathrm{OPT}[i-1][j-1],\ \delta + \mathrm{OPT}[i-1][j],\ \delta + \mathrm{OPT}[i][j-1]\big)$
+    \EndFor
+\EndFor
+\State Trace back from $(m,n)$ to $(0,0)$, emitting one column per step
+\State \Return $\mathrm{OPT}[m][n]$ and the reconstructed alignment
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Hirschberg's space-saving idea}
+
+For very long strings (e.g.\ genomic sequences with $m,n$ in the millions) the $O(mn)$
+\emph{space} is the binding constraint, not the time. A beautiful observation rescues us if
+we only need the optimal \emph{cost}: each row of the table depends only on the previous
+row, so we can keep just two rows (or even one, updated in place) and compute
+$\mathrm{OPT}(m,n)$ in $O(\min(m,n))$ space. But then we lose the information needed to
+trace back the alignment.
+
+\textbf{Hirschberg's algorithm} recovers the full alignment in $O(mn)$ time and only
+$O(m+n)$ space by combining this space-saving trick with divide-and-conquer. The key fact:
+an optimal alignment of $X$ and $Y$ must pass through some cell $(m/2, q)$ in the middle
+column. The optimal $q$ can be found by computing, in linear space, the cost of aligning the
+first half of $X$ with each prefix of $Y$ (a forward pass) and the cost of aligning the
+second half of $X$ with each suffix of $Y$ (a backward pass), then choosing the $q$
+minimising their sum. The problem then splits into two independent halves
+($x_1\cdots x_{m/2}$ vs.\ $y_1\cdots y_q$, and the rest), each solved recursively. The
+recurrence for the total work is $T(m,n) = O(mn) + T(m/2, q) + T(m/2, n-q)$, which solves to
+$O(mn)$ -- the same asymptotic time, but now in linear space. We mention this only as a
+pointer; the details are in Kleinberg \& Tardos, Section 6.7.
+
+\section{Longest Common Subsequence}
+
+\subsection{Problem statement}
+
+\begin{definition}[Longest Common Subsequence]
+A \emph{subsequence} of a string is obtained by deleting zero or more characters without
+reordering the rest. Given $X = x_1\cdots x_m$ and $Y = y_1\cdots y_n$, the \emph{longest
+common subsequence (LCS)} problem asks for a longest string that is a subsequence of both.
+\end{definition}
+
+For example, the LCS of \texttt{AGGTAB} and \texttt{GXTXAYB} is \texttt{GTAB} (length 4).
+
+\subsection{The recurrence}
+
+Let $L(i,j)$ be the length of the LCS of $x_1\cdots x_i$ and $y_1\cdots y_j$. Reasoning
+again about the last characters:
+\[
+L(i,j) = \begin{cases}
+0 & \text{if } i = 0 \text{ or } j = 0,\\
+1 + L(i-1, j-1) & \text{if } x_i = y_j,\\
+\max\big(L(i-1, j),\, L(i, j-1)\big) & \text{if } x_i \ne y_j.
+\end{cases}
+\]
+If $x_i = y_j$ we may safely match them (one can prove some optimal LCS does so); otherwise
+at least one of $x_i, y_j$ is unused, giving the two $\max$ terms. The table is $O(mn)$ to
+fill, and an actual LCS string is recovered by the same kind of traceback as for alignment
+(Problem 4). LCS is itself a special case of the alignment framework: it is exactly the
+\emph{maximum-score} alignment with match reward $+1$, mismatch $0$, and gap $0$.
+
+\subsection{The LCS--edit-distance relationship}
+
+There is a clean identity when the only edit operations are insertion and deletion (no
+substitution -- equivalently, substitution costs $2$, more than a delete-plus-insert):
+\begin{theorem}
+\label{thm:lcs-edit}
+Let $d(X,Y)$ be the minimum number of single-character insertions and deletions to turn $X$
+into $Y$. Then
+\[
+d(X,Y) = m + n - 2 \cdot \mathrm{LCS}(X,Y),
+\]
+where $\mathrm{LCS}(X,Y)$ is the length of the longest common subsequence.
+\end{theorem}
+\begin{proof}[Proof sketch]
+Any common subsequence $S$ of length $\ell$ gives an edit script: delete the $m - \ell$
+characters of $X$ not in $S$, then insert the $n - \ell$ characters of $Y$ not in $S$, for
+$(m-\ell) + (n-\ell) = m + n - 2\ell$ operations. Maximising $\ell$ minimises the count, so
+$d(X,Y) \le m + n - 2\,\mathrm{LCS}$. Conversely, any insert/delete script that converts $X$
+to $Y$ leaves a set of untouched characters forming a common subsequence of length
+$\ell'$, and uses at least $m+n-2\ell'$ operations, so $d(X,Y) \ge m+n-2\,\mathrm{LCS}$.
+\end{proof}
+Problem 5 asks you to verify this identity empirically by comparing an insert/delete-only
+edit distance against $m + n - 2\,\mathrm{LCS}$ on random strings.
+
+\section{Shortest Paths with Negative Edges: Bellman--Ford}
+
+\subsection{Why Dijkstra is not enough}
+
+Dijkstra's algorithm (Week 5) assumes all edge weights are non-negative; it commits to a
+vertex's distance as soon as that vertex is extracted from the priority queue, which is only
+valid when no later (negative) edge could improve it. With negative edges this assumption
+fails, and Dijkstra can return wrong answers. Negative edges arise naturally -- e.g.\ in
+\textbf{arbitrage detection} (currency exchange rates become edge weights after taking
+logarithms, and a profitable cycle is a negative cycle) and in problems reduced to shortest
+paths.
+
+A subtlety: if a graph contains a \textbf{negative cycle} reachable on the way from $s$ to
+$t$, the notion of ``shortest path'' is ill-defined -- one can loop around the cycle
+arbitrarily many times to drive the cost to $-\infty$. So the right problem is: \emph{find
+shortest paths assuming no negative cycle, and otherwise report that one exists.}
+
+\subsection{The DP formulation}
+
+The key idea is to bound the \emph{number of edges} a shortest path may use. In a graph
+with no negative cycle, any shortest $s$--$v$ path is \emph{simple} (visits no vertex
+twice), hence uses at most $n-1$ edges. So define
+\[
+\mathrm{OPT}(k, v) = \text{the minimum cost of an $s$--$v$ path using at most $k$ edges.}
+\]
+Reasoning about the \emph{last edge} of such a path:
+\[
+\mathrm{OPT}(k, v) = \min\Big( \mathrm{OPT}(k-1, v),\ \min_{(u,v)\in E}\big(\mathrm{OPT}(k-1,u) + w(u,v)\big) \Big),
+\]
+with $\mathrm{OPT}(0, s) = 0$ and $\mathrm{OPT}(0, v) = \infty$ for $v \ne s$. Either the
+shortest path with $\le k$ edges actually uses $\le k-1$ edges (first term), or its last
+edge is some $(u,v)$ and the prefix is an optimal $\le k-1$ edge path to $u$ (second term).
+The true shortest-path distances are $\mathrm{OPT}(n-1, v)$.
+
+\subsection{The algorithm}
+
+In implementation we do not keep a separate row per $k$; we keep a single distance array
+$\mathrm{dist}[\cdot]$ and \textbf{relax} every edge, repeating the whole pass $n-1$ times.
+``Relaxing'' edge $(u,v)$ means: if $\mathrm{dist}[u] + w(u,v) < \mathrm{dist}[v]$, update
+$\mathrm{dist}[v]$ (and record $u$ as $v$'s parent).
+
+\begin{algorithm}[h]
+\caption{Bellman--Ford (single-source shortest paths)}
+\begin{algorithmic}[1]
+\State $\mathrm{dist}[s] \gets 0$; \quad $\mathrm{dist}[v] \gets \infty$ for all $v \ne s$
+\For{$k = 1$ to $n-1$}
+    \For{each edge $(u, v, w) \in E$}
+        \If{$\mathrm{dist}[u] + w < \mathrm{dist}[v]$}
+            \State $\mathrm{dist}[v] \gets \mathrm{dist}[u] + w$; \quad $\mathrm{parent}[v] \gets u$
+        \EndIf
+    \EndFor
+\EndFor
+\State \Comment{Negative-cycle check: one more pass}
+\For{each edge $(u, v, w) \in E$}
+    \If{$\mathrm{dist}[u] + w < \mathrm{dist}[v]$}
+        \State \Return ``negative cycle detected''
+    \EndIf
+\EndFor
+\State \Return $\mathrm{dist}$ and $\mathrm{parent}$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+After the $k$-th pass of edge relaxations, $\mathrm{dist}[v] \le \mathrm{OPT}(k,v)$ for
+every $v$; in particular, if the graph has no negative cycle, after $n-1$ passes
+$\mathrm{dist}[v]$ equals the true shortest-path distance from $s$ to $v$. The algorithm
+runs in $O(mn)$ time.
+\end{theorem}
+\begin{proof}
+By induction on $k$. Initially $\mathrm{dist}[s]=0=\mathrm{OPT}(0,s)$ and all others are
+$\infty$. Suppose the claim holds after pass $k-1$. Consider any $v$ and an optimal
+$\le k$-edge path $P$ to $v$. If $P$ uses $\le k-1$ edges, then by induction
+$\mathrm{dist}[v]$ was already $\le \mathrm{OPT}(k-1,v) = \mathrm{cost}(P)$. Otherwise $P$
+has a last edge $(u,v)$ and a prefix that is a $\le k-1$ edge path to $u$ of cost
+$\mathrm{OPT}(k-1,u)$; by induction $\mathrm{dist}[u] \le \mathrm{OPT}(k-1,u)$ before pass
+$k$, and when pass $k$ relaxes $(u,v)$ it sets $\mathrm{dist}[v] \le \mathrm{dist}[u] + w
+\le \mathrm{cost}(P)$. Since shortest paths in a negative-cycle-free graph are simple and
+use at most $n-1$ edges, $\mathrm{dist}[v]$ reaches the true distance after $n-1$ passes.
+Each pass relaxes all $m$ edges, giving $O(mn)$ total.
+\end{proof}
+
+\subsection{Negative-cycle detection}
+
+The correctness theorem says distances stabilise after $n-1$ passes \emph{when no negative
+cycle exists}. This gives a clean test (Problem 7): run one \textbf{extra} ($n$-th) pass; if
+\emph{any} edge can still be relaxed (some $\mathrm{dist}[u] + w < \mathrm{dist}[v]$), then a
+shortest path of more than $n-1$ edges would be improving on a simple path, which is only
+possible if a negative cycle is reachable. To recover the cycle itself, record the parent
+pointer that caused the successful relaxation in the extra pass, then follow parent pointers
+$n$ times (to guarantee landing inside the cycle) and read off the cycle. Problem 6
+implements the distance computation and Problem 7 the detection.
+
+\section{All-Pairs Shortest Paths: Floyd--Warshall}
+
+\subsection{Problem and recurrence}
+
+Sometimes we want shortest paths between \emph{every} pair of vertices. Running Bellman--Ford
+from each source costs $O(mn^2)$; for dense graphs the \textbf{Floyd--Warshall} algorithm is
+simpler and competitive at $O(n^3)$. Its DP is indexed by the set of \emph{intermediate
+vertices} allowed on a path.
+
+Number the vertices $1, \ldots, n$. Let $d_k(i,j)$ be the length of the shortest path from
+$i$ to $j$ whose intermediate vertices all lie in $\{1, \ldots, k\}$. Considering whether an
+optimal such path uses vertex $k$ as an intermediate:
+\[
+d_k(i,j) = \min\big(d_{k-1}(i,j),\ d_{k-1}(i,k) + d_{k-1}(k,j)\big),
+\]
+with base case $d_0(i,j) = w(i,j)$ if $(i,j) \in E$, $d_0(i,i) = 0$, and $\infty$ otherwise.
+Either the optimal path avoids $k$ (first term), or it goes $i \rightsquigarrow k
+\rightsquigarrow j$ through $k$ exactly once, splitting into two paths each using only
+$\{1,\ldots,k-1\}$ as intermediates (second term). The final answer is $d_n(i,j)$.
+
+\begin{algorithm}[h]
+\caption{Floyd--Warshall (all-pairs shortest paths)}
+\begin{algorithmic}[1]
+\State $d[i][j] \gets w(i,j)$ for edges; $d[i][i] \gets 0$; $\infty$ otherwise
+\For{$k = 1$ to $n$}
+    \For{$i = 1$ to $n$}
+        \For{$j = 1$ to $n$}
+            \If{$d[i][k] + d[k][j] < d[i][j]$}
+                \State $d[i][j] \gets d[i][k] + d[k][j]$
+            \EndIf
+        \EndFor
+    \EndFor
+\EndFor
+\State \Return $d$
+\end{algorithmic}
+\end{algorithm}
+
+As with Bellman--Ford, a single matrix is updated in place; the correctness of doing so
+rests on the fact that the $k$-th outer iteration only \emph{reads} entries that are still
+correct for the ``$\le k$ intermediates'' subproblem. A \textbf{negative cycle} reveals
+itself as a strictly negative diagonal entry $d[i][i] < 0$ after the algorithm finishes.
+Problem 8 implements Floyd--Warshall, and Problem 9 cross-checks it against Bellman--Ford:
+on any graph with no negative cycle, Bellman--Ford from source $s$ must agree, vertex by
+vertex, with row $s$ of the Floyd--Warshall matrix.
+
+\section{Shortest and Longest Paths in a DAG}
+
+\subsection{Topological order makes DP trivial}
+
+In a \textbf{directed acyclic graph} there are no cycles at all -- in particular no negative
+cycles -- so even longest paths are well-defined (unlike in general graphs, where
+longest-simple-path is NP-hard). A topological order $v_1, v_2, \ldots, v_n$ (every edge
+goes from earlier to later in the order; recall Week 3) lets us process vertices in an order
+where, by the time we reach $v$, all of $v$'s predecessors are already finalised. The DP is
+then a single sweep:
+\[
+\mathrm{dist}(v) = \min_{(u,v) \in E} \big( \mathrm{dist}(u) + w(u,v) \big),
+\qquad \mathrm{dist}(s) = 0,
+\]
+processed in topological order. For \emph{longest} paths, replace $\min$ with $\max$ (and
+initialise unreachable vertices to $-\infty$). Because each edge is examined once, the whole
+computation is $\mathbf{O(n + m)}$ -- faster than both Dijkstra ($O(m \log n)$) and
+Bellman--Ford ($O(mn)$), and it handles negative weights for free.
+
+\begin{algorithm}[h]
+\caption{DAG Shortest Path (relax in topological order)}
+\begin{algorithmic}[1]
+\State Compute a topological order of the vertices
+\State $\mathrm{dist}[s] \gets 0$; \quad $\mathrm{dist}[v] \gets \infty$ for all $v \ne s$
+\For{each vertex $u$ in topological order}
+    \For{each edge $(u, v, w)$ leaving $u$}
+        \If{$\mathrm{dist}[u] + w < \mathrm{dist}[v]$}
+            \State $\mathrm{dist}[v] \gets \mathrm{dist}[u] + w$; \quad $\mathrm{parent}[v] \gets u$
+        \EndIf
+    \EndFor
+\EndFor
+\State \Return $\mathrm{dist}$ and $\mathrm{parent}$
+\end{algorithmic}
+\end{algorithm}
+
+This is the right tool when a problem has an inherent acyclic structure -- task scheduling
+along dependencies, the critical path in a project (a \emph{longest} path), or counting
+paths in a grid. Problem 10 implements DAG shortest paths and checks them against the more
+general Bellman--Ford, confirming that on a DAG the simpler linear-time sweep suffices where
+Dijkstra-style machinery would be overkill.
+
+\section{Two More Classic 2-D Dynamic Programs}
+
+\subsection{Matrix chain multiplication}
+
+Given a chain of matrices $A_1 A_2 \cdots A_n$ with $A_i$ of dimension $p_{i-1} \times
+p_i$, matrix multiplication is associative, so any parenthesisation yields the same product
+-- but the \emph{cost} (number of scalar multiplications) varies dramatically. The DP is
+indexed by sub-chains: let $M(i,j)$ be the minimum cost of multiplying $A_i \cdots A_j$.
+Reasoning about the \emph{outermost} multiplication (the last split point $k$):
+\[
+M(i,j) = \min_{i \le k < j} \big( M(i,k) + M(k+1, j) + p_{i-1}\,p_k\,p_j \big),
+\qquad M(i,i) = 0.
+\]
+There are $O(n^2)$ subproblems, each minimising over $O(n)$ split points, for $O(n^3)$ time.
+Recording the optimal split $k$ for each $(i,j)$ lets us reconstruct the optimal
+parenthesisation as a string (Problem 11). This is the textbook example of DP over
+\emph{contiguous sub-intervals}, a third indexing pattern beyond prefixes and vertex sets.
+
+\subsection{Grid paths}
+
+Consider an $r \times c$ grid where you may move only \emph{right} or \emph{down}. Two
+classic questions: \emph{(a)} how many distinct paths lead from the top-left to the
+bottom-right corner, and \emph{(b)} if each cell has a cost, what is the
+\emph{minimum-cost} path? Both are one-line recurrences. For counting,
+\[
+P(i,j) = P(i-1,j) + P(i,j-1), \qquad P(0,0) = 1,
+\]
+and for minimum path sum over cell costs $c(i,j)$,
+\[
+S(i,j) = c(i,j) + \min\big(S(i-1,j),\, S(i,j-1)\big),
+\]
+each filled in $O(rc)$ time. The grid is implicitly a DAG (every move increases $i+j$), so
+these are just the DAG recurrences specialised to a grid; an optimal path is recovered by
+the usual traceback (Problem 12).
+
+\section{Summary and Looking Ahead}
+
+This week extended dynamic programming from one-dimensional to two-dimensional (and
+interval- and vertex-set-indexed) subproblems, through several fundamental algorithms:
+
+\begin{itemize}
+    \item \textbf{Sequence alignment / edit distance}: the $O(mn)$ two-dimensional
+    recurrence over prefix pairs, with $O(m+n)$ traceback for the alignment, and
+    Hirschberg's $O(m+n)$-space refinement.
+    \item \textbf{Longest common subsequence}: a sibling recurrence, related to
+    insert/delete edit distance by $d = m + n - 2\,\mathrm{LCS}$.
+    \item \textbf{Bellman--Ford}: shortest paths with negative edges in $O(mn)$ via a DP on
+    the number of edges used, plus a one-extra-pass test for negative cycles.
+    \item \textbf{Floyd--Warshall}: all-pairs shortest paths in $O(n^3)$ via a DP on the set
+    of allowed intermediate vertices.
+    \item \textbf{DAG shortest/longest paths}: a single $O(n+m)$ sweep in topological order,
+    handling negative weights and longest paths for free.
+    \item \textbf{Matrix chain multiplication} and \textbf{grid paths}: DP over sub-intervals
+    and over a grid, both with reconstruction.
+\end{itemize}
+
+The unifying lesson is the DP recipe: define subproblems, reason about the \emph{last
+decision} to get a recurrence, order the computation so dependencies come first, and trace
+back to reconstruct an actual optimal solution.
+
+Next week we turn to \textbf{network flow} (Kleinberg \& Tardos, Ch.\ 7): the maximum-flow /
+minimum-cut problem and the Ford--Fulkerson method. Flow is a different algorithmic paradigm
+from DP, but it shares this week's graph-theoretic setting and -- as we will see -- a great
+many seemingly unrelated problems (bipartite matching, image segmentation, project
+selection) reduce to it.
+
+\end{document}

@@ -1,0 +1,373 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 8: Theoretical Questions}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+Part A contains 17 questions requiring written explanations or short proofs. Part B is a
+10-question quiz (true/false and multiple choice). Attempt every question on your own
+before consulting Part C (Solutions) at the end of this document.
+
+\section*{Part A: Theory Questions}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item Define \emph{optimal substructure} and \emph{overlapping subproblems}. Explain why
+\emph{both} properties are needed for dynamic programming to be both correct and efficient,
+and contrast this with divide-and-conquer (e.g.\ merge sort), which has optimal
+substructure but \emph{not} overlapping subproblems.
+
+\item Compare \emph{top-down memoization} and \emph{bottom-up tabulation}: how does each
+avoid recomputing subproblems, what are the practical advantages of each, and why do they
+have the same asymptotic running time?
+
+\item Explain why the naive recursion for the Fibonacci numbers $F(n) = F(n-1) + F(n-2)$
+makes exponentially many calls, while a memoized version makes only $O(n)$. Precisely how
+many calls does the naive recursion make for $F(n)$ (in terms of Fibonacci numbers)?
+
+\item State the Weighted Interval Scheduling problem precisely. Explain why the
+earliest-finish-time greedy algorithm (optimal for \emph{unweighted} interval scheduling)
+is \emph{not} optimal here, and why sorting by weight also fails.
+
+\item Define the function $p(j)$ used in Weighted Interval Scheduling (after sorting by
+finish time). Explain how to compute all values $p(1), \ldots, p(n)$ in $O(n \log n)$ time,
+and why binary search is applicable.
+
+\item Derive the Weighted Interval Scheduling recurrence $M[j] = \max(M[j-1],\, w_j +
+M[p(j)])$ by reasoning about whether interval $j$ is in the optimal solution. Justify why
+the ``take $j$'' branch may only use intervals $1, \ldots, p(j)$.
+
+\item Prove that the recurrence in A6 correctly computes the maximum total weight of a
+compatible subset of $\{1, \ldots, j\}$, by induction on $j$.
+
+\item Describe how to reconstruct the actual optimal set of intervals (not just its value)
+from the array $M$. State the exact condition under which interval $j$ is included during
+the traceback, and the running time of the reconstruction.
+
+\item State the 0/1 Knapsack problem. Write the 2-D DP recurrence for
+$\mathit{dp}[i][w]$ (best value using the first $i$ items with capacity $w$), including the
+base case and the two cases (item fits vs.\ does not fit), and explain the take-vs-skip
+decision.
+
+\item The 0/1 Knapsack DP runs in $O(nW)$ time. Explain carefully why this is
+\emph{pseudo-polynomial} rather than polynomial. Your answer should refer to the number of
+bits used to encode $W$ and explain how the running time behaves when that bit-length
+grows.
+
+\item State the Subset Sum problem and give its Boolean DP recurrence. Explain why, in the
+space-optimized 1-D version, the inner loop over the target $t$ must run from high to low
+(rather than low to high), and what would change if you reversed it.
+
+\item Describe how to reconstruct which items were chosen in the 0/1 Knapsack, given the
+filled 2-D table $\mathit{dp}$. State the exact traceback condition for ``item $i$ was
+taken.''
+
+\item Contrast the 0/1 knapsack with the \emph{unbounded} knapsack (each item reusable). In
+the 1-D space-optimized implementations, exactly what differs between the two (loop
+direction / order), and why does that single difference enforce ``at most once'' vs.\
+``any number of times''?
+
+\item Give the DP recurrences for both (a) the \emph{minimum number of coins} to make an
+amount $A$ and (b) the \emph{number of distinct combinations} making $A$. For the counting
+version, explain why looping over coins on the \emph{outside} (and amounts inside) counts
+combinations rather than permutations.
+
+\item State the Rod Cutting problem and its DP recurrence. Explain why it is an instance of
+\emph{unbounded} knapsack, and describe how to recover the list of cut lengths (not just
+the maximum revenue).
+
+\item State the Longest Increasing Subsequence (LIS) problem and give the $O(n^2)$ DP
+recurrence for $L[i]$, the length of the longest increasing subsequence \emph{ending at}
+index $i$. Why is the final answer $\max_i L[i]$ rather than $L[n]$?
+
+\item \emph{Discussion (open-ended).} You are given a new optimization problem and suspect
+it has a DP solution. Describe a systematic process for designing and validating the DP:
+how you would identify the subproblem and decision, write and prove the recurrence, choose
+top-down vs.\ bottom-up, analyze the running time (and check whether it is genuinely
+polynomial or only pseudo-polynomial), and empirically verify correctness against brute
+force.
+
+\end{enumerate}
+
+\newpage
+\section*{Part B: Quiz}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{(True/False)} Dynamic programming requires that a naive recursive solution
+would re-solve the same subproblems many times (overlapping subproblems); otherwise plain
+divide-and-conquer is already efficient.
+
+\item \textbf{(Multiple choice)} In Weighted Interval Scheduling (sorted by finish time),
+$p(j)$ is:
+\begin{enumerate}[label=(\alph*)]
+    \item the latest interval $i < j$ that overlaps $j$
+    \item the latest interval $i < j$ that is compatible with $j$ (or $0$ if none)
+    \item the interval with the largest weight among $1, \ldots, j-1$
+    \item the earliest interval compatible with $j$
+\end{enumerate}
+
+\item \textbf{(Short answer)} Write the Weighted Interval Scheduling recurrence for $M[j]$
+in terms of $M[j-1]$, $w_j$, and $M[p(j)]$.
+
+\item \textbf{(True/False)} The 0/1 Knapsack DP running time $O(nW)$ is a polynomial-time
+algorithm in the size of the input.
+
+\item \textbf{(Multiple choice)} In the space-optimized 1-D Subset Sum / 0/1 Knapsack DP,
+the inner loop over the capacity (or target) is iterated from high to low in order to:
+\begin{enumerate}[label=(\alph*)]
+    \item improve cache performance
+    \item ensure each item is used at most once
+    \item allow each item to be used unlimited times
+    \item avoid integer overflow
+\end{enumerate}
+
+\item \textbf{(True/False)} Subset Sum is the special case of 0/1 Knapsack in which each
+item's value equals its weight and we only ask whether the capacity can be filled exactly.
+
+\item \textbf{(Short answer)} For the unbounded coin-change \emph{counting} DP, should the
+coin loop be on the outside or inside of the amount loop in order to count distinct
+combinations (order-independent)?
+
+\item \textbf{(Multiple choice)} Rod Cutting is best classified as:
+\begin{enumerate}[label=(\alph*)]
+    \item 0/1 knapsack (each length usable at most once)
+    \item unbounded knapsack (each length usable any number of times)
+    \item weighted interval scheduling
+    \item a greedy problem with no DP needed
+\end{enumerate}
+
+\item \textbf{(Short answer)} In the $O(n^2)$ LIS DP, $L[i]$ is defined as the length of
+the longest increasing subsequence ending at index $i$. What is the recurrence for $L[i]$?
+
+\item \textbf{(True/False)} Top-down memoization and bottom-up tabulation, applied to the
+same recurrence, always compute the same optimal value and have the same asymptotic running
+time, although memoization may skip subproblems that are never reached.
+
+\end{enumerate}
+
+\newpage
+\section*{Part C: Solutions}
+
+\subsection*{Part A}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{Optimal substructure} means an optimal solution to the whole problem is built
+from optimal solutions to subproblems: once we fix one decision, what remains is a smaller,
+independent instance of the same problem whose optimum is used by the global optimum. This
+is what makes the \emph{recurrence correct}. \textbf{Overlapping subproblems} means the
+naive recursion would solve the same subproblem repeatedly; storing each answer once is
+what makes the recurrence \emph{efficient}. Both are needed: without optimal substructure
+the recurrence would be wrong; without overlapping subproblems, memoization saves nothing.
+Merge sort has optimal substructure (sorted halves combine into a sorted whole) but its
+subproblems are \emph{disjoint} (different array ranges), so there is nothing to reuse --
+plain divide-and-conquer already runs in $O(n \log n)$ and DP offers no advantage.
+
+\item \textbf{Top-down memoization} writes the recurrence as a recursive function and
+caches each subproblem's result on first computation, returning the cache on later calls;
+subproblems are solved \emph{lazily} (only those reached). \textbf{Bottom-up tabulation}
+fills a table iteratively in an order where each entry depends only on already-computed
+ones. Memoization is usually easier to write (it mirrors the recurrence) and avoids
+unreachable subproblems; tabulation has no recursion overhead, makes time/space transparent,
+and often enables space optimizations (keeping only the last row). They have the same
+asymptotic running time because both compute each distinct subproblem exactly once, and the
+total time is (number of distinct subproblems) $\times$ (work per subproblem) in either
+case.
+
+\item Naive $F(n)$ recursion re-solves overlapping subproblems: computing $F(n)$ calls
+$F(n-1)$ and $F(n-2)$, and $F(n-1)$ again calls $F(n-2)$, so $F(n-2)$ is computed twice,
+$F(n-3)$ three times, and so on -- the call tree branches like the Fibonacci numbers
+themselves and has exponentially many leaves. Memoizing computes each $F(k)$ for $k =
+0,\ldots,n$ exactly once, so $O(n)$ work. The exact number of calls the naive recursion
+makes for $F(n)$ is $2F(n+1) - 1$ (this is verified empirically in Problem 12).
+
+\item \textbf{Input:} $n$ requests, request $i$ with start $s_i$, finish $f_i$ ($s_i <
+f_i$), and weight $w_i \ge 0$; two requests are compatible iff their half-open intervals do
+not overlap. \textbf{Objective:} a compatible set of maximum total weight. The
+earliest-finish-time greedy is optimal for the \emph{count} (unweighted case) but ignores
+weights: a single high-value interval can outweigh several low-value compatible ones it
+conflicts with, so maximizing count is not the same as maximizing weight. Sorting by weight
+fails too -- a heavy interval may block two even-heavier compatible intervals -- so no
+simple greedy ordering is correct, and we use DP.
+
+\item After sorting requests by finish time ($f_1 \le \cdots \le f_n$), $p(j)$ is the
+largest index $i < j$ with $f_i \le s_j$ (the latest interval that finishes before $j$
+starts), or $0$ if none exists. Since finish times are sorted, the set $\{ i : f_i \le s_j
+\}$ is a prefix of the index range, so its largest element can be found by \textbf{binary
+search} for $s_j$ in the sorted finish-time array. Each search is $O(\log n)$ and there are
+$n$ of them, so all $p(j)$ are computed in $O(n \log n)$ (the same as the sort). This is
+Problem 1.
+
+\item Consider whether interval $j$ (the latest-finishing of $\{1,\ldots,j\}$) is in an
+optimal solution $O_j$. If $j \in O_j$, then no other member of $O_j$ overlaps $j$; since
+intervals are finish-sorted, every other member has index $\le p(j)$ (the latest interval
+compatible with $j$), so $O_j \setminus \{j\}$ is a compatible subset of $\{1,\ldots,p(j)\}$
+-- giving value $w_j + M[p(j)]$. If $j \notin O_j$, then $O_j$ is a compatible subset of
+$\{1,\ldots,j-1\}$, giving value $M[j-1]$. The optimum is the larger: $M[j] = \max(M[j-1],
+\, w_j + M[p(j)])$. The ``take'' branch may only use $1,\ldots,p(j)$ precisely because any
+interval with index in $(p(j), j)$ overlaps $j$ and so cannot coexist with it.
+
+\item By strong induction on $j$. \emph{Base:} $M[0] = 0$ is correct for the empty
+instance. \emph{Step ($j \ge 1$):} let $O_j$ be an optimal compatible subset of
+$\{1,\ldots,j\}$ with value $\mathrm{OPT}(j)$. If $j \notin O_j$, then $O_j$ is feasible for
+$\{1,\ldots,j-1\}$, so $\mathrm{OPT}(j) \le M[j-1]$ by the inductive hypothesis; and any
+optimum of $\{1,\ldots,j-1\}$ is feasible for $\{1,\ldots,j\}$, so $\mathrm{OPT}(j) \ge
+M[j-1]$; thus this branch equals $M[j-1]$. If $j \in O_j$, then (as in A6) $O_j \setminus
+\{j\}$ is feasible for $\{1,\ldots,p(j)\}$ with value $\mathrm{OPT}(j) - w_j \le M[p(j)]$,
+so $\mathrm{OPT}(j) \le w_j + M[p(j)]$; and taking an optimum of $\{1,\ldots,p(j)\}$ plus
+$j$ achieves $w_j + M[p(j)]$, so this branch is attainable. Hence $\mathrm{OPT}(j) =
+\max(M[j-1],\, w_j + M[p(j)]) = M[j]$.
+
+\item Trace back from $j = n$. Interval $j$ is in the optimum iff the ``take'' branch was at
+least as good as the ``skip'' branch, i.e.\ iff $w_j + M[p(j)] \ge M[j-1]$. When this
+holds, output $j$ and jump to $j \gets p(j)$ (the latest compatible predecessor); otherwise
+move to $j \gets j-1$. Repeat until $j = 0$. Each step decreases $j$, so the reconstruction
+is $O(n)$. (Ties may be broken either way; both yield optimal sets.) This is Problem 3.
+
+\item \textbf{Input:} $n$ items with integer weights $w_i \ge 0$ and values $v_i \ge 0$,
+and integer capacity $W$; choose a subset of maximum total value with total weight $\le W$,
+each item at most once. \textbf{Recurrence:} $\mathit{dp}[i][w]$ = best value using items
+$1,\ldots,i$ with capacity $w$:
+\[
+\mathit{dp}[0][w] = 0; \quad
+\mathit{dp}[i][w] = \mathit{dp}[i-1][w] \ \text{if } w_i > w; \quad
+\mathit{dp}[i][w] = \max(\mathit{dp}[i-1][w],\, v_i + \mathit{dp}[i-1][w - w_i]) \
+\text{otherwise.}
+\]
+If item $i$ does not fit ($w_i > w$) we must skip it. Otherwise we choose the better of
+skipping it (keep $\mathit{dp}[i-1][w]$) or taking it (gain $v_i$ and recurse on the
+reduced capacity $w - w_i$ over the first $i-1$ items).
+
+\item The size of the input -- the number of bits to encode it -- is about $O(n \log W)$,
+since $W$ is written in binary using $\approx \log_2 W$ bits (and likewise for each $w_i,
+v_i$). The running time $O(nW)$ is polynomial in the \emph{numeric value} $W$, but $W =
+2^{\log_2 W}$ is \emph{exponential} in its bit-length. So if we increase the bit-length of
+$W$ by one (doubling $W$), the running time doubles; increasing the bit-length by a factor
+of two squares $W$ and thus squares the running time. An algorithm polynomial in the
+numeric values but exponential in the input's bit-length is \textbf{pseudo-polynomial}. It
+is efficient only when $W$ is small (polynomially bounded in $n$); 0/1 Knapsack is NP-hard,
+so no truly polynomial algorithm is known.
+
+\item \textbf{Subset Sum:} given non-negative integers $a_1,\ldots,a_n$ and target $T$,
+decide whether some subset sums to exactly $T$. \textbf{Recurrence:} $R[i][t]$ = ``some
+subset of the first $i$ numbers sums to $t$,'' with $R[0][0]=\text{true}$, $R[0][t>0] =
+\text{false}$, and $R[i][t] = R[i-1][t] \lor (t \ge a_i \land R[i-1][t-a_i])$. In the 1-D
+version with a single array $\texttt{reachable}[\,]$, applying $a_i$ by iterating $t$ from
+$T$ \emph{down to} $a_i$ ensures that when we read $\texttt{reachable}[t - a_i]$ it still
+reflects the state \emph{before} $a_i$ was applied -- so $a_i$ contributes at most once. If
+we iterated low-to-high, $\texttt{reachable}[t-a_i]$ might already include $a_i$, letting
+$a_i$ be used multiple times -- which would solve the \emph{unbounded} version instead.
+
+\item Trace back from $\mathit{dp}[n][W]$ with $w = W$. For $i = n$ down to $1$: item $i$
+was taken iff $\mathit{dp}[i][w] \ne \mathit{dp}[i-1][w]$ (taking it strictly changed the
+value, meaning the ``take'' branch won). If taken, record $i$ and set $w \gets w - w_i$;
+otherwise leave $w$ unchanged. Continue to row $i-1$. This is $O(n)$ and is Problem 7.
+
+\item In \emph{0/1} knapsack each item is used at most once; in \emph{unbounded} knapsack
+each may be used any number of times. In the 1-D space-optimized implementations the
+\emph{only} difference is the inner loop direction (or, for counting, the loop nesting):
+0/1 iterates the capacity/target from \emph{high to low}, so an item's update reads the
+table state from \emph{before} this item was applied (each item contributes at most once);
+unbounded iterates from \emph{low to high}, so an item's update may read entries already
+updated by the same item in this pass (each item may contribute repeatedly).
+
+\item (a) \textbf{Minimum coins:} $\mathit{dp}[0]=0$ and $\mathit{dp}[a] = 1 + \min_{c_i
+\le a} \mathit{dp}[a - c_i]$ (or $+\infty$ if no coin fits), answer $\mathit{dp}[A]$ (or
+$-1$ if $+\infty$). (b) \textbf{Counting combinations:} $\mathit{ways}[0]=1$ and, looping
+over coins on the outside, $\mathit{ways}[a] \mathrel{+}= \mathit{ways}[a - c]$ for $a = c
+\ldots A$. Putting the coin loop \emph{outside} commits coins in a fixed order, so each
+combination (multiset) is generated exactly once; if amounts were the outer loop, the same
+multiset would be counted in every order, counting \emph{permutations} (sequences) instead
+of combinations.
+
+\item \textbf{Rod Cutting:} given a rod of length $n$ and prices $p_\ell$ for pieces of
+length $\ell$, cut into integer pieces to maximize total revenue. \textbf{Recurrence:}
+$\mathit{rev}[0]=0$, $\mathit{rev}[L] = \max_{1 \le \ell \le L}(p_\ell + \mathit{rev}[L -
+\ell])$. It is unbounded knapsack: ``item $\ell$'' has weight $\ell$, value $p_\ell$,
+capacity $n$, and each length may be cut any number of times. To recover the cuts, store
+for each $L$ the cut length $\ell^*(L)$ achieving the maximum; then starting from $L = n$,
+repeatedly output $\ell^*(L)$ and set $L \gets L - \ell^*(L)$ until $L = 0$ (Problem 10).
+
+\item \textbf{LIS:} given $a_1,\ldots,a_n$, find the length of the longest strictly
+increasing subsequence (order preserved, elements may be dropped). \textbf{Recurrence:}
+$L[i] = 1 + \max(\{L[j] : j < i,\, a_j < a_i\} \cup \{0\})$, i.e.\ extend the best
+compatible earlier subsequence, or start fresh with length 1. The answer is $\max_i L[i]$,
+not $L[n]$, because the optimal subsequence may \emph{end} at any index, not necessarily
+the last one (e.g.\ if the largest values appear in the middle of the sequence). This is
+Problem 11.
+
+\item A systematic process: (1) \textbf{Identify the subproblem and decision.} Ask ``what
+is the last/first choice the optimal solution makes, and what independent smaller instance
+remains after it?'' Name an array indexed by the relevant parameters. (2) \textbf{Write and
+prove the recurrence.} Express the optimum as a max/min over the possible decisions, then
+prove correctness by induction (an optimal solution restricted to the subproblem is optimal
+for the subproblem -- optimal substructure). (3) \textbf{Choose top-down vs.\ bottom-up.}
+Memoize if the recurrence is more natural recursively or many subproblems are unreachable;
+tabulate if you want transparent time/space or a space optimization. (4) \textbf{Analyze
+the running time} as (number of subproblems) $\times$ (work per subproblem), and check
+whether it is genuinely polynomial in the \emph{input size} or only pseudo-polynomial
+(polynomial in a numeric value like $W$ or $A$). (5) \textbf{Verify empirically.} Implement
+a brute-force solver (exponential, for small inputs) and compare against the DP on many
+random instances and edge cases -- exactly as Problems 5, 6, 8, 9, 10, and 11 do this week.
+A single mismatch should be minimized by hand to expose the flaw in the recurrence.
+
+\end{enumerate}
+
+\subsection*{Part B}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{True.} Without overlapping subproblems there is nothing to reuse, and plain
+divide-and-conquer is already efficient (e.g.\ merge sort). DP's advantage comes precisely
+from caching answers to subproblems that recur.
+
+\item \textbf{(b)} the latest interval $i < j$ that is compatible with $j$ (finishes at or
+before $j$ starts), or $0$ if none. This is found by binary search on the sorted finish
+times.
+
+\item $M[j] = \max\bigl(M[j-1],\; w_j + M[p(j)]\bigr)$, with $M[0] = 0$.
+
+\item \textbf{False.} $O(nW)$ is \emph{pseudo}-polynomial: it is polynomial in the numeric
+value $W$, but $W$ is exponential in its bit-length ($\approx \log_2 W$ bits), so the
+algorithm is exponential in the input size. 0/1 Knapsack is NP-hard.
+
+\item \textbf{(b)} to ensure each item is used at most once. Iterating high-to-low means
+$\mathit{dp}[w - w_i]$ still holds the pre-item value, so the item contributes once;
+low-to-high would allow reuse (the unbounded version).
+
+\item \textbf{True.} Subset Sum is exactly 0/1 Knapsack with $v_i = w_i$ and $W = T$,
+asking only whether the optimum equals (can reach) $T$.
+
+\item \textbf{Outside.} The coin loop must be on the outside (amounts inside) to count
+order-independent combinations; swapping the order would count ordered sequences
+(permutations).
+
+\item \textbf{(b)} unbounded knapsack -- each piece length may be used any number of times,
+with capacity equal to the rod length.
+
+\item $L[i] = 1 + \max\bigl(\{L[j] : j < i \text{ and } a_j < a_i\} \cup \{0\}\bigr)$; the
+answer is $\max_i L[i]$.
+
+\item \textbf{True.} Both evaluate the same recurrence, computing each distinct subproblem
+once, so they return the same value with the same asymptotic running time; memoization
+additionally skips subproblems that are never reached from the top-level call.
+
+\end{enumerate}
+
+\end{document}
