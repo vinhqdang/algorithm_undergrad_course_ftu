@@ -1,0 +1,356 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 5: Theoretical Questions}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+Part A contains 17 questions requiring written explanations or short proofs.
+Part B is a 10-question quiz (true/false and multiple choice). Attempt every
+question on your own before consulting Part C (Solutions) at the end of this
+document.
+
+\section*{Part A: Theory Questions}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item State the single-source shortest path problem precisely: what is the input
+(graph, weights, source), and what is the desired output? Why do we usually
+require the edge weights to be non-negative for Dijkstra's algorithm?
+
+\item Describe Dijkstra's algorithm in your own words. What invariant does it
+maintain about the set $S$ of ``finalized'' vertices, and what does the relaxation
+step do to a tentative distance $d[v]$?
+
+\item Prove that Dijkstra's algorithm is correct on graphs with non-negative
+edge weights: when a vertex $u$ is added to $S$, its tentative distance $d[u]$
+equals the true shortest-path distance. Identify the exact step in your proof
+that uses non-negativity.
+
+\item Analyze the running time of Dijkstra's algorithm implemented with a binary
+heap. Count the \textsc{ExtractMin} and \textsc{DecreaseKey}/push operations and
+state the overall bound in terms of $n$ and $m$.
+
+\item Give a small directed graph with one negative edge (and no negative cycle)
+on which Dijkstra returns an incorrect distance. State the wrong answer Dijkstra
+gives and the correct answer, and explain which step of the correctness proof
+fails.
+
+\item State the Bellman--Ford algorithm. Why does it perform exactly $n-1$ rounds
+of relaxing all edges, and what does the additional ($n$-th) round detect?
+
+\item Compare Dijkstra and Bellman--Ford on (a) the class of graphs they handle
+correctly, and (b) their running times. When would you choose each?
+
+\item Define a \emph{spanning tree} and a \emph{minimum spanning tree} of a
+connected weighted graph. How many edges does a spanning tree of an $n$-vertex
+graph have, and why?
+
+\item Define a \emph{cut} $(S, V \setminus S)$ and what it means for an edge to
+\emph{cross} the cut. State the cut property.
+
+\item Prove the cut property: assuming distinct edge weights, the minimum-weight
+edge crossing any cut belongs to every MST. Use an exchange argument.
+
+\item State and prove the cycle property: the unique maximum-weight edge on any
+cycle belongs to no MST.
+
+\item State Kruskal's algorithm. Prove it correct by showing that every edge it
+adds is a minimum-weight crossing edge of some cut (and hence safe by the cut
+property).
+
+\item State Prim's algorithm. Prove it correct using the cut property, and
+explain in what sense it is the ``graph analogue'' of Dijkstra's algorithm.
+
+\item Describe the union-find (disjoint-set) data structure with \emph{path
+compression} and \emph{union by rank}. What are the two operations, and what is
+the amortized cost per operation? How is union-find used inside Kruskal's
+algorithm?
+
+\item Suppose the edge weights of a connected graph are all \emph{distinct}.
+Prove that the minimum spanning tree is unique. What can go wrong (regarding
+uniqueness) when weights are allowed to be equal?
+
+\item Using the cut and cycle properties, explain how to decide whether a given
+edge $e$ belongs to (i) \emph{every} MST, (ii) \emph{some} but not every MST, or
+(iii) \emph{no} MST. Give a characterization for each case.
+
+\item Describe single-link $k$-clustering of maximum spacing and explain its
+connection to Kruskal's algorithm. What quantity does ``stopping Kruskal when $k$
+components remain'' maximize, and what is the resulting spacing equal to?
+
+\end{enumerate}
+
+\newpage
+\section*{Part B: Quiz}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{(True/False)} Dijkstra's algorithm always computes correct
+shortest-path distances, even when some edge weights are negative (as long as
+there is no negative cycle).
+
+\item \textbf{(Multiple choice)} Dijkstra's algorithm implemented with a binary
+heap runs in time:
+\begin{enumerate}[label=(\alph*)]
+    \item $O(n^2)$
+    \item $O((m+n)\log n)$
+    \item $O(nm)$
+    \item $O(m + n)$
+\end{enumerate}
+
+\item \textbf{(Multiple choice)} The Bellman--Ford algorithm runs in time:
+\begin{enumerate}[label=(\alph*)]
+    \item $O((m+n)\log n)$
+    \item $O(n \log n)$
+    \item $O(nm)$
+    \item $O(2^n)$
+\end{enumerate}
+
+\item \textbf{(True/False)} The cut property states that the minimum-weight edge
+crossing any cut belongs to some minimum spanning tree.
+
+\item \textbf{(Multiple choice)} Kruskal's algorithm uses which data structure to
+detect whether adding an edge would create a cycle?
+\begin{enumerate}[label=(\alph*)]
+    \item A binary min-heap
+    \item A union-find (disjoint-set) structure
+    \item A stack
+    \item A hash map of distances
+\end{enumerate}
+
+\item \textbf{(True/False)} Prim's algorithm and Kruskal's algorithm always
+produce a spanning tree of the same total weight on a connected graph.
+
+\item \textbf{(Short answer)} In a connected graph with all distinct edge
+weights, is the minimum spanning tree unique? (Yes/No, with one sentence why.)
+
+\item \textbf{(Multiple choice)} By the cycle property, the unique heaviest edge
+on a cycle belongs to:
+\begin{enumerate}[label=(\alph*)]
+    \item Every MST
+    \item Some but not every MST
+    \item No MST
+    \item Exactly one MST
+\end{enumerate}
+
+\item \textbf{(Short answer)} In single-link $k$-clustering via Kruskal, you stop
+when how many components remain, and what does the spacing of the clustering
+equal?
+
+\item \textbf{(True/False)} Adding the same positive constant to the weight of
+\emph{every} edge of a graph can change which spanning tree is minimum.
+
+\end{enumerate}
+
+\newpage
+\section*{Part C: Solutions}
+
+\subsection*{Part A}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{Input:} a directed or undirected graph $G=(V,E)$, a weight $w(e)\ge
+0$ on each edge, and a source vertex $s$. \textbf{Output:} for every vertex $v$,
+the minimum total weight $\mathrm{dist}(v)$ of any $s$-$v$ path (or $\infty$ if
+none exists). We require non-negative weights for Dijkstra because its greedy
+choice -- finalize the nearest unfinished vertex and never revisit it -- is only
+valid when extending a path can never \emph{decrease} its length; a negative edge
+would let a longer-looking route become cheaper after the vertex is already
+finalized.
+
+\item Dijkstra maintains a set $S$ of vertices whose shortest distance is already
+known, and a tentative distance $d[v]$ for each vertex (the length of the best
+$s$-$v$ path found so far). It repeatedly extracts the vertex $u \notin S$ of
+minimum $d[u]$, finalizes it (adds it to $S$), and \emph{relaxes} each edge
+$(u,v)$: if $d[u]+w(u,v) < d[v]$, it lowers $d[v]$ to $d[u]+w(u,v)$ (recording
+$u$ as $v$'s predecessor). \textbf{Invariant:} for every $u \in S$, $d[u]$ equals
+the true shortest distance to $u$.
+
+\item By induction on $|S|$. Base case: $d[s]=0=\mathrm{dist}(s)$. Inductive
+step: let $u\notin S$ be the next extracted vertex, so $d[u]\le d[v]$ for all
+$v\notin S$. Every relaxation sets $d[\cdot]$ to a real path length, so
+$d[u]\ge\mathrm{dist}(u)$. For the reverse, take any $s$-$u$ path $P$; it leaves
+$S$ at a first edge $(x,y)$ with $x\in S$, $y\notin S$. By hypothesis
+$d[x]=\mathrm{dist}(x)$, and relaxing $(x,y)$ gave $d[y]\le d[x]+w(x,y)$. The
+length of $P$ is at least its prefix up to $y$, which is at least
+$\mathrm{dist}(x)+w(x,y)\ge d[y]\ge d[u]$ (the last step because $u$ was the
+minimum). So $\mathrm{dist}(u)\ge d[u]$, hence equality. \textbf{Non-negativity
+is used} at ``the length of $P$ is at least its prefix up to $y$'': discarding
+the edges of $P$ after $y$ can only fail to overcount when those edges have
+non-negative weight.
+
+\item There are $n$ \textsc{ExtractMin} operations (one per vertex) and at most
+$m$ \textsc{DecreaseKey}/push operations (one per edge relaxation). With a binary
+heap each operation costs $O(\log n)$, so the total is $O((m+n)\log n)$, i.e.\
+$O(m\log n)$ for a connected graph. (A Fibonacci heap improves this to
+$O(m+n\log n)$.)
+
+\item Vertices $s,a,b$; directed edges $s\to a$ (weight $2$), $s\to b$ (weight
+$3$), $b\to a$ (weight $-2$). True $\mathrm{dist}(a)=1$ via $s\to b\to a$
+($3-2$). Dijkstra extracts $a$ first with $d[a]=2$, finalizes it, and never
+revisits it, so it reports $2$. The proof step that fails is the use of
+non-negativity: the path $s\to b\to a$ has a prefix ($s\to b$, length $3$) that is
+\emph{longer} than the whole path, because the final edge is negative.
+
+\item Bellman--Ford relaxes all $m$ edges, $n-1$ times. The number $n-1$ is the
+maximum number of edges on a simple shortest path (a path visiting $n$ vertices
+has $n-1$ edges); after round $i$, $d[v]$ is correct for all vertices whose
+shortest path uses at most $i$ edges, so $n-1$ rounds suffice when no negative
+cycle exists. The extra ($n$-th) pass detects negative cycles: if any edge can
+\emph{still} be relaxed, the graph contains a reachable negative cycle, because a
+cycle-free shortest path would already have stabilized.
+
+\item (a) Dijkstra is correct only for non-negative weights; Bellman--Ford
+handles arbitrary (possibly negative) weights and detects negative cycles. (b)
+Dijkstra runs in $O((m+n)\log n)$ with a binary heap; Bellman--Ford runs in
+$O(nm)$. Choose Dijkstra when all weights are non-negative (it is much faster);
+choose Bellman--Ford when negative edges may be present or when you must detect a
+negative cycle.
+
+\item A \textbf{spanning tree} of a connected graph $G$ is a subset of edges that
+connects all $n$ vertices and contains no cycle. A \textbf{minimum spanning tree}
+is a spanning tree of minimum total edge weight. A spanning tree has exactly
+$n-1$ edges: a connected acyclic graph (a tree) on $n$ vertices always has
+$n-1$ edges -- fewer would leave it disconnected, and one more would create a
+cycle.
+
+\item A \textbf{cut} is a partition of $V$ into two non-empty parts $(S, V
+\setminus S)$. An edge \textbf{crosses} the cut if it has exactly one endpoint in
+$S$ (and the other in $V\setminus S$). \textbf{Cut property:} the
+minimum-weight edge crossing any cut belongs to every MST (assuming distinct
+weights; with ties, it belongs to some MST).
+
+\item Let $e=(u,v)$ be the min-weight crossing edge of cut $(S,V\setminus S)$,
+$u\in S$, $v\notin S$, and suppose some MST $T$ omits $e$. Then $T\cup\{e\}$ has
+exactly one cycle $C$, which contains $e$. A cycle crosses a cut an even number
+of times, so $C$ has another crossing edge $e'\ne e$; since $e$ is the
+\emph{minimum} crossing edge and weights are distinct, $w(e)<w(e')$. Then
+$T'=(T\setminus\{e'\})\cup\{e\}$ is a spanning tree with $w(T')=w(T)-w(e')+w(e)
+< w(T)$, contradicting the minimality of $T$. Hence every MST contains $e$.
+
+\item \textbf{Cycle property:} the unique maximum-weight edge $f$ on a cycle $C$
+is in no MST. \textit{Proof:} suppose MST $T$ contains $f=(x,y)$. Removing $f$
+splits $T$ into two components; let $S$ be the side containing $x$, so $f$
+crosses cut $(S,V\setminus S)$. Cycle $C$ also crosses this cut, so it has
+another crossing edge $f'\ne f$ with $w(f')<w(f)$ (since $f$ is the unique
+heaviest on $C$). Then $(T\setminus\{f\})\cup\{f'\}$ is a spanning tree of
+strictly smaller weight, contradicting minimality.
+
+\item \textbf{Kruskal:} sort edges by increasing weight; for each edge in turn,
+add it iff its endpoints lie in different components (tested by union-find), and
+union those components. \textit{Correctness:} when Kruskal adds edge $e=(u,v)$,
+let $S$ be the set of vertices in $u$'s current component. All edges processed
+before $e$ are cheaper and were either added (kept inside a component) or
+discarded, so no cheaper edge crosses the cut $(S,V\setminus S)$; thus $e$ is the
+minimum-weight crossing edge of this cut, and by the cut property it belongs to
+every MST. So every edge Kruskal adds is safe; since it stops only when all
+vertices are connected and never creates a cycle, it outputs a spanning tree of
+safe edges -- the MST.
+
+\item \textbf{Prim:} start with $S=\{r\}$ for an arbitrary $r$; repeatedly add
+the minimum-weight edge with exactly one endpoint in $S$, and move that endpoint
+into $S$, until $S=V$. \textit{Correctness:} at each step Prim adds the minimum
+crossing edge of the cut $(S,V\setminus S)$, which is safe by the cut property;
+after $n-1$ additions, $T$ is a spanning tree of safe edges. It is the
+``graph analogue'' of Dijkstra because both grow a single set $S$ outward using a
+heap, repeatedly pulling the cheapest frontier item -- the difference is the key:
+Prim keys on the \emph{edge weight} crossing the frontier, Dijkstra on the
+\emph{path distance} $d[u]=d[\text{parent}]+w$.
+
+\item \textbf{Union-find} maintains a collection of disjoint sets. \textsc{Find}$(x)$
+returns the representative of $x$'s set; \textsc{Union}$(x,y)$ merges the two
+sets. \emph{Path compression} makes every node on a find-path point directly at
+the root; \emph{union by rank} attaches the shorter tree under the taller. With
+both, the amortized cost per operation is $O(\alpha(n))$ (inverse Ackermann --
+effectively constant). In Kruskal's algorithm, each vertex starts in its own set;
+an edge is added iff \textsc{Find} of its endpoints differ (different
+components), after which they are \textsc{Union}ed -- this is exactly the
+cycle-detection test.
+
+\item \textbf{Uniqueness with distinct weights:} suppose $T_1\ne T_2$ are both
+MSTs. Let $e$ be the minimum-weight edge in their symmetric difference (say $e\in
+T_1\setminus T_2$); $e$ is unique because all weights differ. Adding $e$ to $T_2$
+creates a cycle $C$; $C$ has an edge $e'\notin T_1$ (else $T_1$ would contain the
+cycle), and $e'\in T_2\setminus T_1$ also lies in the symmetric difference, so
+$w(e)<w(e')$ by choice of $e$. Then $(T_2\setminus\{e'\})\cup\{e\}$ is a spanning
+tree lighter than $T_2$ -- contradiction. Hence the MST is unique. With equal
+weights this argument breaks (the ``minimum edge in the symmetric difference''
+need not be unique), and there can be several distinct MSTs of the same total
+weight (e.g.\ a triangle with all equal weights has three MSTs).
+
+\item Compare the global MST weight $W$ with two constrained quantities. (i) $e$
+is in \emph{every} MST iff \emph{excluding} $e$ (computing the MST without it)
+strictly increases the weight above $W$ -- equivalently, $e$ is the unique
+minimum crossing edge of some cut. (ii) $e$ is in \emph{no} MST iff
+\emph{including} $e$ (forcing it in) gives weight $>W$ -- equivalently, $e$ is the
+unique maximum-weight edge on some cycle (cycle property). (iii) Otherwise (both
+the forced-in MST and the forced-out MST achieve weight $W$) $e$ is in
+\emph{some} but not every MST -- this happens with tied weights. Problem 11
+implements exactly this three-way test.
+
+\item \textbf{Single-link $k$-clustering of maximum spacing} partitions the
+points into $k$ clusters so as to maximize the \emph{spacing} -- the minimum
+distance between two points in different clusters. The procedure is Kruskal's
+algorithm stopped once the union-find has $k$ components (equivalently, build the
+MST and delete its $k-1$ heaviest edges). Stopping when $k$ components remain
+maximizes the spacing; the resulting spacing equals the weight of the next edge
+Kruskal would have added -- i.e.\ the $(k-1)$-th most expensive MST edge, the
+smallest distance between any two of the $k$ surviving components.
+
+\end{enumerate}
+
+\subsection*{Part B}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{False.} Dijkstra can return incorrect distances in the presence of
+negative edges, even without a negative cycle (it may finalize a vertex before
+discovering a cheaper route through a negative edge). Use Bellman--Ford instead.
+
+\item \textbf{(b) $O((m+n)\log n)$.} Each of the $n$ \textsc{ExtractMin} and up
+to $m$ \textsc{DecreaseKey}/push operations costs $O(\log n)$ with a binary heap.
+
+\item \textbf{(c) $O(nm)$.} It performs $n-1$ rounds, each relaxing all $m$
+edges.
+
+\item \textbf{True.} (And with distinct weights it belongs to \emph{every} MST;
+``some MST'' is the safe statement that always holds.)
+
+\item \textbf{(b) A union-find (disjoint-set) structure.} Adding an edge would
+create a cycle exactly when its endpoints are already in the same set.
+
+\item \textbf{True.} Both compute a minimum spanning tree, so the total weight is
+the same (the minimum possible), even if they choose different edge sets when
+weights are tied.
+
+\item \textbf{Yes.} With all distinct edge weights the minimum spanning tree is
+unique (see A15).
+
+\item \textbf{(c) No MST.} This is the cycle property.
+
+\item Stop when \textbf{$k$} components remain; the spacing equals the weight of
+the next (the $(k-1)$-th heaviest MST) edge Kruskal would have added -- the
+minimum distance between the $k$ resulting clusters.
+
+\item \textbf{False.} Adding the same constant $c$ to every edge increases every
+spanning tree's weight by exactly $(n-1)c$ (since each has $n-1$ edges), so the
+relative order of spanning trees is unchanged and the MST stays the same.
+
+\end{enumerate}
+
+\end{document}

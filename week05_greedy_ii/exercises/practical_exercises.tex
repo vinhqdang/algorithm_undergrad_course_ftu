@@ -1,0 +1,197 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 5: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{generate\_weighted\_graph},
+\texttt{empty\_graph}, \texttt{add\_edge}, \texttt{edge\_list}, \texttt{vertices}, and the
+\texttt{UnionFind} class (with path compression and union by rank). A graph is an
+\emph{adjacency dict}: a map from each vertex to a dict \texttt{\{neighbour: weight\}};
+undirected edges appear in both endpoints' dicts.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Shortest Paths} (Problems 1--6): a weighted-graph builder, Dijkstra's
+    algorithm (distances and path reconstruction), Bellman--Ford with negative edges,
+    cross-validation, and a counter-example showing Dijkstra fails on a negative edge.
+    \item \textbf{Minimum Spanning Trees} (Problems 7--11): Kruskal's algorithm with
+    union-find, Prim's algorithm with a heap, verification that they agree, and the cut
+    and cycle properties.
+    \item \textbf{Applications} (Problem 12): single-link $k$-clustering via Kruskal.
+\end{itemize}
+
+\newpage
+\section{Shortest Paths}
+
+\subsection*{Problem 1 -- Weighted Graph Builder and Edge Listing}
+
+Implement \texttt{build\_graph(edges, directed=False)} that builds an adjacency-dict graph
+from a list of \texttt{(u, v, w)} edge tuples (using \texttt{add\_edge} from
+\texttt{starter\_code.py}), \texttt{neighbors(graph, u)} returning \texttt{u}'s
+neighbour$\to$weight dict (empty if isolated), \texttt{list\_edges(graph,
+directed=False)} returning each edge once as \texttt{(u, v, w)}, and
+\texttt{total\_weight(graph, directed=False)} summing all edge weights.
+
+\textbf{Example.} \texttt{build\_graph([(0,1,4),(1,2,3),(0,2,5)])} yields a graph with
+\texttt{g[0][1] == 4} and \texttt{g[1][0] == 4}; \texttt{total\_weight} is \texttt{12}.
+
+\subsection*{Problem 2 -- Dijkstra's Shortest-Path Distances}
+
+Implement \texttt{dijkstra(graph, source)} using a binary heap (\texttt{heapq}) to return
+a dict of shortest-path distances from \texttt{source} to every vertex (non-negative
+weights assumed; unreachable vertices get \texttt{float('inf')}).
+
+\textbf{Hint.} Use the lazy heap version: push \texttt{(distance, vertex)} on each
+improvement and skip a popped vertex that has already been finalized.
+
+\subsection*{Problem 3 -- Dijkstra with Predecessors and Path Reconstruction}
+
+Implement \texttt{dijkstra\_with\_pred(graph, source)} returning \texttt{(dist, pred)},
+where \texttt{pred[v]} is the vertex preceding \texttt{v} on a shortest path (\texttt{None}
+for the source and for unreachable vertices). Then implement
+\texttt{reconstruct\_path(pred, source, target)} returning the vertex list
+\texttt{[source, ..., target]}, or \texttt{None} if \texttt{target} is unreachable.
+
+\subsection*{Problem 4 -- Bellman--Ford with Negative Edges}
+
+Implement \texttt{bellman\_ford(graph, source, directed=False)}: relax all edges $n-1$
+times, then do one extra pass to detect a negative cycle. Return the distance dict, or
+\texttt{None} if a negative cycle is detected. Unlike Dijkstra, this handles negative
+weights.
+
+\textbf{Note.} For an undirected graph, relax each edge in both directions (and any
+negative undirected edge is itself a negative cycle).
+
+\subsection*{Problem 5 -- Verifying Dijkstra and Bellman--Ford Agree}
+
+Implement \texttt{agree\_on\_random\_graph(n, seed)}: generate a random connected
+non-negative graph (\texttt{generate\_weighted\_graph(n, seed=seed, edge\_prob=0.4,
+max\_weight=15)}) and return \texttt{True} iff \texttt{dijkstra} (Problem 2) and
+\texttt{bellman\_ford} (Problem 4) give equal distances from source 0. Then implement
+\texttt{verify\_agreement(num\_trials, n, seed)} that returns \texttt{True} iff this holds
+on \texttt{num\_trials} random instances (using \texttt{seed + trial}).
+
+\subsection*{Problem 6 -- Counter-Example: Dijkstra Fails on a Negative Edge}
+
+Implement \texttt{negative\_edge\_graph()} returning a small directed graph with one
+negative edge (and no negative cycle) on which Dijkstra is wrong. Then implement
+\texttt{dijkstra\_vs\_bellman\_ford()} returning \texttt{(dijkstra\_dist,
+bellman\_ford\_dist)} for that graph; the two dicts must differ at some vertex.
+
+\textbf{Hint.} Make Dijkstra \emph{finalize} a vertex at its direct-edge distance before
+it ever explores the cheaper route that ends with the negative edge.
+
+\newpage
+\section{Minimum Spanning Trees}
+
+\subsection*{Problem 7 -- Kruskal's MST with Union-Find}
+
+Implement \texttt{kruskal(graph)}: sort the edges by weight and add each edge whose
+endpoints lie in different components (tested with the \texttt{UnionFind} class). Return
+\texttt{(mst\_edges, total\_weight)}.
+
+\textbf{Example.} On a 4-vertex connected graph, the MST has exactly 3 edges; for the
+graph in the starter tests its total weight is 6.
+
+\subsection*{Problem 8 -- Prim's MST with a Heap}
+
+Implement \texttt{prim(graph, start=None)}: grow a tree from \texttt{start} (default: the
+first vertex), always adding the cheapest edge crossing from the tree to a vertex outside
+it, using a binary heap. Return the total MST weight. Assume the graph is connected.
+
+\textbf{Note.} The MST total weight is independent of the start vertex.
+
+\subsection*{Problem 9 -- Verifying Kruskal and Prim Agree}
+
+Implement \texttt{kruskal\_equals\_prim(n, seed)}: generate a random connected graph and
+return \texttt{True} iff \texttt{kruskal} (Problem 7) and \texttt{prim} (Problem 8) give
+the same total MST weight. Then implement \texttt{verify\_mst\_agreement(num\_trials, n,
+seed)} returning \texttt{True} iff this holds on every random trial. (They may pick
+different edge \emph{sets} when weights tie, but the total must match.)
+
+\subsection*{Problem 10 -- Verifying the Cut Property}
+
+Implement \texttt{crossing\_edges(graph, S)} returning all edges with exactly one endpoint
+in the set \texttt{S}, \texttt{min\_crossing\_edge(graph, S)} returning a minimum-weight
+crossing edge (or \texttt{None}), and \texttt{cut\_property\_holds(graph, S)} verifying
+that the minimum crossing edge of the cut $(S, V\setminus S)$ belongs to some MST (build an
+MST via Kruskal; in the tie case, force the edge in and confirm the total weight is
+unchanged).
+
+\subsection*{Problem 11 -- Classify an Edge: in EVERY / SOME / NO MST}
+
+Implement \texttt{classify\_edge(graph, edge)} returning the string \texttt{"every"},
+\texttt{"some"}, or \texttt{"none"} according to whether \texttt{edge} is in every, some
+(but not all), or no MST. Compare the global MST weight with the MST weight when the edge
+is \emph{forced in} and when it is \emph{forbidden}: forcing it worsens the weight
+$\Rightarrow$ \texttt{"none"}; forbidding it worsens the weight $\Rightarrow$
+\texttt{"every"}; otherwise \texttt{"some"}.
+
+\textbf{Hint.} This is the computational form of the cut and cycle properties.
+
+\newpage
+\section{Applications}
+
+\subsection*{Problem 12 -- Single-Link $k$-Clustering via Kruskal}
+
+Implement \texttt{single\_link\_clustering(graph, k)}: run Kruskal's algorithm but stop
+once exactly \texttt{k} components remain. Return \texttt{(clusters, spacing)}, where
+\texttt{clusters} is a list of \texttt{k} lists of vertices and \texttt{spacing} is the
+minimum inter-cluster edge weight (the next edge Kruskal would have added), or
+\texttt{float('inf')} when \texttt{k} equals the number of vertices.
+
+\textbf{Example.} For points with cheap edges $0$--$1$ and $2$--$3$ (weight 1) and an
+expensive bridge $1$--$2$ (weight 10), the $2$-clustering is $\{0,1\}$ and $\{2,3\}$ with
+spacing $10$.
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's techniques (Dijkstra,
+Bellman--Ford, and minimum spanning trees) on the following
+\href{https://leetcode.com}{LeetCode} problems. Difficulty is LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/network-delay-time/}{Network Delay Time} -- \emph{Medium} -- Dijkstra.
+  \item \href{https://leetcode.com/problems/path-with-minimum-effort/}{Path with Minimum Effort} -- \emph{Medium} -- Dijkstra / binary search.
+  \item \href{https://leetcode.com/problems/cheapest-flights-within-k-stops/}{Cheapest Flights Within K Stops} -- \emph{Medium} -- Dijkstra / Bellman--Ford.
+  \item \href{https://leetcode.com/problems/swim-in-rising-water/}{Swim in Rising Water} -- \emph{Hard} -- Dijkstra / union-find.
+  \item \href{https://leetcode.com/problems/path-with-maximum-probability/}{Path With Maximum Probability} -- \emph{Medium} -- Dijkstra variant.
+  \item \href{https://leetcode.com/problems/min-cost-to-connect-all-points/}{Min Cost to Connect All Points} -- \emph{Medium} -- MST (Prim / Kruskal).
+  \item \href{https://leetcode.com/problems/connecting-cities-with-minimum-cost/}{Connecting Cities With Minimum Cost} -- \emph{Medium} -- MST (Kruskal).
+  \item \href{https://leetcode.com/problems/find-the-city-with-the-smallest-number-of-neighbors-at-a-threshold-distance/}{Find the City With the Smallest Number of Neighbors at a Threshold Distance} -- \emph{Medium} -- shortest paths.
+  \item \href{https://leetcode.com/problems/reconstruct-itinerary/}{Reconstruct Itinerary} -- \emph{Hard} -- greedy / Hierholzer.
+\end{itemize}
+
+\end{document}
