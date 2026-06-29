@@ -1,0 +1,227 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 6: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper functions live in
+\texttt{starter\_code.py} at the week root: \texttt{generate\_array},
+\texttt{generate\_sorted\_array}, \texttt{generate\_reverse\_array}, \texttt{is\_sorted},
+\texttt{count\_inversions\_brute}, and the \texttt{Counter} class (a tiny mutable
+operation/comparison counter).
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Sorting \& Inversions} (Problems 1--5): merging, mergesort with a
+    comparison counter, counting inversions in $O(n \log n)$, a Master Theorem classifier,
+    and empirically confirming mergesort's recurrence.
+    \item \textbf{Recurrences} (Problem 11): comparing the multiplication counts of
+    Karatsuba ($3T(n/2)$) against grade-school divide-and-conquer ($4T(n/2)$).
+    \item \textbf{Searching \& Selection} (Problems 6--10, 12): binary search, maximum
+    subarray, fast exponentiation, quickselect, majority element, and 1-D peak finding.
+\end{itemize}
+
+\newpage
+\section{Sorting and Inversions}
+
+\subsection*{Problem 1 -- Merge Two Sorted Lists}
+
+Implement \texttt{merge(left, right)}: given two lists \texttt{left} and \texttt{right},
+each sorted in non-decreasing order, return a single new sorted list containing exactly the
+elements of both (the multiset union). Use the two-pointer technique: repeatedly compare the
+front elements of the two lists and append the smaller, then append any remaining tail. Do
+\textbf{not} call \texttt{sorted()} on the concatenation.
+
+\textbf{Example.} \texttt{merge([1, 3, 5], [2, 4, 6]) == [1, 2, 3, 4, 5, 6]}.
+
+\subsection*{Problem 2 -- Mergesort with a Comparison Counter}
+
+Implement \texttt{mergesort(arr, counter=None)}: return a \emph{new} sorted list (do not
+mutate \texttt{arr}), using the recursive divide-and-conquer mergesort. If a
+\texttt{Counter} (from \texttt{starter\_code.py}) is passed, call \texttt{counter.tick()}
+once per element comparison performed during merging, so the total reflects the algorithm's
+comparison count. Verify that \texttt{mergesort} agrees with \texttt{sorted} and that the
+comparison count is $O(n \log n)$ (it never exceeds $n \lceil \log_2 n \rceil$).
+
+\subsection*{Problem 3 -- Count Inversions in $O(n \log n)$}
+
+Implement \texttt{count\_inversions(arr)}: return the number of inversions (pairs of indices
+$i < j$ with \texttt{arr[i] > arr[j]}) in $O(n \log n)$ time, by modifying mergesort. During
+each merge, when an element of the right half is emitted before the left half is exhausted,
+add the number of remaining left-half elements to the inversion count. Verify against
+\texttt{count\_inversions\_brute} from \texttt{starter\_code.py}.
+
+\textbf{Example.} \texttt{count\_inversions([2, 4, 1, 3, 5]) == 3} (the pairs
+$(2,1),(4,1),(4,3)$).
+
+\subsection*{Problem 4 -- Master Theorem Classifier}
+
+Implement \texttt{master\_theorem(a, b, d)}: for the recurrence $T(n) = a\,T(n/b) +
+\Theta(n^d)$ (with $a \ge 1$, $b > 1$, $d \ge 0$), return a string naming the
+$\Theta$-class. Compare $d$ with $\log_b a$:
+\begin{itemize}
+    \item if $d < \log_b a$ (Case 1): return \texttt{"Theta(n\^{}\{log\_b(a)\})"} with the
+    numeric exponent, e.g.\ \texttt{"Theta(n\^{}1.585)"};
+    \item if $d = \log_b a$ (Case 2): return \texttt{"Theta(n\^{}d log n)"} with the numeric
+    $d$, e.g.\ \texttt{"Theta(n\^{}1 log n)"};
+    \item if $d > \log_b a$ (Case 3): return \texttt{"Theta(n\^{}d)"}, e.g.\
+    \texttt{"Theta(n\^{}2)"}.
+\end{itemize}
+Use a small tolerance ($10^{-9}$) when comparing $d$ to $\log_b a$, and round printed
+exponents to 3 decimals. The exact string format is given in the starter file's tests.
+
+\subsection*{Problem 5 -- Empirically Confirm Mergesort's Recurrence}
+
+Implement \texttt{count\_merge\_calls(arr)}: run mergesort instrumented to count the number
+of \emph{recursive \textsc{Mergesort} calls} and the number of \emph{\textsc{Merge}
+operations} (i.e.\ non-base-case calls), returning \texttt{(num\_mergesort\_calls,
+num\_merge\_ops, total\_comparisons)}. Confirm empirically that on an array of length $n$,
+the number of \textsc{Merge} operations equals $n - 1$ (each merge combines two pieces, and
+$n$ leaves require $n-1$ internal merges), matching the recurrence structure
+$T(n) = 2T(n/2) + \Theta(n)$.
+
+\textbf{Hint.} A binary recursion tree with $n$ leaves has exactly $n - 1$ internal nodes.
+
+\newpage
+\section{Searching and Selection}
+
+\subsection*{Problem 6 -- Binary Search (Recursive)}
+
+Implement \texttt{binary\_search(arr, target)}: given a \emph{sorted} list \texttt{arr},
+return an index $i$ with \texttt{arr[i] == target}, or $-1$ if \texttt{target} is absent.
+Use the recursive divide-and-conquer formulation (compare with the middle element; recurse
+into the left or right half). The recurrence is $T(n) = T(n/2) + \Theta(1) = \Theta(\log
+n)$.
+
+\textbf{Example.} \texttt{binary\_search([1, 3, 5, 7, 9], 7) == 3};
+\texttt{binary\_search([1, 3, 5, 7, 9], 4) == -1}.
+
+\subsection*{Problem 7 -- Maximum Subarray Sum (Divide and Conquer)}
+
+Implement \texttt{max\_subarray(arr)}: return the maximum sum of any \emph{contiguous}
+non-empty subarray of \texttt{arr} (which may contain negative numbers), using divide and
+conquer. Split at the midpoint; the answer is the max of (i) the best subarray in the left
+half, (ii) the best in the right half, and (iii) the best subarray \emph{crossing} the
+midpoint (best suffix of the left joined to best prefix of the right). Verify against an
+$O(n^2)$ brute force.
+
+\textbf{Example.} \texttt{max\_subarray([-2, 1, -3, 4, -1, 2, 1, -5, 4]) == 6} (the subarray
+$[4, -1, 2, 1]$).
+
+\subsection*{Problem 8 -- Fast Exponentiation (Exponentiation by Squaring)}
+
+Implement \texttt{fast\_pow(x, n, counter=None)}: compute $x^n$ for an integer base $x$ and
+non-negative integer exponent $n$, using exponentiation by squaring. If a \texttt{Counter}
+is passed, call \texttt{counter.tick()} once per integer multiplication, so the total is
+$\Theta(\log n)$ (at most about $2\log_2 n$). Verify the result equals \texttt{x ** n} and
+that the multiplication count is $O(\log n)$.
+
+\textbf{Example.} \texttt{fast\_pow(2, 10) == 1024}; computing it uses far fewer than $9$
+multiplications.
+
+\subsection*{Problem 9 -- Quickselect: $k$-th Smallest Element}
+
+Implement \texttt{quickselect(arr, k)}: return the $k$-th smallest element of \texttt{arr}
+($0$-indexed, so \texttt{k == 0} is the minimum), using the partition-and-recurse
+divide-and-conquer method. A deterministic pivot (e.g.\ the last element, or the middle
+element) is acceptable. Do not mutate the caller's list. Verify against
+\texttt{sorted(arr)[k]} on random inputs.
+
+\textbf{Example.} \texttt{quickselect([7, 2, 1, 6, 8, 5, 3, 4], 0) == 1} (the minimum);
+\texttt{quickselect([7, 2, 1, 6, 8, 5, 3, 4], 3) == 4}.
+
+\subsection*{Problem 10 -- Majority Element (Divide and Conquer)}
+
+Implement \texttt{majority\_element(arr)}: return the value occurring \emph{strictly more
+than} $\lfloor n/2 \rfloor$ times, or \texttt{None} if no such value exists, using divide
+and conquer. Recursively find each half's majority candidate; the only candidates for the
+whole are these two, so count each candidate's occurrences across the full range and return
+whichever (if any) exceeds $n/2$. Verify against direct counting with
+\texttt{collections.Counter}.
+
+\textbf{Example.} \texttt{majority\_element([3, 3, 4, 2, 3, 3, 3]) == 3};
+\texttt{majority\_element([1, 2, 3, 4]) is None}.
+
+\subsection*{Problem 12 -- Peak Finding in 1-D ($O(\log n)$)}
+
+Implement \texttt{find\_peak(arr)}: return the \emph{index} of any \emph{peak} element -- an
+index $i$ such that \texttt{arr[i]} is $\ge$ both its neighbours (out-of-bounds neighbours
+count as $-\infty$) -- in $O(\log n)$ via divide and conquer. Look at the middle element; if
+its right neighbour is larger, a peak must lie to the right (recurse right); else if its
+left neighbour is larger, recurse left; otherwise the middle is a peak. Verify the returned
+index is genuinely a peak.
+
+\textbf{Example.} For \texttt{[1, 3, 20, 4, 1, 0]}, index $2$ (value $20$) is a peak. For a
+strictly increasing array, the last index is the peak.
+
+\newpage
+\section{Recurrences}
+
+\subsection*{Problem 11 -- Karatsuba vs.\ Grade-School Multiplication Counts}
+
+We do not implement full big-integer multiplication here (that is next week); instead we
+\emph{count multiplications} to compare two recurrences. Implement
+\texttt{karatsuba\_mults(n)} returning the number of single-digit (base-case) multiplications
+performed by the recurrence $T(n) = 3T(n/2) + O(n)$ with $T(1) = 1$, and
+\texttt{gradeschool\_mults(n)} for $T(n) = 4T(n/2) + O(n)$ with $T(1) = 1$. Assume $n$ is a
+power of $2$.
+
+For $n = 2^k$, closed forms are $\texttt{karatsuba\_mults}(n) = 3^k = n^{\log_2 3}$ and
+$\texttt{gradeschool\_mults}(n) = 4^k = n^2$. Then implement
+\texttt{compare\_growth(max\_power)} returning a list of tuples
+\texttt{(n, gradeschool, karatsuba, ratio)} for $n = 2^1, 2^2, \ldots, 2^{\text{max\_power}}$,
+where \texttt{ratio = gradeschool / karatsuba}; confirm the ratio \emph{grows} with $n$
+(Karatsuba's count grows strictly slower).
+
+\textbf{Example.} \texttt{karatsuba\_mults(8) == 27} ($3^3$);
+\texttt{gradeschool\_mults(8) == 64} ($4^3$).
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's divide-and-conquer techniques
+(mergesort, inversions, recurrences, binary search, quickselect, fast exponentiation) on the
+following \href{https://leetcode.com}{LeetCode} problems. Difficulty is LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/sort-an-array/}{Sort an Array} -- \emph{Medium} -- merge sort / quicksort.
+  \item \href{https://leetcode.com/problems/merge-sorted-array/}{Merge Sorted Array} -- \emph{Easy} -- merge.
+  \item \href{https://leetcode.com/problems/merge-k-sorted-lists/}{Merge k Sorted Lists} -- \emph{Hard} -- divide \& conquer merge.
+  \item \href{https://leetcode.com/problems/count-of-smaller-numbers-after-self/}{Count of Smaller Numbers After Self} -- \emph{Hard} -- merge sort (inversions).
+  \item \href{https://leetcode.com/problems/reverse-pairs/}{Reverse Pairs} -- \emph{Hard} -- merge sort (inversions).
+  \item \href{https://leetcode.com/problems/maximum-subarray/}{Maximum Subarray} -- \emph{Medium} -- divide \& conquer.
+  \item \href{https://leetcode.com/problems/powx-n/}{Pow(x, n)} -- \emph{Medium} -- fast exponentiation.
+  \item \href{https://leetcode.com/problems/kth-largest-element-in-an-array/}{Kth Largest Element in an Array} -- \emph{Medium} -- quickselect.
+  \item \href{https://leetcode.com/problems/different-ways-to-add-parentheses/}{Different Ways to Add Parentheses} -- \emph{Medium} -- divide \& conquer.
+\end{itemize}
+
+\end{document}
