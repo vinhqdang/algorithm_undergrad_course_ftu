@@ -16,6 +16,7 @@
 ```
 algorithm_undergrad_course_ftu/
 ├── README.md                              ← You are here
+├── LEETCODE.md                            ← Curated LeetCode practice problems for every week
 ├── further_reading/                       ← Reference slides not covered in the 15-week plan
 │   ├── AmortizedAnalysis.pdf
 │   ├── BinomialHeaps.pdf
@@ -52,10 +53,10 @@ weekNN_topic/
 │   ├── lecture_notes.tex          ← Beamer-free lecture notes (compiled with pdflatex)
 │   └── lecture_notes.pdf
 ├── theory/
-│   ├── theoretical_questions.tex  ← 20+ theory questions + quiz, solutions at the end
+│   ├── theoretical_questions.tex  ← theory questions + 10-question quiz, solutions at the end
 │   └── theoretical_questions.pdf
 ├── exercises/
-│   ├── practical_exercises.tex    ← 20+ coding problems for the week's topic
+│   ├── practical_exercises.tex    ← coding problems + a LeetCode practice section
 │   ├── practical_exercises.pdf
 │   └── starter_code_problemNN.py  ← Per-problem starter (one per exercise)
 ├── solutions/
@@ -102,6 +103,9 @@ weekNN_topic/
 4. **Theory**: Attempt `theory/theoretical_questions.pdf` independently before checking
    the solutions printed at the end of the document.
 5. **After deadline**: Compare your work with `solutions/solution_problemNN.py`.
+6. **Extra practice**: Work through the week's curated LeetCode problems, listed both in
+   [`LEETCODE.md`](LEETCODE.md) and in the "LeetCode Practice" section of each week's
+   `exercises/practical_exercises.pdf`.
 
 ### For Instructors
 
@@ -140,7 +144,8 @@ weekNN_topic/
 - **Original slide source**: https://www.cs.princeton.edu/~wayne/kleinberg-tardos/
 - **VisuAlgo**: https://visualgo.net — interactive algorithm visualisations
 - **MIT OpenCourseWare 6.006**: https://ocw.mit.edu/6-006
-- **LeetCode / Codeforces** — practice problems
+- **LeetCode** — see [`LEETCODE.md`](LEETCODE.md) for problems mapped to each week
+- **Codeforces** — additional competitive-programming practice
 - **Python Tutor**: https://pythontutor.com — step-by-step code execution
 
 ---
@@ -163,8 +168,11 @@ LaTeX (with `pdflatex`) is required to compile `lecture_notes.tex`,
 
 | Week | Status |
 |------|--------|
-| 1–4 | ✅ Complete |
-| 5–15 | 🚧 In progress |
+| 1–15 | ✅ Complete (lecture notes, theory, exercises, solutions, LeetCode practice) |
+
+Weeks 1–4 each contain 17–22 practical problems; weeks 5–15 each contain 12 practical
+problems. Every reference solution is tested (`python solutions/solution_problemNN.py`
+prints `All tests passed!`), and all `.tex` documents compile with `pdflatex`.
 
 ---
 
