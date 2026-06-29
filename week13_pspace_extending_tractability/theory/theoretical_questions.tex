@@ -1,0 +1,410 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 13: Theoretical Questions}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+Part A contains 17 questions requiring written explanations or short proofs.
+Part B is a 10-question quiz (true/false and multiple choice). Attempt every
+question on your own before consulting Part C (Solutions) at the end of this
+document.
+
+\section*{Part A: Theory Questions}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item Define the complexity class \textbf{PSPACE}. What resource is bounded, and
+what resource is left unrestricted? Explain the ``recycling of space'' intuition
+that lets a PSPACE algorithm run in exponential time but polynomial space.
+
+\item Prove that $\textbf{NP} \subseteq \textbf{PSPACE}$. Your argument should
+explain why enumerating exponentially many certificates does not blow up the
+\emph{space} usage.
+
+\item State the QSAT (TQBF) problem precisely. How does it generalize SAT, and
+why does the recursive evaluation of a fully-quantified formula use only
+polynomial space despite exploring exponentially many assignments?
+
+\item Explain the precise correspondence between a quantified boolean formula
+$\exists x_1 \forall x_2 \exists x_3 \cdots \Phi$ and a two-player game. Which
+quantifier corresponds to which player, and what does the truth of the formula
+say about the game?
+
+\item Define the \emph{minimax value} of a position in a two-player, zero-sum,
+perfect-information game. Give the recursive definition for leaf nodes, Max
+nodes, and Min nodes.
+
+\item State, in pseudocode or precise prose, the alpha-beta pruning algorithm.
+What do the parameters $\alpha$ and $\beta$ represent, and under what condition
+does a node prune its remaining children?
+
+\item Prove that alpha-beta pruning returns the same value as plain minimax.
+(A proof sketch focusing on \emph{why} a pruned subtree cannot affect the root
+value is sufficient.)
+
+\item Define what it means for a parameterized problem to be
+\textbf{fixed-parameter tractable (FPT)}. Contrast the running time
+$f(k)\cdot\mathrm{poly}(n)$ with both a polynomial-time algorithm and a
+$2^n$ brute force, explaining when FPT is a genuine win.
+
+\item State the Vertex Cover decision problem. Prove the \emph{branching lemma}:
+for any edge $(u,v)$, every vertex cover contains $u$ or $v$. Explain how this
+lemma yields a bounded search tree.
+
+\item Prove that the bounded-search-tree algorithm for Vertex Cover runs in
+$O(2^k \cdot (n+m))$ time and correctly decides whether a cover of size $\le k$
+exists. Why is this dramatically better than the $\binom{n}{k}$ brute force when
+$k$ is small?
+
+\item State and justify the two kernelization rules for Vertex Cover (the
+high-degree rule and the isolated-vertex rule). For the high-degree rule, prove
+that a vertex of degree $> k$ must lie in every cover of size $\le k$.
+
+\item Prove the kernel-size bound for Vertex Cover: after the two reduction
+rules are applied exhaustively, a yes-instance has at most $k^2$ edges. Why does
+this make brute force on the kernel depend only on $k$ (and not on the original
+$n$)?
+
+\item State the Maximum Independent Set problem on a tree, and give the dynamic
+program that solves it in linear time. Write the recurrences for
+$\mathrm{incl}[v]$ and $\mathrm{excl}[v]$ and explain each term.
+
+\item Prove that the tree DP for Maximum Independent Set is correct, by
+induction on subtree size. Explain why including a vertex $v$ forces the use of
+$\mathrm{excl}[c]$ for each child $c$, while excluding $v$ uses
+$\max(\mathrm{incl}[c], \mathrm{excl}[c])$.
+
+\item Describe the general \textbf{branch-and-bound} method for an optimization
+problem. Define the \emph{incumbent} and the \emph{bound}, and state the pruning
+rule. For 0/1 Knapsack, explain why the \emph{fractional} (LP-relaxation) value
+is a valid \emph{upper} bound on any integral completion.
+
+\item For branch-and-bound TSP, explain what makes a lower bound
+\emph{admissible} and why admissibility is required for the pruning to remain
+correct (i.e., to never discard the optimal tour). Give one concrete admissible
+lower bound.
+
+\item State the 2-SAT problem and explain the implication-graph construction.
+State the SCC criterion for satisfiability and explain, at a high level, why a
+variable $x$ and its negation $\lnot x$ lying in the same strongly connected
+component implies unsatisfiability.
+
+\end{enumerate}
+
+\newpage
+\section*{Part B: Quiz}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{(True/False)} Every problem in NP is also in PSPACE.
+
+\item \textbf{(Multiple choice)} The canonical PSPACE-complete problem is:
+\begin{enumerate}[label=(\alph*)]
+    \item 3-SAT
+    \item Quantified SAT (QSAT / TQBF)
+    \item Maximum Independent Set
+    \item 2-SAT
+\end{enumerate}
+
+\item \textbf{(Multiple choice)} Compared to plain minimax on the same game
+tree, alpha-beta pruning:
+\begin{enumerate}[label=(\alph*)]
+    \item May return a different (worse) value but runs faster
+    \item Returns the same value and never visits more leaves
+    \item Returns the same value but always visits exactly as many leaves
+    \item Only works for trees of depth $2$
+\end{enumerate}
+
+\item \textbf{(True/False)} A parameterized algorithm running in time
+$O(2^k \cdot n)$ is fixed-parameter tractable in the parameter $k$.
+
+\item \textbf{(Short answer)} In the FPT bounded-search-tree algorithm for
+Vertex Cover, on which two vertices does the algorithm branch, and what is the
+depth of the search tree?
+
+\item \textbf{(True/False)} In Vertex Cover kernelization, a vertex of degree
+greater than $k$ must be included in every vertex cover of size at most $k$.
+
+\item \textbf{(Multiple choice)} Maximum Independent Set on a tree can be solved
+in:
+\begin{enumerate}[label=(\alph*)]
+    \item $O(2^n)$ time only (it is NP-hard even on trees)
+    \item $O(n)$ time by dynamic programming
+    \item $O(n!)$ time only
+    \item $O(n^3)$ time but not faster
+\end{enumerate}
+
+\item \textbf{(Short answer)} In branch-and-bound for 0/1 Knapsack, what
+quantity is used as the \emph{upper bound} to prune a subtree, and why is it an
+upper bound?
+
+\item \textbf{(Multiple choice)} 2-SAT is satisfiable if and only if, in its
+implication graph:
+\begin{enumerate}[label=(\alph*)]
+    \item the graph is acyclic
+    \item no variable $x$ has $x$ and $\lnot x$ in the same SCC
+    \item the graph is strongly connected
+    \item every clause has three literals
+\end{enumerate}
+
+\item \textbf{(True/False)} Iterative-deepening DFS uses memory proportional to
+the number of states at the current depth limit (like BFS's frontier), which is
+its main advantage over plain DFS.
+
+\end{enumerate}
+
+\newpage
+\section*{Part C: Solutions}
+
+\subsection*{Part A}
+
+\begin{enumerate}[label=\textbf{A\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{PSPACE} is the class of decision problems solvable by an algorithm
+using \emph{working memory (space)} bounded by a polynomial in the input size;
+the \emph{time} is unrestricted (it may be exponential). The recycling
+intuition: a PSPACE algorithm may examine exponentially many configurations
+\emph{one at a time}, reusing the same polynomial-size memory for each and
+discarding it before moving to the next. Thus even though the number of
+configurations -- and hence the running time -- is exponential, the
+\emph{simultaneous} memory footprint stays polynomial.
+
+\item \textbf{Claim:} $\textbf{NP} \subseteq \textbf{PSPACE}$. Let $L \in
+\textbf{NP}$ with polynomial-time verifier $V$ that, given input $x$ and a
+candidate certificate $y$ (of polynomial length), checks $x \in L$. To decide
+$x$ in polynomial space, enumerate all candidate certificates $y$ in some fixed
+order; for each, run $V(x,y)$ (which uses polynomial space) and accept if it
+accepts. Crucially, we process one $y$ at a time and \emph{reuse} the same
+$O(\mathrm{poly})$ memory for each verification, discarding $y$ and $V$'s
+workspace before the next. So although there are exponentially many $y$ (giving
+exponential time), the space used at any instant is polynomial. Hence $L \in
+\textbf{PSPACE}$.
+
+\item \textbf{QSAT (TQBF):} given a fully-quantified boolean formula
+$Q_1 x_1 \, Q_2 x_2 \cdots Q_n x_n \, \Phi(x_1,\dots,x_n)$ with each
+$Q_i \in \{\exists, \forall\}$, decide whether it is \texttt{true}. It
+generalizes SAT, which is the all-$\exists$ special case
+$\exists x_1 \cdots \exists x_n\, \Phi$. The recursive evaluator tries both
+values of the outermost variable, recursing on the remainder, and combines with
+``or'' for $\exists$, ``and'' for $\forall$. The recursion stack has depth $n$
+(one frame per variable), each frame holding $O(1)$ extra state, and a leaf
+evaluates $\Phi$ on a complete assignment in space $O(|\Phi|)$. So although the
+recursion explores up to $2^n$ leaves over exponential time, only one
+root-to-leaf path exists in memory at any instant: total space
+$O(n + |\Phi|)$, polynomial.
+
+\item Read the quantifiers as alternating moves of two players. $\exists x_i$
+is a move by the \emph{first player} (``I get to choose $x_i$''), and $\forall
+x_i$ is a move by the \emph{opponent} (``whatever the opponent chooses for
+$x_i$''). The matrix $\Phi$ is the winning condition for the first player. The
+formula $\exists x_1 \forall x_2 \exists x_3 \cdots \Phi$ is \texttt{true} iff
+the first player has a \emph{winning strategy}: there is a choice of $x_1$ such
+that for all choices of $x_2$ there is a choice of $x_3$, \dots, making $\Phi$
+true. This is exactly the structure of deciding the winner of a finite
+perfect-information game.
+
+\item The \textbf{minimax value} is defined recursively. A \emph{leaf} has value
+equal to its payoff (from Max's viewpoint). A \emph{Max node} (Max to move) has
+value equal to the \emph{maximum} of its children's values. A \emph{Min node}
+(Min to move) has value equal to the \emph{minimum} of its children's values.
+The root's minimax value is the payoff under optimal play by both sides.
+
+\item Alpha-beta carries two bounds down the recursion: $\alpha$ is the best
+(largest) value Max can already \emph{guarantee} along the current path, and
+$\beta$ is the best (smallest) value Min can already guarantee. At a Max node we
+update $\alpha \gets \max(\alpha, v)$ after each child and at a Min node we
+update $\beta \gets \min(\beta, v)$. A node \emph{prunes} (stops examining
+remaining children) as soon as $\alpha \ge \beta$: the opponent already has a
+choice elsewhere at least this good, so the remaining children cannot influence
+the outcome on this path.
+
+\item \textbf{Claim:} alpha-beta returns the minimax value. A subtree is pruned
+at a node $N$ only after $N$ has a child value forcing $\alpha \ge \beta$. In
+that situation, the ancestor of $N$ on the opposite side (a Min node above a Max
+$N$, or vice versa) already has an alternative whose value is at least as good
+for it as anything $N$ could now produce; concretely, any value the pruned
+subtree might contribute would push $N$'s $\max$ (or $\min$) only in a direction
+that the opposite-type ancestor would reject when it takes its own $\min$ (or
+$\max$). Hence the pruned values can never become the chosen value on the path
+to the root, so the root value is identical to plain minimax. (Pruning changes
+only \emph{which} leaves are examined, never the computed value.)
+
+\item A parameterized problem with input size $n$ and parameter $k$ is
+\textbf{FPT} if it is solvable in time $f(k)\cdot \mathrm{poly}(n)$ for some
+function $f$ depending only on $k$. The exponential cost (if any) is isolated in
+$f(k)$. Contrast: a polynomial-time algorithm has no $f(k)$ factor at all; a
+$2^n$ brute force is exponential in the full input size and useless for large
+$n$. FPT is a genuine win precisely when $k$ is small (so $f(k)$ is a fixed
+constant) while $n$ is large -- then $f(k)\cdot\mathrm{poly}(n)$ is effectively
+polynomial, unlike $2^n$ which depends on the (large) $n$.
+
+\item \textbf{Vertex Cover decision:} given $G=(V,E)$ and integer $k$, is there
+$C \subseteq V$ with $|C|\le k$ such that every edge has an endpoint in $C$?
+\textbf{Branching lemma:} for any edge $(u,v)$, any vertex cover $C$ must
+contain $u$ or $v$, because the edge $(u,v)$ must be covered and its only
+endpoints are $u$ and $v$. \textbf{Bounded search tree:} pick any uncovered edge
+$(u,v)$; recurse with $u$ added to the cover (budget $k-1$) and, if that fails,
+with $v$ added. Each branch reduces the budget by one, so the search tree has
+depth $\le k$ and branching factor $2$.
+
+\item \textbf{Correctness:} the recursion enumerates, for each edge it
+encounters, both choices of endpoint to cover it; by the branching lemma every
+cover is consistent with some such sequence of choices, so a cover of size
+$\le k$ (if any) is found at a leaf of depth $\le k$; conversely any returned
+set covers all edges (we only return success when no edges remain) and has size
+$\le k$ (one vertex added per level, $k$ levels). \textbf{Running time:} the
+tree has depth $\le k$ and branching factor $2$, so $\le 2^k$ leaves and
+$O(2^k)$ nodes; each node spends $O(n+m)$ filtering incident edges, giving
+$O(2^k(n+m))$. This beats the $\binom{n}{k} = \Theta(n^k)$ brute force because
+the exponential factor depends only on $k$, not on $n$: for small fixed $k$ and
+large $n$, $2^k(n+m)$ is essentially linear in the input.
+
+\item \textbf{High-degree rule:} if a vertex $v$ has degree $> k$, put $v$ in
+the cover, delete $v$ and its incident edges, and decrement $k$. \emph{Proof it
+is forced:} suppose a cover $C$ of size $\le k$ omits $v$. Then every one of
+$v$'s $> k$ incident edges must be covered by its \emph{other} endpoint, and
+these other endpoints are distinct vertices, all in $C$; that is $> k$ distinct
+vertices in $C$, contradicting $|C| \le k$. \textbf{Isolated-vertex rule:} a
+degree-$0$ vertex covers no edge, so removing it changes no edge's coverage and
+never increases the required cover size; drop it. Both rules preserve the set of
+yes/no answers (with $k$ adjusted by the high-degree rule).
+
+\item After the rules are applied exhaustively, every remaining vertex has
+degree $\le k$ (else the high-degree rule would fire). In a yes-instance there
+is a cover $C$ with $|C|\le k$. Every edge has an endpoint in $C$, and each
+vertex of $C$ has degree $\le k$, so it covers at most $k$ edges; hence the
+total number of edges is at most $|C|\cdot k \le k\cdot k = k^2$. The
+non-isolated vertices all sit on these $\le k^2$ edges, so there are $O(k^2)$ of
+them. The original $n$ has dropped out entirely: a brute-force search on the
+kernel costs a function of $k$ only (e.g.\ $2^{O(k^2)}$ or, combined with the
+search tree, $2^k \cdot \mathrm{poly}(k)$), independent of $n$.
+
+\item \textbf{Maximum Independent Set on a tree:} find the largest $S$ of
+pairwise non-adjacent vertices. Root the tree anywhere; in post-order compute
+\[
+\mathrm{incl}[v] = 1 + \sum_{c\,\in\,\mathrm{children}(v)} \mathrm{excl}[c],
+\qquad
+\mathrm{excl}[v] = \sum_{c\,\in\,\mathrm{children}(v)} \max(\mathrm{incl}[c], \mathrm{excl}[c]).
+\]
+$\mathrm{incl}[v]$ is the best independent set of $v$'s subtree that
+\emph{includes} $v$: the ``$1$'' counts $v$ itself, and since $v$ is in the set,
+no child may be (so each child contributes $\mathrm{excl}[c]$).
+$\mathrm{excl}[v]$ is the best that \emph{excludes} $v$: each child is free, so
+it contributes the better of including or excluding it,
+$\max(\mathrm{incl}[c],\mathrm{excl}[c])$. The answer is
+$\max(\mathrm{incl}[\text{root}], \mathrm{excl}[\text{root}])$.
+
+\item \textbf{Correctness (induction on subtree size).} \emph{Base:} a leaf $v$
+has $\mathrm{incl}[v]=1$ (just $v$) and $\mathrm{excl}[v]=0$ (empty), both
+correct. \emph{Step:} assume the values are correct for all children of $v$. Any
+independent set of $v$'s subtree either includes $v$ or not. If it includes $v$,
+then no child of $v$ may be included (the edge $v$--$c$ would be violated), so
+the best such set is $v$ plus, independently in each child's subtree, the best
+set \emph{excluding} that child -- exactly $1 + \sum_c \mathrm{excl}[c] =
+\mathrm{incl}[v]$. If it excludes $v$, each child's subtree may use its own best
+set, including or excluding the child freely -- exactly $\sum_c \max(\cdots) =
+\mathrm{excl}[v]$. Taking the max at the root covers both root cases.
+\textbf{Time:} each vertex is processed once with work proportional to its
+number of children; the children counts sum to $n-1$, so total $O(n)$.
+
+\item \textbf{Branch-and-bound} explores a search tree of partial solutions but
+prunes using bounds. The \emph{incumbent} is the best complete solution found so
+far. The \emph{bound} at a node is an optimistic estimate of the best objective
+achievable by any completion of that node's partial solution (an \emph{upper}
+bound for maximization, \emph{lower} bound for minimization). \textbf{Pruning
+rule:} if a node's bound cannot beat the incumbent (e.g.\ for maximization,
+$\text{bound} \le \text{incumbent}$), discard the entire subtree. \emph{0/1
+Knapsack upper bound:} the fractional (LP-relaxation) optimum -- greedily take
+whole items by value/weight ratio, then a fraction of the next to fill capacity
+-- is achievable by a \emph{relaxed} problem that allows fractional items.
+Since the integral 0/1 problem is more constrained, its optimum cannot exceed
+the fractional one; hence the fractional value is a valid upper bound.
+
+\item A lower bound is \textbf{admissible} if it never \emph{overestimates} the
+true minimal cost to complete the partial tour. Admissibility is required for
+correctness: branch-and-bound prunes a node when $\text{cost so far} +
+\text{lower bound} \ge \text{incumbent}$. If the bound were an overestimate, it
+might exceed the incumbent even though the true best completion is cheaper --
+causing us to prune away (and lose) the optimal tour. With an admissible (never
+over-estimating) bound, a pruned node provably cannot contain a tour better than
+the incumbent. \emph{One admissible bound:} cost so far, plus for the current
+city and each unvisited city the cheapest edge that could still leave it (toward
+an unvisited city or back to the start). Each such cheapest edge is a lower
+bound on the cost charged to that city by any completion, so their sum cannot
+exceed the true completion cost.
+
+\item \textbf{2-SAT:} satisfiability of a CNF formula where every clause has
+exactly two literals. \textbf{Implication graph:} create two nodes per variable
+($x$ and $\lnot x$); for each clause $(a \lor b)$, add directed edges
+$\lnot a \to b$ and $\lnot b \to a$ (each is logically equivalent to the
+clause). \textbf{SCC criterion:} the formula is satisfiable iff no variable $x$
+has $x$ and $\lnot x$ in the same strongly connected component. \emph{Why:}
+implications are transitive, and all literals in one SCC are mutually reachable,
+so they are forced to share the same truth value. If $x$ and $\lnot x$ are in
+the same SCC, they would be forced equal -- impossible, since a variable and its
+negation must differ. Conversely, if no such collision occurs, assigning truth
+values in reverse topological order of the SCCs yields a consistent satisfying
+assignment.
+
+\end{enumerate}
+
+\subsection*{Part B}
+
+\begin{enumerate}[label=\textbf{B\arabic*.}, leftmargin=2.2em]
+
+\item \textbf{True.} $\textbf{NP} \subseteq \textbf{PSPACE}$: certificates can
+be enumerated one at a time, reusing polynomial space for each verification
+(see A2).
+
+\item \textbf{(b) Quantified SAT (QSAT / TQBF).} The alternating
+$\exists/\forall$ quantifiers make it the canonical PSPACE-complete problem;
+3-SAT is NP-complete and 2-SAT is in P.
+
+\item \textbf{(b) Returns the same value and never visits more leaves.}
+Alpha-beta is value-preserving (A7); pruning can only \emph{remove} leaf
+visits, never add them.
+
+\item \textbf{True.} $O(2^k \cdot n)$ has the form $f(k)\cdot\mathrm{poly}(n)$
+with $f(k)=2^k$, the definition of FPT.
+
+\item It branches on the \textbf{two endpoints $u$ and $v$ of an (uncovered)
+edge}; the search tree has \textbf{depth $\le k$} (one vertex added per level).
+
+\item \textbf{True.} If such a vertex were omitted, its $>k$ edges would need
+$>k$ distinct other endpoints in the cover, exceeding the budget $k$ (see A11).
+
+\item \textbf{(b) $O(n)$ time by dynamic programming.} The root-to-leaf
+include/exclude DP solves it in linear time on trees, even though the problem is
+NP-hard on general graphs.
+
+\item The \textbf{fractional (LP-relaxation) optimum} of the knapsack. It is an
+upper bound because allowing fractional items can only \emph{increase} the
+achievable value relative to the integral 0/1 problem, so no integral
+completion can exceed it.
+
+\item \textbf{(b) no variable $x$ has $x$ and $\lnot x$ in the same SCC.} This
+is the Aspvall--Plass--Tarjan criterion.
+
+\item \textbf{False.} It is the \emph{opposite}: iterative-deepening DFS uses
+memory proportional to the current depth limit ($O(\ell)$, like DFS), \emph{not}
+proportional to the frontier (like BFS) -- that small memory footprint is
+exactly its advantage, while still finding a shortest-in-moves solution.
+
+\end{enumerate}
+
+\end{document}

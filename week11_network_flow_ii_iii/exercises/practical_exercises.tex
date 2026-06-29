@@ -1,0 +1,217 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible,
+}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 11: Practical Exercises}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{Instructions}
+
+For each problem below there is a starter file
+\texttt{exercises/starter\_code\_problemNN.py} containing function signatures with
+\texttt{raise NotImplementedError} bodies, and a small \texttt{\_\_main\_\_} block with
+tests. Implement the missing functions so the tests pass. A reference solution is
+provided in \texttt{solutions/solution\_problemNN.py} -- try the problem yourself before
+looking!
+
+All problems use only the Python 3.10+ standard library. Shared helper code lives in
+\texttt{starter\_code.py} at the week root: the \texttt{MaxFlow} class (an Edmonds--Karp
+maximum-flow solver with \texttt{add\_edge}, \texttt{max\_flow}, \texttt{flow}, and
+\texttt{min\_cut\_reachable}), plus \texttt{generate\_bipartite\_graph},
+\texttt{generate\_random\_graph}, \texttt{edges\_to\_adj}, \texttt{matching\_size}, and
+\texttt{is\_valid\_matching}. Several later problems reuse earlier solutions (e.g.\
+Kuhn's matching from Problem 2), so the starter files add the \texttt{solutions/}
+directory to the import path.
+
+The 12 problems are grouped into three themes:
+\begin{itemize}
+    \item \textbf{Bipartite Matching} (Problems 1--6): bipartite testing,
+    maximum matching via both Kuhn's augmenting-path algorithm and the max-flow
+    reduction, Hall's deficiency certificate, K\H{o}nig's minimum vertex cover,
+    and assignment feasibility.
+    \item \textbf{Flow Applications} (Problems 7--10): edge- and vertex-disjoint
+    paths, baseball elimination, and project selection via min-cut.
+    \item \textbf{Reductions} (Problems 11--12): circulation-with-demands
+    feasibility, and verifying the matching/vertex-cover duality (weak in general,
+    tight in bipartite graphs).
+\end{itemize}
+
+\newpage
+\section{Bipartite Matching}
+
+\subsection*{Problem 1 -- Bipartite Check via 2-Coloring}
+
+Implement \texttt{bipartite\_partition(vertices, edges)} that decides whether an
+undirected graph is bipartite using a BFS 2-coloring. If it is bipartite, return a tuple
+of two sets \texttt{(A, B)} giving the bipartition; if the graph contains an odd cycle,
+return \texttt{None}. Run BFS from each unvisited vertex, coloring each neighbour the
+opposite color; if an edge ever joins two same-colored vertices, the graph is not
+bipartite.
+
+\textbf{Example.} A 4-cycle $0$--$1$--$2$--$3$--$0$ is bipartite (\texttt{\{0,2\}},
+\texttt{\{1,3\}}); a triangle is not.
+
+\subsection*{Problem 2 -- Maximum Bipartite Matching via Augmenting Paths (Kuhn's)}
+
+Implement \texttt{kuhn\_matching(left, right, edges)}: maximum bipartite matching by
+Kuhn's augmenting-path algorithm. Return a dict mapping each matched \emph{right} vertex
+to its \emph{left} partner. For each left vertex, run a DFS that looks for an augmenting
+path, bumping already-matched right vertices to alternative partners. Also implement
+\texttt{max\_matching\_size(left, right, edges)}.
+
+\subsection*{Problem 3 -- Maximum Bipartite Matching via Max-Flow Reduction}
+
+Implement \texttt{flow\_matching(left, right, edges)} using the \texttt{MaxFlow} helper:
+source $\to$ each left vertex (capacity $1$), each edge left $\to$ right (capacity $1$),
+each right vertex $\to$ sink (capacity $1$). The saturated left$\to$right edges form a
+maximum matching; return them. Also implement \texttt{flow\_matching\_size}. The tests
+\textbf{verify the flow-based size equals Kuhn's result} (Problem 2) on random bipartite
+graphs -- two very different algorithms computing the same quantity.
+
+\subsection*{Problem 4 -- Hall's Condition Checker}
+
+Implement \texttt{hall\_violator(left, right, edges)}: decide whether the \emph{left}
+side has a matching saturating \emph{all} of its vertices. Return \texttt{None} if such a
+matching exists; otherwise return a \emph{deficient} subset $S$ of left vertices with
+$|N(S)| < |S|$, witnessing the failure of Hall's condition. Recover $S$ from the
+alternating-path structure of a maximum matching (Problem 2). Also implement
+\texttt{neighbors\_of(subset, adj)}.
+
+\textbf{Hint.} If not all left vertices are matched, the set of left vertices reachable
+by alternating paths from the unmatched left vertices is deficient.
+
+\subsection*{Problem 5 -- K\H{o}nig's Theorem: Min Vertex Cover from Max Matching}
+
+Implement \texttt{min\_vertex\_cover(left, right, edges)} via the constructive proof of
+K\H{o}nig's theorem: find a maximum matching; from the unmatched left vertices, mark all
+vertices reachable by alternating paths; the cover is (unmarked left) $\cup$ (marked
+right). Also implement \texttt{is\_vertex\_cover(edges, cover)}. The tests \textbf{verify
+$|\text{cover}| = |\text{matching}|$} on random bipartite graphs.
+
+\subsection*{Problem 6 -- Assignment Feasibility (Perfect Matching of One Side)}
+
+Implement \texttt{can\_assign\_everyone(people, tasks, allowed)}: return \texttt{True}
+iff every person can be assigned a distinct allowed task (a matching saturating all
+people). Also implement \texttt{assignment(people, tasks, allowed)} returning a
+\texttt{person -> task} dict if everyone can be assigned, else \texttt{\{\}}. Build on
+\texttt{kuhn\_matching} (Problem 2).
+
+\textbf{Example.} Three people each with at least one distinct allowed task can all be
+assigned; two people who both only accept a single task cannot.
+
+\newpage
+\section{Flow Applications}
+
+\subsection*{Problem 7 -- Maximum Edge-Disjoint s-t Paths}
+
+Implement \texttt{max\_edge\_disjoint\_paths(vertices, directed\_edges, s, t)}: the
+maximum number of edge-disjoint directed $s$--$t$ paths. By Menger's theorem this equals
+the max flow when every edge has capacity $1$ -- build that network with \texttt{MaxFlow}
+and return the flow value.
+
+\textbf{Example.} In a graph with two parallel routes $s\to a\to t$ and $s\to b\to t$,
+the answer is $2$; a single bottleneck edge shared by all routes forces the answer down
+to $1$.
+
+\subsection*{Problem 8 -- Vertex-Disjoint s-t Paths via Node Splitting}
+
+Implement \texttt{max\_vertex\_disjoint\_paths(vertices, directed\_edges, s, t)}: the
+maximum number of internally vertex-disjoint directed $s$--$t$ paths. Use node splitting:
+each internal vertex $v$ becomes $v_{\text{in}} \to v_{\text{out}}$ with capacity $1$, and
+each original edge $(u,v)$ becomes $u_{\text{out}} \to v_{\text{in}}$ with capacity $1$;
+keep $s$ and $t$ uncapped.
+
+\textbf{Hint.} Compare with Problem 7: two paths can be edge-disjoint yet share an
+internal vertex (so vertex-disjoint counts can be strictly smaller).
+
+\subsection*{Problem 9 -- Baseball Elimination via Max Flow}
+
+Implement \texttt{is\_eliminated(teams, wins, remaining, games\_between, x)}: decide
+whether team \texttt{x} can still possibly finish in first place. Let $W = $
+\texttt{wins[x] + remaining[x]}. If any other team already has more wins than $W$, $x$ is
+trivially eliminated. Otherwise build the network: source $\to$ game node $\{i,j\}$
+(capacity = games left between $i,j$); game node $\to$ each of $i,j$ (capacity $\infty$);
+team $i \to$ sink (capacity $W - \texttt{wins[i]}$). Team $x$ survives iff the max flow
+\emph{saturates all game edges}.
+
+\textbf{Note.} \texttt{games\_between} is keyed by unordered pairs given as
+\texttt{tuple(sorted((i, j), key=str))}.
+
+\subsection*{Problem 10 -- Project Selection / Max-Weight Closure via Min-Cut}
+
+Implement \texttt{select\_projects(profits, prerequisites)}: choose a prerequisite-closed
+subset of projects maximizing total profit (profits may be negative). Reduction: source
+$\to v$ (capacity \texttt{profit[v]}) for profitable $v$; $v \to$ sink (capacity
+$-\texttt{profit[v]}$) for unprofitable $v$; prerequisite edge $p \to q$ with capacity
+$\infty$. Then max profit $=$ (sum of positive profits) $-$ (min cut), and the selected
+set is the source side (\texttt{MaxFlow.min\_cut\_reachable}). Return
+\texttt{(max\_profit, selected\_set)}. Also implement \texttt{brute\_force\_select} (try
+all closed subsets) so the tests can \textbf{verify min-cut against brute force} on small
+inputs.
+
+\newpage
+\section{Reductions}
+
+\subsection*{Problem 11 -- Circulation with Demands: Feasibility Check}
+
+Implement \texttt{circulation\_feasible(vertices, demands, edges)}: decide whether a
+feasible circulation with demands and lower bounds exists. Each vertex $v$ has a demand
+$d_v$ ($>0$ absorb, $<0$ supply); each edge \texttt{(u, v, lower, upper)} must carry flow
+in $[\texttt{lower}, \texttt{upper}]$. Reduce to max flow: (1) eliminate lower bounds by
+setting capacity to \texttt{upper - lower} and adjusting $d_u \mathrel{+}= \texttt{lower}$,
+$d_v \mathrel{-}= \texttt{lower}$; (2) add a super-source/super-sink for the adjusted
+supplies/demands; (3) feasible iff adjusted supply equals adjusted demand \emph{and} the
+max flow saturates all super-source edges.
+
+\textbf{Example.} A source $a$ ($-3$) feeding a sink $b$ ($+3$) over an edge of capacity
+$\ge 3$ is feasible; the same with capacity $2$, or with a lower bound that forces more
+flow than $b$ can absorb, is infeasible.
+
+\subsection*{Problem 12 -- Matching $\le$ Vertex Cover, with Equality in Bipartite Graphs}
+
+Implement \texttt{brute\_force\_max\_matching(vertices, edges)} and
+\texttt{brute\_force\_min\_vertex\_cover(vertices, edges)} (both for \emph{any} graph, by
+brute force), and \texttt{verify\_matching\_cover\_relationship(num\_trials, seed)} which,
+on random graphs, checks: (1) maximum matching $\le$ minimum vertex cover always (weak
+duality); and (2) in \emph{bipartite} graphs maximum matching $=$ minimum vertex cover
+(K\H{o}nig), with the constructive cover from Problem 5 attaining the bound.
+
+\textbf{Example.} A triangle (non-bipartite) has maximum matching $1$ but minimum vertex
+cover $2$ -- a strict inequality, confirming K\H{o}nig's theorem requires bipartiteness.
+
+\newpage
+\section{LeetCode Practice}
+
+After completing the problems above, practise this week's flow and matching techniques
+(bipartite checking, bipartite matching, and graph/DAG modeling) on the following
+\href{https://leetcode.com}{LeetCode} problems. Difficulty is LeetCode's own label.
+
+\begin{itemize}
+  \item \href{https://leetcode.com/problems/is-graph-bipartite/}{Is Graph Bipartite?} -- \emph{Medium} -- Bipartite check.
+  \item \href{https://leetcode.com/problems/possible-bipartition/}{Possible Bipartition} -- \emph{Medium} -- Bipartite check.
+  \item \href{https://leetcode.com/problems/maximum-number-of-accepted-invitations/}{Maximum Number of Accepted Invitations} -- \emph{Medium} -- Bipartite matching.
+  \item \href{https://leetcode.com/problems/optimal-account-balancing/}{Optimal Account Balancing} -- \emph{Hard} -- Flow / search.
+  \item \href{https://leetcode.com/problems/minimum-number-of-vertices-to-reach-all-nodes/}{Minimum Number of Vertices to Reach All Nodes} -- \emph{Medium} -- Graph application.
+  \item \href{https://leetcode.com/problems/course-schedule-ii/}{Course Schedule II} -- \emph{Medium} -- DAG application.
+\end{itemize}
+
+\end{document}
