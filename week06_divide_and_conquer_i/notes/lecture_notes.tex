@@ -1,0 +1,521 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 6: Divide and Conquer I: Mergesort and Recurrences}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction: The Divide-and-Conquer Paradigm}
+
+This week begins our study of \textbf{divide-and-conquer algorithms}: algorithms that
+solve a problem by \emph{dividing} it into smaller subproblems of the same kind,
+\emph{conquering} (solving) those subproblems recursively, and then \emph{combining} their
+solutions into a solution for the original problem.
+
+The pattern is so common that it has a fixed three-step shape:
+
+\begin{itemize}
+    \item \textbf{Divide.} Split the input of size $n$ into $a$ subproblems, each of size
+    roughly $n/b$ (often $a = b = 2$: two halves).
+    \item \textbf{Conquer.} Solve each subproblem recursively. The recursion bottoms out
+    at a \emph{base case} -- inputs small enough to solve directly (e.g.\ a single
+    element, which is trivially sorted).
+    \item \textbf{Combine.} Merge the subproblem solutions into a solution for the whole,
+    doing some additional work (the \emph{combine step}).
+\end{itemize}
+
+The running time of such an algorithm satisfies a \textbf{recurrence} of the form
+\[
+    T(n) = a\,T(n/b) + (\text{cost of dividing and combining}),
+\]
+and most of the analytical work this week is about \emph{solving} such recurrences -- by
+unrolling them, drawing recursion trees, or applying the \textbf{Master Theorem}.
+
+\subsection{Why divide and conquer wins}
+
+A recurring theme is that divide-and-conquer often beats the obvious quadratic approach.
+Mergesort sorts in $O(n \log n)$ rather than the $O(n^2)$ of insertion or selection sort;
+counting inversions drops from $O(n^2)$ to $O(n \log n)$; fast exponentiation computes
+$x^n$ with $O(\log n)$ multiplications instead of $n-1$; and (next week) Karatsuba
+multiplies two $n$-digit integers in $O(n^{\log_2 3}) \approx O(n^{1.585})$ rather than
+$O(n^2)$. In every case the speed-up comes from the same source: the recursion replaces a
+single large amount of work with a logarithmic number of \emph{levels}, each doing only a
+modest amount of combine work.
+
+This course follows Kleinberg \& Tardos, Chapter 5. Today we will see mergesort, counting
+inversions, the toolkit for solving recurrences (including the Master Theorem), binary
+search, the maximum-subarray problem, fast exponentiation, and quickselect.
+
+\section{Mergesort}
+
+\subsection{The algorithm}
+
+\textbf{Mergesort} is the canonical divide-and-conquer sorting algorithm. To sort a list
+of $n$ elements: split it into two halves, recursively sort each half, then \emph{merge}
+the two sorted halves into one sorted list. The base case is a list of length $0$ or $1$,
+which is already sorted.
+
+The heart of the algorithm is the \textsc{Merge} subroutine, which takes two
+\emph{already-sorted} lists and interleaves them into one sorted list in linear time, by
+repeatedly comparing the two front elements and emitting the smaller one.
+
+\begin{algorithm}[h]
+\caption{Merge two sorted lists}
+\begin{algorithmic}[1]
+\Function{Merge}{$L$, $R$} \Comment{$L$, $R$ are each sorted ascending}
+    \State $M \gets$ empty list; $i \gets 0$; $j \gets 0$
+    \While{$i < |L|$ \textbf{and} $j < |R|$}
+        \If{$L[i] \le R[j]$}
+            \State append $L[i]$ to $M$; $i \gets i + 1$
+        \Else
+            \State append $R[j]$ to $M$; $j \gets j + 1$
+        \EndIf
+    \EndWhile
+    \State append the remaining elements of $L$ (from $i$) and of $R$ (from $j$) to $M$
+    \State \Return $M$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{Mergesort}
+\begin{algorithmic}[1]
+\Function{Mergesort}{$A$}
+    \If{$|A| \le 1$}
+        \State \Return $A$ \Comment{base case: already sorted}
+    \EndIf
+    \State $m \gets \lfloor |A| / 2 \rfloor$
+    \State $L \gets \Call{Mergesort}{A[0 \mathbin{:} m]}$
+    \State $R \gets \Call{Mergesort}{A[m \mathbin{:} ]}$
+    \State \Return \Call{Merge}{$L$, $R$}
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+Problem 1 asks you to implement \textsc{Merge}, and Problem 2 asks you to implement
+\textsc{Mergesort} (with a comparison counter, see Section~\ref{sec:recurrences}).
+
+\subsection{Correctness}
+
+\begin{lemma}
+\label{lem:merge-correct}
+If $L$ and $R$ are each sorted in non-decreasing order, then \textsc{Merge}$(L, R)$ returns
+a sorted list containing exactly the multiset union of the elements of $L$ and $R$.
+\end{lemma}
+
+\begin{proof}
+Every element of $L$ and $R$ is appended to $M$ exactly once (each index advances from $0$
+past the end of its list), so $M$ contains the correct multiset. For sortedness, consider
+the loop invariant: \emph{at the start of each iteration, $M$ is sorted, and every element
+already in $M$ is $\le$ every element still remaining in $L[i\mathbin{:}]$ and
+$R[j\mathbin{:}]$.} Initially $M$ is empty and the invariant holds vacuously. Each
+iteration appends $\min(L[i], R[j])$ -- the smallest remaining element overall (since $L$
+and $R$ are sorted, their smallest remaining elements are $L[i]$ and $R[j]$). This element
+is $\ge$ everything already in $M$ (by the invariant) and $\le$ everything that remains, so
+the invariant is preserved. When the loop ends, the leftover tail of one list (all $\ge$
+everything in $M$, and internally sorted) is appended, leaving $M$ sorted.
+\end{proof}
+
+\begin{theorem}
+\textsc{Mergesort}$(A)$ returns a sorted permutation of $A$.
+\end{theorem}
+
+\begin{proof}
+By strong induction on $n = |A|$. \emph{Base case:} if $n \le 1$, $A$ is already sorted and
+is returned unchanged. \emph{Inductive step:} for $n \ge 2$, the two halves each have size
+$< n$, so by the inductive hypothesis $L$ and $R$ are returned sorted. By
+Lemma~\ref{lem:merge-correct}, \textsc{Merge}$(L, R)$ is a sorted permutation of $L \cup R
+= A$.
+\end{proof}
+
+\subsection{Running time: \texorpdfstring{$O(n \log n)$}{O(n log n)}}
+
+\begin{theorem}
+\label{thm:mergesort-time}
+\textsc{Mergesort} runs in $O(n \log n)$ time and performs $O(n \log n)$ comparisons.
+\end{theorem}
+
+\begin{proof}
+\textsc{Merge}$(L, R)$ does at most $|L| + |R| - 1$ comparisons and $O(|L| + |R|)$ total
+work. So the running time satisfies
+\[
+    T(n) \le 2\,T(n/2) + cn
+\]
+for a constant $c$, with $T(1) = O(1)$. We solve this by the recursion-tree method
+(Section~\ref{sec:recurrences}). The tree has $\log_2 n$ levels; at level $k$ there are
+$2^k$ subproblems each of size $n/2^k$, contributing $2^k \cdot c(n/2^k) = cn$ work. Summing
+over the $\log_2 n + 1$ levels gives $cn(\log_2 n + 1) = O(n \log n)$. By the Master Theorem
+(Theorem~\ref{thm:master}, Case 2 with $a = b = 2$, $d = 1$), $T(n) = \Theta(n \log n)$.
+\end{proof}
+
+Mergesort's $O(n \log n)$ is a dramatic improvement over the $\Theta(n^2)$ of insertion and
+selection sort, and it matches the comparison-sorting lower bound of $\Omega(n \log n)$.
+Problem 5 asks you to instrument mergesort and confirm empirically that the \emph{number of
+\textsc{Merge} calls} and the total comparison count match the recurrence.
+
+\section{Counting Inversions}
+
+\subsection{The problem}
+
+\begin{definition}[Inversion]
+Given an array $A[0\mathbin{:}n]$, an \emph{inversion} is a pair of indices $(i, j)$ with
+$i < j$ but $A[i] > A[j]$ -- a pair that is "out of order."
+\end{definition}
+
+The number of inversions measures how far an array is from sorted (a sorted array has $0$
+inversions; a reverse-sorted array of length $n$ has the maximum $\binom{n}{2}$). It is the
+basis of the \emph{Kendall tau} rank-correlation statistic: given two people's rankings of
+$n$ movies, the number of pairs they disagree on is exactly the number of inversions
+between the two orderings (Kleinberg \& Tardos, Section 5.3).
+
+The brute-force algorithm checks all $\binom{n}{2}$ pairs in $\Theta(n^2)$. We can do
+better.
+
+\subsection{Counting inversions during a merge}
+
+The key insight: \emph{piggyback on mergesort}. Sort the array with mergesort, but during
+each \textsc{Merge}, count the inversions between the left and right halves. When merging
+sorted halves $L$ and $R$, whenever we emit an element $R[j]$ from the right \emph{before}
+some elements still remaining in $L$, every one of those remaining $|L| - i$ elements forms
+an inversion with $R[j]$ (each is to the \emph{left} of $R[j]$ in the original array, yet
+larger).
+
+\begin{algorithm}[h]
+\caption{Merge-and-count}
+\begin{algorithmic}[1]
+\Function{MergeAndCount}{$L$, $R$} \Comment{$L$, $R$ sorted}
+    \State $M \gets$ empty; $i \gets 0$; $j \gets 0$; $\mathit{inv} \gets 0$
+    \While{$i < |L|$ \textbf{and} $j < |R|$}
+        \If{$L[i] \le R[j]$}
+            \State append $L[i]$ to $M$; $i \gets i + 1$
+        \Else
+            \State append $R[j]$ to $M$; $j \gets j + 1$
+            \State $\mathit{inv} \gets \mathit{inv} + (|L| - i)$ \Comment{$R[j]$ jumps ahead of the rest of $L$}
+        \EndIf
+    \EndWhile
+    \State append leftovers; \Return $(M, \mathit{inv})$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The total inversion count is the sum of inversions counted inside the left half, inside the
+right half, and across the two during the merge:
+\[
+    \mathrm{inv}(A) = \mathrm{inv}(L) + \mathrm{inv}(R) + \mathrm{cross}(L, R).
+\]
+Since this adds only $O(1)$ bookkeeping per merge step, the recurrence is identical to
+mergesort's, $T(n) = 2T(n/2) + O(n)$, giving $\Theta(n \log n)$. Problem 3 asks you to
+implement this; verify it against the $O(n^2)$ brute force from \texttt{starter\_code.py}.
+
+\section{Solving Recurrences}
+\label{sec:recurrences}
+
+Divide-and-conquer running times are described by recurrences. We need systematic ways to
+turn a recurrence into a closed-form asymptotic bound. We cover three: \emph{unrolling},
+\emph{recursion trees}, and the \emph{Master Theorem}.
+
+\subsection{Unrolling}
+
+To \emph{unroll} a recurrence, repeatedly substitute it into itself and look for a pattern.
+For $T(n) = 2T(n/2) + cn$:
+\[
+\begin{aligned}
+T(n) &= 2T(n/2) + cn \\
+     &= 2\bigl(2T(n/4) + c\,n/2\bigr) + cn = 4T(n/4) + 2cn \\
+     &= 8T(n/8) + 3cn = \cdots = 2^k T(n/2^k) + k\,cn.
+\end{aligned}
+\]
+The recursion bottoms out when $n/2^k = 1$, i.e.\ $k = \log_2 n$. At that point $2^k T(1) =
+n \cdot O(1) = O(n)$, and the accumulated combine cost is $k\,cn = cn\log_2 n$. Hence $T(n) =
+\Theta(n \log n)$.
+
+\subsection{Recursion trees}
+
+A \textbf{recursion tree} makes the same calculation visual. The root is the top-level call
+on size $n$; it has $a$ children of size $n/b$, each of which has $a$ children of size
+$n/b^2$, and so on. Annotate each node with the \emph{non-recursive} (combine) work it does,
+then sum the work \emph{level by level}.
+
+For $T(n) = aT(n/b) + cn^d$:
+\begin{itemize}
+    \item Level $k$ has $a^k$ nodes, each of size $n/b^k$, each doing $c(n/b^k)^d$ work.
+    \item Total work at level $k$ is $a^k \cdot c\,(n/b^k)^d = c\,n^d \cdot (a/b^d)^k$.
+    \item There are $\log_b n + 1$ levels.
+\end{itemize}
+The total is a \emph{geometric series} in the ratio $r = a/b^d$. The behaviour depends
+entirely on whether $r < 1$ (top-heavy: root dominates), $r = 1$ (balanced: every level
+costs the same), or $r > 1$ (bottom-heavy: leaves dominate) -- which is exactly the
+trichotomy of the Master Theorem.
+
+\subsection{The Master Theorem}
+
+\begin{theorem}[Master Theorem]
+\label{thm:master}
+Let $a \ge 1$ and $b > 1$ be constants, and let $T(n) = a\,T(n/b) + \Theta(n^d)$ for $d \ge
+0$, with a constant base case. Comparing $d$ against $\log_b a$ gives three cases:
+\begin{enumerate}[label=\textbf{Case \arabic*.}]
+    \item If $d < \log_b a$ (equivalently $a > b^d$): \quad $T(n) = \Theta\!\left(n^{\log_b a}\right)$.
+    \emph{(Leaves dominate; the work grows geometrically toward the bottom of the tree.)}
+    \item If $d = \log_b a$ (equivalently $a = b^d$): \quad $T(n) = \Theta\!\left(n^{d} \log n\right)
+    = \Theta\!\left(n^{\log_b a} \log n\right)$.
+    \emph{(Every level does equal work; multiply by the $\log_b n$ levels.)}
+    \item If $d > \log_b a$ (equivalently $a < b^d$): \quad $T(n) = \Theta\!\left(n^{d}\right)$.
+    \emph{(The root's combine step dominates; the top level does the most work.)}
+\end{enumerate}
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+By the recursion-tree analysis above, the total work is
+$\Theta\!\bigl(n^d \sum_{k=0}^{\log_b n} r^k\bigr)$ with $r = a/b^d$. If $r < 1$ the sum is
+$\Theta(1)$, giving $\Theta(n^d)$ -- but here $r<1 \iff a < b^d \iff d > \log_b a$, Case 3.
+If $r = 1$ the sum is $\Theta(\log_b n)$, giving $\Theta(n^d \log n)$, Case 2. If $r > 1$
+the sum is $\Theta(r^{\log_b n}) = \Theta(a^{\log_b n}/n^d) = \Theta(n^{\log_b a}/n^d)$,
+giving $\Theta(n^{\log_b a})$, Case 1. (The identity $a^{\log_b n} = n^{\log_b a}$ is the
+key algebraic step.)
+\end{proof}
+
+\begin{example}[Worked applications]
+\hfill
+\begin{itemize}
+    \item \textbf{Mergesort:} $T(n) = 2T(n/2) + \Theta(n)$. Here $a=2$, $b=2$, $d=1$;
+    $\log_b a = 1 = d$, so Case 2: $\Theta(n \log n)$.
+    \item \textbf{Binary search:} $T(n) = T(n/2) + \Theta(1)$. Here $a=1$, $b=2$, $d=0$;
+    $\log_b a = 0 = d$, Case 2: $\Theta(\log n)$.
+    \item \textbf{Karatsuba:} $T(n) = 3T(n/2) + \Theta(n)$. Here $a=3$, $b=2$, $d=1$;
+    $\log_2 3 \approx 1.585 > 1 = d$, Case 1: $\Theta(n^{\log_2 3}) \approx \Theta(n^{1.585})$.
+    \item \textbf{Grade-school multiply (D\&C):} $T(n) = 4T(n/2) + \Theta(n)$. Here
+    $\log_2 4 = 2 > 1$, Case 1: $\Theta(n^2)$ -- no improvement, which is exactly why
+    Karatsuba's drop from $4$ to $3$ subproblems matters.
+    \item \textbf{A top-heavy example:} $T(n) = 2T(n/2) + \Theta(n^2)$. Here $\log_2 2 = 1 <
+    2 = d$, Case 3: $\Theta(n^2)$.
+\end{itemize}
+\end{example}
+
+Problem 4 asks you to implement a \emph{Master Theorem classifier} that, given $a$, $b$, and
+$d$, returns the correct $\Theta$-class string. (The standard form of the theorem does not
+cover every recurrence -- e.g.\ when $a$ or $b$ is not constant, or the combine term is not
+$\Theta(n^d)$ -- but it handles the overwhelming majority of divide-and-conquer recurrences
+you will meet.)
+
+\section{Binary Search}
+
+\textbf{Binary search} finds a target in a \emph{sorted} array by repeatedly halving the
+search interval: compare the target to the middle element; if equal, done; if the target is
+smaller, recurse on the left half; otherwise recurse on the right half. This is
+divide-and-conquer with $a = 1$ (only one subproblem is explored) and a $\Theta(1)$ combine.
+
+\begin{algorithm}[h]
+\caption{Binary search (recursive)}
+\begin{algorithmic}[1]
+\Function{BinarySearch}{$A$, $x$, $\mathit{lo}$, $\mathit{hi}$}
+    \If{$\mathit{lo} > \mathit{hi}$} \State \Return $-1$ \Comment{not found} \EndIf
+    \State $m \gets \lfloor (\mathit{lo} + \mathit{hi})/2 \rfloor$
+    \If{$A[m] = x$} \State \Return $m$
+    \ElsIf{$A[m] > x$} \State \Return \Call{BinarySearch}{$A$, $x$, $\mathit{lo}$, $m-1$}
+    \Else \State \Return \Call{BinarySearch}{$A$, $x$, $m+1$, $\mathit{hi}$}
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The recurrence is $T(n) = T(n/2) + \Theta(1)$, which by the Master Theorem (Case 2, $a=1$,
+$b=2$, $d=0$) gives $T(n) = \Theta(\log n)$. Problem 6 asks you to implement this and return
+an index or $-1$.
+
+\section{Maximum-Subarray Sum via Divide and Conquer}
+
+\begin{definition}[Maximum-subarray problem]
+Given an array $A$ of (possibly negative) numbers, find the maximum sum of any
+\emph{contiguous} subarray $A[i\mathbin{:}j]$.
+\end{definition}
+
+The divide-and-conquer solution splits $A$ at the midpoint $m$. The maximum subarray either
+(i) lies entirely in the left half, (ii) lies entirely in the right half, or (iii)
+\emph{crosses the midpoint}. Cases (i) and (ii) are solved recursively. Case (iii) is the
+combine step: the best crossing subarray is the best suffix of the left half joined to the
+best prefix of the right half, each computable by a single linear scan outward from $m$.
+
+\begin{algorithm}[h]
+\caption{Maximum subarray (divide and conquer)}
+\begin{algorithmic}[1]
+\Function{MaxSubarray}{$A$, $\mathit{lo}$, $\mathit{hi}$}
+    \If{$\mathit{lo} = \mathit{hi}$} \State \Return $A[\mathit{lo}]$ \EndIf
+    \State $m \gets \lfloor (\mathit{lo} + \mathit{hi})/2 \rfloor$
+    \State $\mathit{left} \gets \Call{MaxSubarray}{A, \mathit{lo}, m}$
+    \State $\mathit{right} \gets \Call{MaxSubarray}{A, m+1, \mathit{hi}}$
+    \State $\mathit{cross} \gets (\text{best suffix of } A[\mathit{lo}\mathbin{:}m{+}1]) + (\text{best prefix of } A[m{+}1\mathbin{:}\mathit{hi}{+}1])$
+    \State \Return $\max(\mathit{left}, \mathit{right}, \mathit{cross})$
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+The combine step is $\Theta(n)$, so $T(n) = 2T(n/2) + \Theta(n) = \Theta(n \log n)$ (Master
+Theorem, Case 2). (Kadane's algorithm later solves the same problem in $\Theta(n)$, but the
+D\&C version is the cleaner illustration of the cross-boundary combine.) Problem 7 asks you
+to implement this and verify it against a brute-force $O(n^2)$ check.
+
+\section{Fast Exponentiation}
+
+To compute $x^n$ for a non-negative integer $n$, the naive method multiplies $x$ by itself
+$n-1$ times: $\Theta(n)$ multiplications. \textbf{Exponentiation by squaring} does it in
+$\Theta(\log n)$ by exploiting
+\[
+    x^n = \begin{cases}
+        1 & n = 0, \\
+        (x^{n/2})^2 & n \text{ even}, \\
+        x \cdot (x^{(n-1)/2})^2 & n \text{ odd}.
+    \end{cases}
+\]
+Each recursive call halves $n$, so the recurrence is $T(n) = T(n/2) + \Theta(1) =
+\Theta(\log n)$ (Master Theorem, Case 2). Crucially, we compute $x^{n/2}$ \emph{once} and
+square it -- not twice -- which is what makes it logarithmic rather than linear.
+
+\begin{algorithm}[h]
+\caption{Fast exponentiation (exponentiation by squaring)}
+\begin{algorithmic}[1]
+\Function{FastPow}{$x$, $n$}
+    \If{$n = 0$} \State \Return $1$ \EndIf
+    \State $h \gets \Call{FastPow}{x, \lfloor n/2 \rfloor}$
+    \If{$n$ is even} \State \Return $h \cdot h$
+    \Else \State \Return $x \cdot h \cdot h$
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+Problem 8 asks you to implement this with a \emph{multiplication counter} and confirm the
+count is $\Theta(\log n)$ -- roughly $\log_2 n$ to $2\log_2 n$ multiplications.
+
+\section{Quickselect: Expected Linear-Time Selection}
+
+\begin{definition}[Selection problem]
+Given an unsorted array $A$ and an integer $k$ ($0 \le k < n$), find the $k$-th smallest
+element (the element that would be at index $k$ if $A$ were sorted).
+\end{definition}
+
+Sorting and indexing gives an $O(n \log n)$ solution, but we can do better in
+\emph{expectation}. \textbf{Quickselect} (Hoare) is a divide-and-conquer cousin of
+quicksort: pick a \emph{pivot}, partition the array into elements less than, equal to, and
+greater than the pivot, and then recurse into \emph{only the one part} that must contain the
+$k$-th smallest element.
+
+\begin{algorithm}[h]
+\caption{Quickselect}
+\begin{algorithmic}[1]
+\Function{Quickselect}{$A$, $k$}
+    \State choose a pivot $p$ from $A$
+    \State $\mathit{less} \gets [\,a \in A : a < p\,]$;\quad $\mathit{equal} \gets [\,a \in A : a = p\,]$;\quad $\mathit{greater} \gets [\,a \in A : a > p\,]$
+    \If{$k < |\mathit{less}|$} \State \Return \Call{Quickselect}{$\mathit{less}$, $k$}
+    \ElsIf{$k < |\mathit{less}| + |\mathit{equal}|$} \State \Return $p$
+    \Else \State \Return \Call{Quickselect}{$\mathit{greater}$, $k - |\mathit{less}| - |\mathit{equal}|$}
+    \EndIf
+\EndFunction
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+With a uniformly random pivot, quickselect runs in $\Theta(n)$ \emph{expected} time.
+\end{theorem}
+
+\begin{proof}[Proof idea]
+A random pivot lands, with constant probability, in the "central" half of the values, so it
+discards at least a quarter of the elements with probability $\ge 1/2$. The expected work
+then satisfies $T(n) \le T(3n/4) + O(n)$ in expectation -- a \emph{decreasing} geometric
+series $O(n)(1 + \tfrac34 + (\tfrac34)^2 + \cdots) = O(n)$. (This is an unbalanced recurrence
+that the Master Theorem does not directly cover, because only one subproblem is solved and
+its size is a constant \emph{fraction} rather than $n/b$; we analyze it by the geometric-sum
+argument directly.) The worst case is $\Theta(n^2)$ when pivots are consistently extreme,
+but a random or median-of-medians pivot avoids this.
+\end{proof}
+
+A \emph{deterministic} pivot (e.g.\ always the last element) is fine for the exercises and
+still correct; Problem 9 asks you to implement quickselect and verify it against
+\texttt{sorted(A)[k]}. The same partition-and-recurse idea, combined with a divide-and-
+conquer \emph{combine}, also solves the \textbf{majority element} problem (Problem 10) and
+\textbf{1-D peak finding} (Problem 12), both below.
+
+\section{Two More Divide-and-Conquer Patterns}
+
+\subsection{Majority element}
+
+A \emph{majority element} of an array of length $n$ is a value occurring more than $n/2$
+times. The divide-and-conquer solution: if the left and right halves have the same majority
+candidate, that is the answer; otherwise, count occurrences of each half's candidate across
+the whole range and return whichever actually exceeds $n/2$. The combine step is a linear
+count, giving $T(n) = 2T(n/2) + \Theta(n) = \Theta(n \log n)$. (The Boyer--Moore voting
+algorithm later does it in $\Theta(n)$, but the D\&C version reinforces the combine idea.)
+Problem 10 asks you to implement and verify this against direct counting.
+
+\subsection{Peak finding in 1-D}
+
+An index $i$ is a \emph{peak} of array $A$ if $A[i]$ is $\ge$ its neighbours (treating
+out-of-bounds neighbours as $-\infty$). A peak always exists, and we can find \emph{one} in
+$\Theta(\log n)$: look at the middle element; if it is smaller than its right neighbour, a
+peak must exist to the right (the array is "rising" rightward and is bounded), so recurse
+right; symmetrically for the left; otherwise the middle is itself a peak. The recurrence is
+$T(n) = T(n/2) + \Theta(1) = \Theta(\log n)$. Problem 12 asks you to implement this.
+
+\section{Karatsuba vs.\ Grade-School Multiplication (a recurrence comparison)}
+
+Multiplying two $n$-digit integers by the grade-school method, split via divide and
+conquer, naively yields four half-size multiplications: $T(n) = 4T(n/2) + \Theta(n) =
+\Theta(n^2)$ (Master Theorem, Case 1, since $\log_2 4 = 2$). \textbf{Karatsuba}'s insight is
+that the four products can be computed with only \emph{three} half-size multiplications
+(plus some additions), giving $T(n) = 3T(n/2) + \Theta(n) = \Theta(n^{\log_2 3}) \approx
+\Theta(n^{1.585})$ -- asymptotically faster. Problem 11 asks you to \emph{count
+multiplications} for both recurrences ($3T(n/2)$ vs.\ $4T(n/2)$) and confirm the predicted
+gap between $n^{\log_2 3}$ and $n^2$, without implementing full big-integer arithmetic (we
+return to the full Karatsuba algorithm next week).
+
+\section{Summary and Looking Ahead}
+
+This week introduced the \textbf{divide-and-conquer paradigm} -- divide, conquer, combine --
+and the machinery for analyzing it:
+
+\begin{itemize}
+    \item \textbf{Mergesort:} sort by splitting, recursing, and merging; $\Theta(n \log n)$
+    via the recurrence $T(n) = 2T(n/2) + \Theta(n)$.
+    \item \textbf{Counting inversions:} piggyback on mergesort to count cross-pairs during
+    the merge, in $\Theta(n \log n)$.
+    \item \textbf{Solving recurrences:} unrolling, recursion trees, and the \textbf{Master
+    Theorem} with its three cases (leaves dominate / balanced / root dominates).
+    \item \textbf{Binary search} ($\Theta(\log n)$), \textbf{maximum subarray} ($\Theta(n
+    \log n)$ via a cross-boundary combine), \textbf{fast exponentiation} ($\Theta(\log n)$
+    multiplications), \textbf{quickselect} (expected $\Theta(n)$), \textbf{majority element},
+    and \textbf{1-D peak finding} ($\Theta(\log n)$).
+\end{itemize}
+
+The unifying lesson: a clever \emph{combine} step plus recursion turns many quadratic
+problems into $n \log n$ (or better), and the Master Theorem tells us, at a glance, which
+of the three regimes a recurrence falls into.
+
+Next week (Divide and Conquer II, Kleinberg \& Tardos Ch.\ 5 continued) we push these ideas
+further: the \textbf{closest-pair-of-points} algorithm (a beautiful $\Theta(n \log n)$
+geometric divide-and-conquer with a subtle combine step), the full \textbf{Karatsuba}
+integer-multiplication algorithm, and the \textbf{Fast Fourier Transform (FFT)} for
+multiplying polynomials in $\Theta(n \log n)$.
+
+\end{document}
