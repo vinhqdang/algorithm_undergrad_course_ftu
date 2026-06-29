@@ -1,0 +1,455 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usepackage{booktabs}
+
+\hypersetup{colorlinks=true, linkcolor=blue, urlcolor=blue, citecolor=blue}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{TOAE209/TOAH209 -- Design and Analysis of Algorithms\\[4pt]
+\large Week 5: Greedy Algorithms II: Shortest Paths and Minimum Spanning Trees}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+\maketitle
+\tableofcontents
+
+\section{Introduction}
+
+Last week introduced the greedy paradigm and two proof techniques --
+\emph{greedy stays ahead} and the \emph{exchange argument} -- through scheduling
+problems on intervals and jobs. This week we apply the same toolkit to two of
+the most important problems in all of algorithms, both defined on
+\textbf{weighted graphs}:
+
+\begin{itemize}
+    \item the \textbf{single-source shortest path} problem, solved by
+    \emph{Dijkstra's algorithm} (a greedy ``stays ahead'' argument); and
+    \item the \textbf{minimum spanning tree} (MST) problem, solved by
+    \emph{Kruskal's} and \emph{Prim's} algorithms (both justified by a single
+    structural fact, the \emph{cut property}).
+\end{itemize}
+
+Both algorithms are greedy: they build a solution one vertex or one edge at a
+time, always taking the locally cheapest extension, and never reconsidering.
+As always, the implementation is short; the content is in the correctness
+proof. A recurring sub-theme is that Dijkstra's greedy choice is correct
+\emph{only} when all edge weights are non-negative -- a single negative edge can
+break it -- which motivates the Bellman--Ford algorithm as a more robust (but
+slower) alternative.
+
+Throughout, a graph $G = (V, E)$ has $n = |V|$ vertices and $m = |E|$ edges.
+Each edge $e = (u,v)$ carries a weight (or length, or cost) $w(e) = w(u,v) \ge
+0$ unless stated otherwise. We represent graphs as \emph{adjacency dicts}: a map
+from each vertex to a dict of (neighbour, weight) pairs. The shared helper file
+\texttt{starter\_code.py} provides this representation, a seeded random
+weighted-graph generator, and a \texttt{UnionFind} data structure; Problem 1
+asks you to build and inspect such graphs.
+
+\section{The Single-Source Shortest Path Problem}
+
+\begin{definition}[Single-Source Shortest Paths]
+Given a directed or undirected graph $G = (V,E)$ with non-negative edge weights
+$w(e) \ge 0$ and a designated \emph{source} vertex $s \in V$, the
+\emph{single-source shortest path problem} asks, for every vertex $v \in V$, for
+the minimum total weight $\mathrm{dist}(v)$ of any path from $s$ to $v$ (with
+$\mathrm{dist}(v) = \infty$ if no path exists). The total weight of a path is the
+sum of the weights of its edges.
+\end{definition}
+
+This models a road network (weights = travel times), a communication network
+(weights = latencies), or any setting where we want the cheapest route from one
+origin to all destinations.
+
+\subsection{Dijkstra's algorithm}
+
+Dijkstra's algorithm maintains a set $S$ of vertices whose shortest distance is
+already known (``finalized''), and a tentative distance $d[v]$ for every vertex.
+Initially $S = \emptyset$, $d[s]=0$, and $d[v]=\infty$ for $v \ne s$. It
+repeatedly selects the vertex $u \notin S$ with the smallest tentative distance,
+adds it to $S$ (finalizing it), and \emph{relaxes} each outgoing edge $(u,v)$:
+if $d[u] + w(u,v) < d[v]$, it lowers $d[v]$.
+
+\begin{algorithm}[h]
+\caption{Dijkstra's Single-Source Shortest Paths}
+\begin{algorithmic}[1]
+\State $d[s] \gets 0$; \quad $d[v] \gets \infty$ for all $v \ne s$
+\State $S \gets \emptyset$
+\State Insert all vertices into a min-priority queue $Q$ keyed by $d[\cdot]$
+\While{$Q \ne \emptyset$}
+    \State $u \gets \textsc{ExtractMin}(Q)$ \Comment{smallest tentative distance}
+    \State $S \gets S \cup \{u\}$ \Comment{$d[u]$ is now final}
+    \For{each edge $(u,v) \in E$ with $v \notin S$}
+        \If{$d[u] + w(u,v) < d[v]$}
+            \State $d[v] \gets d[u] + w(u,v)$ \Comment{relax: found a shorter route to $v$}
+            \State \textsc{DecreaseKey}$(Q, v, d[v])$; \quad set $\mathrm{pred}[v] \gets u$
+        \EndIf
+    \EndFor
+\EndWhile
+\State \Return $d[\cdot]$ (and $\mathrm{pred}[\cdot]$ for path reconstruction)
+\end{algorithmic}
+\end{algorithm}
+
+Problem 2 asks you to implement the distance-only version using Python's
+\texttt{heapq}; Problem 3 adds a $\mathrm{pred}[\cdot]$ array and reconstructs
+the actual shortest path to a target by following predecessors backward.
+
+In practice, with a binary heap, the cleanest implementation is the \emph{lazy}
+one: instead of \textsc{DecreaseKey}, push a new $(d[v], v)$ pair onto the heap
+whenever $d[v]$ improves, and discard a popped pair if its vertex has already
+been finalized. This is exactly what the exercise solutions do.
+
+\subsection{Correctness}
+
+\begin{theorem}[Correctness of Dijkstra]
+\label{thm:dijkstra}
+If all edge weights are non-negative, then when Dijkstra's algorithm adds a
+vertex $u$ to $S$, the tentative distance $d[u]$ equals the true shortest-path
+distance $\mathrm{dist}(u)$ from $s$ to $u$.
+\end{theorem}
+
+\begin{proof}[Proof (greedy stays ahead, by induction on $|S|$)]
+We prove the invariant: for every vertex $u$ at the moment it is added to $S$,
+$d[u] = \mathrm{dist}(u)$, and moreover $d[u]$ is the length of a genuine
+$s$-$u$ path. The base case is $u = s$: $d[s] = 0 = \mathrm{dist}(s)$.
+
+\textbf{Inductive step.} Suppose the invariant holds for all vertices currently
+in $S$, and let $u \notin S$ be the next vertex extracted (so $d[u] \le d[v]$
+for all $v \notin S$). Because every relaxation sets $d[v]$ to the length of an
+actual path, $d[u] \ge \mathrm{dist}(u)$ always; we must show $d[u] \le
+\mathrm{dist}(u)$, i.e.\ no path is shorter than $d[u]$.
+
+Consider any $s$-$u$ path $P$. Since $s \in S$ and $u \notin S$, $P$ must leave
+$S$ at some point: let $(x,y)$ be the first edge of $P$ with $x \in S$ and $y
+\notin S$. By the inductive hypothesis $d[x] = \mathrm{dist}(x)$, and when $x$
+was added to $S$ the edge $(x,y)$ was relaxed, so $d[y] \le d[x] + w(x,y)$. The
+length of $P$ is at least the length of its prefix up to $y$, which is at least
+$\mathrm{dist}(x) + w(x,y) = d[x] + w(x,y) \ge d[y]$. Since $y \notin S$ and $u$
+was chosen as the minimum, $d[u] \le d[y]$. Putting it together, the length of
+$P$ is at least $d[y] \ge d[u]$. As $P$ was arbitrary, $\mathrm{dist}(u) \ge
+d[u]$. Hence $d[u] = \mathrm{dist}(u)$.
+\end{proof}
+
+The single place where non-negativity is used is the step ``the length of $P$ is
+at least the length of its prefix up to $y$'': this needs every edge \emph{after}
+$y$ on $P$ to add a non-negative amount. With a negative edge this can fail, and
+the proof -- and the algorithm -- break (see \S\ref{sec:negative}).
+
+\subsection{Running time}
+
+The cost is dominated by the priority-queue operations: $n$ \textsc{ExtractMin}
+operations and up to $m$ \textsc{DecreaseKey} (or push) operations. With a
+\textbf{binary heap}, each costs $O(\log n)$, giving
+\[
+    O\big((m + n)\log n\big),
+\]
+which is $O(m \log n)$ for a connected graph (where $m \ge n - 1$). With a more
+sophisticated Fibonacci heap, \textsc{DecreaseKey} is $O(1)$ amortized and the
+bound improves to $O(m + n\log n)$, but the binary-heap version is what is used
+in practice and in this course.
+
+\subsection{Why Dijkstra fails on negative edges}
+\label{sec:negative}
+
+Dijkstra's greedy choice -- ``finalize the nearest unfinished vertex, and never
+touch it again'' -- is justified only because, with non-negative weights,
+extending a path never decreases its length. A negative edge violates this: a
+seemingly-distant vertex might be reachable cheaply via a detour that ends with a
+negative edge, but by then Dijkstra has already finalized the relevant vertex.
+
+\begin{example}[A negative edge breaks Dijkstra]
+Take vertices $s, a, b$ with directed edges $s \to a$ of weight $2$, $s \to b$
+of weight $3$, and $b \to a$ of weight $-2$. The true shortest distance to $a$ is
+via $s \to b \to a$: $3 + (-2) = 1$. But Dijkstra extracts $a$ first (tentative
+distance $2 < 3$), finalizes $\mathrm{dist}(a) = 2$, and never revisits it -- so
+it reports the wrong answer $2$. Problem 6 asks you to construct exactly this
+counter-example and confirm that Dijkstra and Bellman--Ford disagree on it.
+\end{example}
+
+\section{The Bellman--Ford Algorithm}
+
+When edges may be negative, we need a different approach. The Bellman--Ford
+algorithm relaxes \emph{every} edge, $n-1$ times in a row.
+
+\begin{algorithm}[h]
+\caption{Bellman--Ford Single-Source Shortest Paths}
+\begin{algorithmic}[1]
+\State $d[s] \gets 0$; \quad $d[v] \gets \infty$ for all $v \ne s$
+\For{$i = 1$ to $n - 1$}
+    \For{each edge $(u,v) \in E$}
+        \If{$d[u] + w(u,v) < d[v]$}
+            \State $d[v] \gets d[u] + w(u,v)$ \Comment{relax}
+        \EndIf
+    \EndFor
+\EndFor
+\For{each edge $(u,v) \in E$} \Comment{one extra pass detects a negative cycle}
+    \If{$d[u] + w(u,v) < d[v]$}
+        \State \Return ``negative cycle reachable''
+    \EndIf
+\EndFor
+\State \Return $d[\cdot]$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}[Correctness of Bellman--Ford]
+If $G$ has no negative cycle reachable from $s$, then after the $n-1$ rounds of
+relaxation, $d[v] = \mathrm{dist}(v)$ for every $v$. Moreover, a further
+relaxation is possible on some edge \emph{iff} a negative cycle is reachable from
+$s$.
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+A shortest path that uses no negative cycle has at most $n-1$ edges. By induction
+on $i$, after $i$ rounds $d[v]$ is at most the weight of the shortest $s$-$v$
+path using at most $i$ edges (relaxing every edge each round can only propagate
+the best ``$i$-edge'' distance one more hop). After $n-1$ rounds every
+shortest path (at most $n-1$ edges) has been captured. If, in the extra pass,
+some edge can still be relaxed, then there is a closed walk on which the total
+weight strictly decreases -- i.e.\ a negative cycle; conversely a negative cycle
+always admits such a relaxation.
+\end{proof}
+
+Each round relaxes all $m$ edges, so Bellman--Ford runs in $O(nm)$ time --
+slower than Dijkstra's $O((m+n)\log n)$, the price paid for handling negative
+edges and detecting negative cycles. Problem 4 asks you to implement
+Bellman--Ford returning \texttt{None} on a negative cycle; Problem 5 verifies
+that Dijkstra and Bellman--Ford agree on random \emph{non-negative} graphs.
+
+\section{The Minimum Spanning Tree Problem}
+
+\begin{definition}[Minimum Spanning Tree]
+Given a connected, undirected graph $G = (V,E)$ with edge weights $w(e)$, a
+\emph{spanning tree} is a subset $T \subseteq E$ of $n-1$ edges that connects all
+$n$ vertices and contains no cycle. A \emph{minimum spanning tree} (MST) is a
+spanning tree of minimum total weight $\sum_{e \in T} w(e)$.
+\end{definition}
+
+An MST is the cheapest way to wire up a network so that every node can reach
+every other: think of laying cable to connect cities, or a chip's clock-
+distribution network. Two classic greedy algorithms solve it -- Kruskal's and
+Prim's -- and both rest on a single structural fact, the cut property.
+
+\subsection{The cut and cycle properties}
+
+\begin{definition}[Cut]
+A \emph{cut} of $G$ is a partition of $V$ into two non-empty sets $(S, V
+\setminus S)$. An edge \emph{crosses} the cut if it has exactly one endpoint in
+$S$.
+\end{definition}
+
+To keep the statements clean, we first assume all edge weights are
+\emph{distinct} (ties can be broken consistently, e.g.\ by edge index; with that
+convention the MST is unique and every claim below goes through).
+
+\begin{theorem}[Cut Property]
+\label{thm:cut}
+Let $(S, V\setminus S)$ be any cut, and let $e$ be the \emph{minimum-weight} edge
+crossing it. Then $e$ belongs to every minimum spanning tree of $G$.
+\end{theorem}
+
+\begin{proof}[Proof (exchange argument)]
+Let $e = (u,v)$ with $u \in S$, $v \notin S$, and suppose for contradiction that
+some MST $T$ does not contain $e$. Adding $e$ to $T$ creates exactly one cycle
+$C$ (since $T$ is a spanning tree, $T \cup \{e\}$ has one cycle, which passes
+through $e$). The cycle $C$ must cross the cut an even number of times, so it
+contains at least one other crossing edge $e' \ne e$. Since $e$ is the
+minimum-weight crossing edge and weights are distinct, $w(e) < w(e')$. Now form
+$T' = (T \setminus \{e'\}) \cup \{e\}$: removing $e'$ from the cycle keeps the
+graph connected and acyclic, so $T'$ is a spanning tree, and $w(T') = w(T) -
+w(e') + w(e) < w(T)$. This contradicts the minimality of $T$. Hence every MST
+contains $e$.
+\end{proof}
+
+\begin{theorem}[Cycle Property]
+\label{thm:cycle}
+Let $C$ be any cycle in $G$, and let $f$ be the \emph{maximum-weight} edge on
+$C$. Then $f$ belongs to \emph{no} minimum spanning tree of $G$.
+\end{theorem}
+
+\begin{proof}
+Suppose some MST $T$ contains $f = (x,y)$. Removing $f$ splits $T$ into two
+components, with $x$ on one side (call its vertex set $S$) and $y$ on the other.
+Edge $f$ crosses the cut $(S, V \setminus S)$. The cycle $C$ also crosses this
+cut, so besides $f$ it contains another crossing edge $f'$ with (since $f$ is the
+unique heaviest on $C$) $w(f') < w(f)$. Replacing $f$ by $f'$ reconnects the two
+components into a spanning tree $T'$ with $w(T') < w(T)$, contradicting
+minimality.
+\end{proof}
+
+The cut property tells us which edges \emph{must} be in the MST; the cycle
+property tells us which edges \emph{cannot} be. Problem 10 asks you to verify the
+cut property empirically, and Problem 11 uses both properties to classify a given
+edge as belonging to \emph{every}, \emph{some}, or \emph{no} MST.
+
+\subsection{Kruskal's algorithm}
+
+Kruskal's algorithm sorts the edges by weight and adds each one that does not
+create a cycle -- detected with a union-find (disjoint-set) data structure.
+
+\begin{algorithm}[h]
+\caption{Kruskal's Minimum Spanning Tree}
+\begin{algorithmic}[1]
+\State Sort edges so that $w(e_1) \le w(e_2) \le \cdots \le w(e_m)$
+\State $T \gets \emptyset$; \quad initialize union-find with each vertex its own set
+\For{$i = 1$ to $m$}
+    \State let $e_i = (u, v)$
+    \If{$\textsc{Find}(u) \ne \textsc{Find}(v)$} \Comment{$u, v$ in different components}
+        \State $T \gets T \cup \{e_i\}$; \quad $\textsc{Union}(u, v)$
+    \EndIf
+\EndFor
+\State \Return $T$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+Kruskal's algorithm produces a minimum spanning tree.
+\end{theorem}
+
+\begin{proof}
+Every edge $e = (u,v)$ that Kruskal \emph{adds} is the minimum-weight edge
+crossing the cut $(S, V \setminus S)$, where $S$ is the set of vertices in $u$'s
+current component: $e$ connects two different components, and every cheaper edge
+was already processed and either added (staying inside a component) or
+discarded -- in particular, no cheaper edge crosses this cut, since had one
+existed it would have merged the components earlier. By the cut property
+(Theorem~\ref{thm:cut}) $e$ belongs to every MST, so every edge Kruskal adds is
+safe. Since Kruskal adds edges until all vertices are connected (it never creates
+a cycle), it returns a spanning tree, all of whose edges belong to the MST --
+hence the MST itself.
+\end{proof}
+
+\paragraph{Union-find and running time.} The bottleneck is sorting the edges:
+$O(m \log m) = O(m \log n)$. The union-find operations -- with \emph{path
+compression} and \emph{union by rank} -- cost nearly $O(1)$ amortized (formally,
+$O(\alpha(n))$ where $\alpha$ is the inverse Ackermann function, effectively
+constant), so the total is $O(m \log n)$. The \texttt{UnionFind} class in
+\texttt{starter\_code.py} implements both optimizations; Problem 7 asks you to
+build Kruskal's algorithm on top of it and return both the MST edge set and its
+total weight.
+
+\subsection{Prim's algorithm}
+
+Prim's algorithm grows a single tree outward from an arbitrary start vertex,
+always adding the cheapest edge that leaves the current tree -- the direct graph
+analogue of Dijkstra, using a heap of candidate crossing edges.
+
+\begin{algorithm}[h]
+\caption{Prim's Minimum Spanning Tree}
+\begin{algorithmic}[1]
+\State Pick any start vertex $r$; \quad $S \gets \{r\}$; \quad $T \gets \emptyset$
+\State Push every edge incident to $r$ onto a min-heap $Q$, keyed by weight
+\While{$|S| < n$ and $Q \ne \emptyset$}
+    \State $(w, v) \gets \textsc{ExtractMin}(Q)$ \Comment{cheapest candidate edge}
+    \If{$v \in S$} \textbf{continue} \Comment{stale entry; skip}
+    \EndIf
+    \State $S \gets S \cup \{v\}$; \quad add the chosen edge to $T$
+    \For{each edge $(v, x)$ with $x \notin S$}
+        \State Push $(w(v,x), x)$ onto $Q$
+    \EndFor
+\EndWhile
+\State \Return $T$
+\end{algorithmic}
+\end{algorithm}
+
+\begin{theorem}
+Prim's algorithm produces a minimum spanning tree.
+\end{theorem}
+
+\begin{proof}
+At every step, $S$ is the set of vertices in the current tree, and Prim adds the
+minimum-weight edge crossing the cut $(S, V \setminus S)$. By the cut property
+(Theorem~\ref{thm:cut}) this edge belongs to every MST, so every edge added is
+safe. After $n-1$ such additions, $S = V$ and $T$ is a spanning tree composed
+entirely of MST edges -- the MST.
+\end{proof}
+
+Using a binary heap, Prim's algorithm runs in $O((m+n)\log n)$, the same as
+Dijkstra. Problem 8 asks you to implement it (returning the total MST weight),
+and Problem 9 verifies that Kruskal and Prim always agree on the total weight
+for random connected graphs -- a useful empirical check, since (with ties) they
+may pick different edge sets but must achieve the same minimum total.
+
+\section{Application: Single-Link Clustering}
+
+A pleasant payoff of the MST machinery is an optimal clustering algorithm.
+Suppose we have $n$ points (objects) with a pairwise distance between each pair,
+and we want to partition them into $k$ groups (\emph{clusters}). A natural
+objective is to \emph{maximize the spacing}: the \emph{spacing} of a clustering
+is the minimum distance between any two points that lie in \emph{different}
+clusters, and we want this minimum gap to be as large as possible.
+
+\begin{definition}[$k$-Clustering of Maximum Spacing]
+Given a complete weighted graph on the points (weights = distances) and an
+integer $k$, partition the vertices into $k$ non-empty clusters so that the
+minimum weight of an edge joining two different clusters (the \emph{spacing}) is
+maximized.
+\end{definition}
+
+\begin{theorem}[Single-link clustering via Kruskal]
+The following greedy procedure produces a $k$-clustering of maximum spacing: run
+Kruskal's algorithm on the points, but \emph{stop} as soon as the union-find has
+exactly $k$ components. Equivalently, build the MST and delete its $k-1$
+most-expensive edges; the remaining $k$ components are the clusters, and the
+spacing equals the weight of the $(k-1)$-th most expensive MST edge (the next
+edge Kruskal would have added).
+\end{theorem}
+
+\begin{proof}[Proof sketch]
+Running Kruskal until $k$ components remain is exactly adding the $n-k$ cheapest
+``component-merging'' edges; the spacing of the resulting clustering is the
+weight $d^\ast$ of the next edge Kruskal would add. Consider any other
+$k$-clustering $\mathcal{C}'$ that differs from ours. Then two points $p, q$ in
+the same cluster of ours lie in different clusters of $\mathcal{C}'$. The Kruskal
+path joining $p$ and $q$ uses only edges of weight $\le d^\ast$, and somewhere
+along it two consecutive points are split by $\mathcal{C}'$ -- giving
+$\mathcal{C}'$ a crossing edge of weight $\le d^\ast$, so its spacing is at most
+$d^\ast$. Hence no clustering beats ours.
+\end{proof}
+
+Problem 12 asks you to implement this: run Kruskal until $k$ components remain
+and return both the clustering and the spacing.
+
+\section{Summary and Looking Ahead}
+
+This week applied greedy design to two cornerstone graph problems:
+
+\begin{itemize}
+    \item \textbf{Shortest paths.} \emph{Dijkstra's algorithm} greedily
+    finalizes the nearest unprocessed vertex; the ``greedy stays ahead'' proof
+    (Theorem~\ref{thm:dijkstra}) works only for non-negative weights, in
+    $O((m+n)\log n)$ with a binary heap. A single negative edge breaks it,
+    motivating \emph{Bellman--Ford} ($O(nm)$), which also detects negative
+    cycles.
+    \item \textbf{Minimum spanning trees.} The \emph{cut property} and
+    \emph{cycle property} (Theorems~\ref{thm:cut}, \ref{thm:cycle}) determine
+    exactly which edges must, and must not, appear in an MST. Both
+    \emph{Kruskal's} algorithm (sort + union-find) and \emph{Prim's} algorithm
+    (grow + heap) are correct because every edge they add is a minimum crossing
+    edge of some cut.
+    \item \textbf{Application.} Single-link $k$-clustering is just Kruskal
+    stopped early, and it provably maximizes the spacing.
+\end{itemize}
+
+The unifying lesson is that one structural fact (the cut property) justifies two
+different-looking greedy algorithms, just as one proof template (greedy stays
+ahead) justified Dijkstra. Next week we change paradigms entirely: from greedy
+to \textbf{divide and conquer} (Kleinberg \& Tardos Ch.\ 5), where we solve a
+problem by splitting it into independent subproblems, solving each recursively,
+and combining -- with the running time governed by recurrence relations and the
+Master Theorem.
+
+\end{document}
