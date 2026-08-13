@@ -8,13 +8,13 @@
 \usepackage{xcolor}
 \usepackage{booktabs}
 \usepackage{tikz}
-\usetikzlibrary{arrows.meta}
+\usetikzlibrary{arrows.meta,positioning}
 
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{footline}[frame number]
 
 \title{Beyond the Syllabus}
-\subtitle{Complexity Classes and Three 2024--2025 Breakthroughs in Algorithms\\
+\subtitle{The Complexity Zoo, and Three 2024--2025 Breakthroughs in Algorithms\\
 \small Week 2 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
 \author{Foreign Trade University}
 \date{}
@@ -43,11 +43,13 @@
     \textbf{right now} to settle questions that were open for 40--60 years.
     \item Today's supplement has two parts:
     \begin{enumerate}
-      \item A map of the \textbf{complexity classes} that organize ``how hard is this
-      problem, really?'' -- the language you need to read any theory paper.
-      \item Three \textbf{2024--2025 breakthroughs} that each broke a decades-old
-      speed barrier, using exactly the kind of reasoning ($T(n) = \ldots$, recurrences,
-      worst-case analysis) you are learning this semester.
+      \item A tour of the \textbf{complexity zoo} -- far more classes than just P and
+      NP -- with a worked example for each one, so ``how hard is this, provably?''
+      becomes a concrete question, not just vocabulary.
+      \item Three \textbf{2024--2025 breakthroughs}, each with a hand-checkable
+      worked example, that broke a decades-old speed barrier using exactly the kind
+      of reasoning ($T(n) = \ldots$, recurrences, worst-case analysis) you are
+      learning this semester.
     \end{enumerate}
   \end{itemize}
   \begin{alertblock}{The message}
@@ -57,79 +59,182 @@
 \end{frame}
 
 % =================================================================
-\section{The Landscape of Complexity Classes}
+\section{The Complexity Zoo}
 % =================================================================
 
 \begin{frame}{What is a complexity class?}
   \begin{block}{Definition (informal)}
     A \textbf{complexity class} is a set of computational problems that can be solved
-    using a certain amount of a resource -- usually \textbf{time} or \textbf{space} --
-    as a function of input size $n$.
+    using a certain \emph{amount} of a certain \emph{resource} -- as a function of input
+    size $n$.
   \end{block}
   \vspace{0.5em}
   \begin{itemize}
-    \item You already know one: this whole course is implicitly about the class of
-    problems solvable in \textbf{polynomial time}.
-    \item Complexity theory asks a sharper question: \emph{for a given problem, is
-    polynomial time enough -- and if we don't know, what can we prove about it anyway?}
-    \item This matters practically: if a problem is provably ``hard,'' you stop searching
-    for a fast exact algorithm and instead look for approximations, heuristics, or
-    special-case structure (topics in Weeks 12--15).
+    \item The resource is not always \textbf{time}. It can be \textbf{space} (memory),
+    \textbf{randomness}, or even the number of \textbf{quantifier alternations} in a
+    logical formula -- each gives a genuinely different classification of problems.
+    \item P and NP (Week 12 preview) are the two most famous classes, but they are just
+    two rooms in a much bigger zoo. Today we visit six more rooms: \textbf{L, NL, coNP,
+    PSPACE, BPP/RP/ZPP, and \#P}.
+    \item Why bother? If a problem is provably outside P, you stop hunting for a fast
+    exact algorithm and pivot -- to approximation (Week 14), randomization (Week 15), or
+    exponential-but-practical search.
   \end{itemize}
 \end{frame}
 
-\begin{frame}{P: efficiently solvable problems}
+\begin{frame}{P and EXP: the two time-based anchors}
   \begin{block}{P (Polynomial time)}
-    The class of decision problems solvable by an algorithm running in $O(n^k)$ time for
-    some constant $k$, on a standard (deterministic) computer.
+    Decision problems solvable in $O(n^k)$ time, for some constant $k$.
+  \end{block}
+  \begin{block}{EXP (Exponential time)}
+    Decision problems solvable in $O(2^{n^k})$ time, for some constant $k$.
+  \end{block}
+  \begin{center}
+  \begin{tabular}{@{}lrrrr@{}}
+    \toprule
+    $n$ & $n^2$ (P-ish) & $n^5$ (P-ish) & $2^n$ (EXP-ish) & $n!$ (worse than EXP) \\
+    \midrule
+    $10$ & $100$ & $10^5$ & $1{,}024$ & $3.6\times 10^6$ \\
+    $20$ & $400$ & $3.2\times10^6$ & $\approx 10^6$ & $2.4\times10^{18}$ \\
+    $50$ & $2{,}500$ & $3.1\times10^8$ & $\approx 10^{15}$ & (astronomical) \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item Shortest paths, sorting, matching, network flow -- almost everything in
+    Weeks 3--11 lives in P. A classical diagonalization argument proves
+    $\mathbf{P \ne EXP}$: \emph{something} in this zoo is provably hard, even though we
+    can't always pin down \emph{which familiar problem} it is.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Space matters too: L, NL, and PSPACE}
+  \begin{block}{L and NL (Logarithmic space)}
+    \textbf{L}: decision problems solvable using only $O(\log n)$ bits of \emph{working
+    memory} (the input itself is read-only and doesn't count). \textbf{NL}: the same,
+    but the algorithm may guess (nondeterminism).
+  \end{block}
+  \begin{block}{PSPACE (Polynomial space)}
+    Decision problems solvable using $O(n^k)$ bits of working memory -- with
+    \textbf{no limit on time} at all.
   \end{block}
   \begin{itemize}
-    \item Shortest paths, minimum spanning tree, sorting, matching, network flow -- almost
-    everything in Weeks 3--11 of this course lives in P.
-    \item ``Polynomial'' is the standard mathematical stand-in for \textbf{``efficient.''}
-    $O(n^3)$ can be slow in practice, and $O(1.01^n)$ is technically not polynomial -- but
-    the P/not-P line is the most useful coarse-grained boundary theorists have found.
+    \item $O(\log n)$ memory is enough to store a handful of vertex labels or counters,
+    but not an entire path or the whole input -- a much tighter budget than
+    ``polynomial time.''
+    \item Known: $\mathbf{L \subseteq NL \subseteq P \subseteq PSPACE \subseteq EXP}$.
+    Whether $L = NL$ is open -- a space-world cousin of $P$ vs.\ $NP$.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example: \textsc{Path} is NL-complete}
+  \begin{columns}
+  \begin{column}{0.5\textwidth}
+  \begin{center}
+  \begin{tikzpicture}[
+      node distance=1.3cm and 1.6cm,
+      vtx/.style={circle, draw, thick, minimum size=7mm},
+      >=Stealth]
+    \node[vtx] (s) {$s$};
+    \node[vtx, right=of s] (a) {$a$};
+    \node[vtx, below=of s] (c) {$c$};
+    \node[vtx, right=of a] (t) {$t$};
+    \node[vtx, below=of c] (d) {$d$};
+    \draw[->, thick] (s) -- (a);
+    \draw[->, thick] (a) -- (t);
+    \draw[->, thick] (s) -- (c);
+    \draw[->, thick] (c) -- (d);
+  \end{tikzpicture}
+  \end{center}
+  \end{column}
+  \begin{column}{0.5\textwidth}
+  \textbf{Question:} is there a directed path from $s$ to $t$?
+  \begin{itemize}
+    \item Path $s \to a \to t$ exists: \textbf{yes}.
+    \item A logspace algorithm never stores the whole path -- only the
+    \textbf{current vertex} and a \textbf{step counter} ($O(\log n)$ bits each).
+    \item \emph{Nondeterministically} guess the next vertex at each step; accept if $t$
+    is reached within $n$ steps.
+  \end{itemize}
+  \end{column}
+  \end{columns}
+  \vspace{0.5em}
+  \begin{exampleblock}{A genuine surprise}
+    Immerman and Szelepcs\'enyi (1987--88) proved $\mathbf{NL = coNL}$: nondeterministic
+    logspace is closed under complement -- \emph{despite} nondeterminism seeming
+    ``one-directional.'' It took 20 years after NL was defined to discover this.
+  \end{exampleblock}
 \end{frame}
 
 \begin{frame}{NP: efficiently \emph{verifiable} problems}
   \begin{block}{NP (Nondeterministic Polynomial time)}
-    The class of decision problems where, \emph{if the answer is ``yes,''} there exists a
-    proof (a \textbf{certificate}) that can be \textbf{checked} in polynomial time.
+    Decision problems where, \emph{if the answer is ``yes,''} there is a certificate
+    that can be \textbf{checked} in polynomial time.
   \end{block}
   \begin{itemize}
-    \item Example: ``Does this graph have a Hamiltonian cycle?'' Nobody knows how to
-    \emph{find} one quickly, but if someone hands you a candidate cycle, you can
-    \emph{verify} it visits every vertex exactly once in $O(n)$ time.
-    \item Every problem in P is also in NP (if you can solve it fast, you can certainly
-    verify a solution fast): $\mathbf{P \subseteq NP}$.
+    \item Every problem in P is also in NP: if you can \emph{solve} it fast, you can
+    certainly \emph{verify} a solution fast. So $\mathbf{P \subseteq NP}$.
     \item The single biggest open question in computer science: \textbf{is $P = NP$?}
-    Can everything that's easy to \emph{check} also be made easy to \emph{solve}?
+    Can everything easy to \emph{check} also be made easy to \emph{solve}?
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example: verifying a Subset-Sum certificate}
+  \textbf{Instance:} $S = \{3, 34, 4, 12, 5, 2\}$, target $T = 9$. \textbf{Question:}
+  does some subset of $S$ sum to exactly $T$?
+  \begin{itemize}
+    \item \emph{Solving} this from scratch means searching (in the worst known case)
+    over all $2^{|S|}$ subsets -- exponential.
+    \item But someone can hand you a \textbf{certificate}: the subset $\{4, 5\}$.
+  \end{itemize}
+  \[
+    4 + 5 = 9 = T. \quad \checkmark
+  \]
+  \begin{exampleblock}{The point of NP}
+    Checking the certificate took one addition and one comparison: $O(|S|)$ time,
+    regardless of how hard it was to \emph{find} $\{4,5\}$ in the first place. That gap
+    between ``hard to find'' and ``easy to check'' is exactly what NP captures.
+  \end{exampleblock}
 \end{frame}
 
 \begin{frame}{NP-complete and NP-hard}
   \begin{itemize}
-    \item A problem is \textbf{NP-hard} if every problem in NP can be reduced to it in
-    polynomial time -- informally, it is ``at least as hard as anything in NP.''
-    \item A problem is \textbf{NP-complete} if it is NP-hard \emph{and} itself in NP.
-    NP-complete problems are the ``hardest problems inside NP.''
+    \item A problem is \textbf{NP-hard} if every problem in NP reduces to it in
+    polynomial time -- ``at least as hard as anything in NP.''
+    \item A problem is \textbf{NP-complete} if it is NP-hard \emph{and} itself in NP --
+    the ``hardest problems inside NP.''
     \item Cook and Levin (1971) showed \textsc{SAT} (Boolean satisfiability) is
     NP-complete. Thousands of problems are now known to be NP-complete, including
-    the \textbf{Traveling Salesman Problem} (decision version), \textsc{3-Coloring}, and
-    \textsc{Vertex Cover} -- you will meet several of these formally in Week 12.
+    \textbf{Subset Sum} itself, the \textbf{Traveling Salesman Problem} (decision
+    version), \textsc{3-Coloring}, and \textsc{Vertex Cover} -- formalized in Week 12.
   \end{itemize}
   \begin{exampleblock}{Why this matters in practice}
-    If you can reduce a known NP-complete problem to \emph{your} problem, you have strong
-    evidence your problem has \textbf{no} polynomial-time exact algorithm (unless $P=NP$).
-    That is your cue to switch strategies: approximation (Week 14), randomization
-    (Week 15), or exponential-but-practical search.
+    Reduce a known NP-complete problem to \emph{your} problem, and you have strong
+    evidence it has \textbf{no} polynomial-time exact algorithm (unless $P=NP$) -- your
+    cue to switch strategies.
   \end{exampleblock}
 \end{frame}
 
-\begin{frame}{The big picture}
+\begin{frame}{coNP: the mirror image of NP}
+  \begin{block}{coNP}
+    The class of problems whose \textbf{``no''} answers have polynomial-time-checkable
+    certificates. Formally: $L \in coNP \iff \overline{L} \in NP$.
+  \end{block}
+  \begin{itemize}
+    \item Example: \textsc{Tautology} -- ``is this Boolean formula true under
+    \emph{every} assignment?'' A ``no'' certificate is a single falsifying assignment,
+    e.g.\ for $\varphi = (x \lor y) \land (\lnot x \lor \lnot y)$, the assignment
+    $x{=}y{=}\text{true}$ falsifies it -- checkable instantly.
+    \item But a ``yes'' certificate would seem to require checking \emph{all}
+    $2^n$ assignments -- no shortcut is known.
+    \item Believed (not proven) that $\mathbf{NP \ne coNP}$: SAT's ``no'' instances
+    (unsatisfiability) are not believed to have short certificates either.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The big picture (time and space classes)}
   \begin{center}
-  \begin{tikzpicture}[scale=0.95]
+  \begin{tikzpicture}[scale=0.9]
     \draw[thick, fill=blue!5] (0,0) ellipse (5.2 and 3.1);
     \node at (0,2.35) {\textbf{EXP} -- solvable in $O(2^{n^k})$ time};
 
@@ -137,32 +242,122 @@
     \node at (0,1.4) {\textbf{PSPACE} -- solvable using $O(n^k)$ \emph{space}};
 
     \draw[thick, fill=blue!20] (-0.3,-0.55) ellipse (3.0 and 1.75);
-    \node at (-0.3,0.75) {\textbf{NP}};
+    \node at (-0.3,0.85) {\textbf{NP}};
 
-    \draw[thick, fill=blue!35] (-0.9,-0.75) ellipse (1.55 and 0.95);
-    \node at (-0.9,-0.75) {\textbf{P}};
+    \draw[thick, fill=blue!35] (-0.9,-0.7) ellipse (1.65 and 1.05);
+    \draw[thick, fill=blue!45] (-0.95,-0.55) ellipse (1.0 and 0.55);
+    \draw[thick, fill=blue!55] (-1.0,-0.5) ellipse (0.45 and 0.24);
+    \node at (-0.9,-1.35) {\textbf{P}};
+    \node[font=\scriptsize] at (-0.95,-0.1) {\textbf{NL}};
+    \node[font=\tiny] at (-1.0,-0.5) {\textbf{L}};
 
-    \node[align=center] at (1.55,0.15) {\footnotesize \textbf{NP-complete}\\[-2pt]
+    \node[align=center] at (1.55,-0.05) {\footnotesize \textbf{NP-complete}\\[-2pt]
       \footnotesize (SAT, TSP, \ldots)};
 
-    \draw[thick, dashed, fill=red!8] (2.9,-1.9) circle (1.35);
-    \node[align=center] at (2.9,-1.9) {\footnotesize \textbf{NP-hard}\\[-2pt]
-      \footnotesize (may not even\\[-2pt] be in NP)};
+    \draw[thick, dashed, fill=red!8] (2.9,-2.15) circle (1.1);
+    \node[align=center, font=\footnotesize] at (2.9,-2.15) {\textbf{NP-hard}\\[-2pt]
+      (may not\\[-2pt] be in NP)};
   \end{tikzpicture}
   \end{center}
   \begin{itemize}
-    \item Known for sure: $\mathbf{P \subseteq NP \subseteq PSPACE \subseteq EXP}$.
-    \item \textbf{Not} known: whether any of these inclusions is \emph{strict}. (One is:
-    $P \ne EXP$, by a classical diagonalization argument -- but where the gap actually
-    lives is wide open.)
+    \item Known for sure: $\mathbf{L \subseteq NL \subseteq P \subseteq NP \subseteq
+    PSPACE \subseteq EXP}$. Not shown to scale: \textbf{coNP} (NP's mirror, conjectured
+    $\ne$ NP), \textbf{BPP/RP/ZPP} (randomized, next), \textbf{\#P} (counting, later).
+    \item \textbf{Not} known: whether any inclusion above is \emph{strict}, except
+    $P \ne EXP$.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example: quantifiers and PSPACE}
+  \textsc{TQBF} (True Quantified Boolean Formula) is the canonical
+  \textbf{PSPACE-complete} problem: decide if a fully-quantified Boolean formula is
+  true.
+  \[
+    \varphi \;=\; \exists x\, \forall y \; (x \lor y)
+  \]
+  \begin{itemize}
+    \item Try $x = \text{true}$: then $\forall y\,(\text{true} \lor y)$ is true for
+    \emph{every} $y$ (true, since $\text{true} \lor \text{anything} = \text{true}$).
+    \item So $x = \text{true}$ witnesses the outer $\exists$: $\varphi$ is
+    \textbf{true}. $\checkmark$
+  \end{itemize}
+  \begin{exampleblock}{Why this is PSPACE, not just NP}
+    Each quantifier can be evaluated by \emph{reusing} the same working memory for the
+    next one (recursion on formula structure), so only $O(n)$ space is needed --
+    but potentially exponentially many assignments get explored over time.
+    \textbf{Savitch's theorem} (1970) shows nondeterministic and deterministic
+    polynomial-\emph{space} classes coincide: $NPSPACE = PSPACE$.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Randomized classes: BPP, RP, and ZPP}
+  \begin{block}{BPP / RP / ZPP}
+    Problems solvable in polynomial time by an algorithm that flips coins, with
+    \textbf{two-sided error} (BPP), \textbf{one-sided error} (RP), or \textbf{zero
+    error but random running time} (ZPP $=$ RP $\cap$ coRP).
+  \end{block}
+  \begin{itemize}
+    \item Known: $\mathbf{P \subseteq ZPP \subseteq RP \subseteq BPP \subseteq PSPACE}$.
+    \item Widely \textbf{conjectured} (not proven) that $BPP = P$: every efficient
+    randomized algorithm can, in principle, be derandomized -- a major research theme
+    connecting complexity theory and pseudorandomness.
+    \item You will meet this whole family concretely in \textbf{Week 15} (randomized
+    algorithms): primality testing, randomized quicksort, min-cut.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example: Freivalds' algorithm (an RP-style check)}
+  \textbf{Problem:} given $n\times n$ matrices $A, B, C$, is $C = AB$? Computing $AB$
+  directly costs $O(n^\omega)$ (next section!). \textbf{Freivalds (1977):} pick a
+  random $r \in \{0,1\}^n$ and just check $A(Br) \overset{?}{=} Cr$ -- $O(n^2)$ time.
+  \[
+    A = \begin{pmatrix}1&2\\3&4\end{pmatrix},\;
+    B = \begin{pmatrix}5&6\\7&8\end{pmatrix},\;
+    C = \begin{pmatrix}19&22\\43&50\end{pmatrix} (= AB),\;
+    r = \begin{pmatrix}1\\1\end{pmatrix}
+  \]
+  \[
+    Br = \begin{pmatrix}11\\15\end{pmatrix}, \quad
+    A(Br) = \begin{pmatrix}1(11)+2(15)\\3(11)+4(15)\end{pmatrix} =
+    \begin{pmatrix}41\\93\end{pmatrix}, \quad
+    Cr = \begin{pmatrix}41\\93\end{pmatrix}. \; \checkmark
+  \]
+  Now suppose someone claims $C' = \left(\begin{smallmatrix}19&22\\43&51\end{smallmatrix}\right)$
+  (one wrong entry): $C'r = \binom{41}{94} \ne \binom{41}{93}$ -- \textbf{caught}.
+  \begin{exampleblock}{The guarantee}
+    If $AB \ne C$, a random $r$ catches it with probability $\ge \tfrac12$. Repeat $k$
+    times independently: error probability $\le 2^{-k}$.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Counting complexity: \#P and the permanent}
+  \begin{block}{\#P}
+    Instead of ``does a solution exist?'' (NP), \#P asks \textbf{``how many solutions
+    are there?''} -- e.g., \#SAT: how many satisfying assignments does $\varphi$ have?
+  \end{block}
+  For a $2\times 2$ matrix $M = \left(\begin{smallmatrix}a&b\\c&d\end{smallmatrix}\right)$,
+  compare two almost-identical-looking formulas:
+  \[
+    \det(M) = ad - bc \qquad \text{vs.} \qquad \mathrm{perm}(M) = ad + bc.
+  \]
+  With $M = \left(\begin{smallmatrix}2&1\\1&3\end{smallmatrix}\right)$:
+  $\det(M) = 6 - 1 = 5$, but $\mathrm{perm}(M) = 6 + 1 = 7$.
+  \begin{exampleblock}{A striking contrast}
+    $\det(M)$ is computable in polynomial time (Gaussian elimination, or the same
+    machinery as matrix multiplication, next section). Valiant (1979) proved computing
+    $\mathrm{perm}(M)$ exactly is \textbf{\#P-complete} -- provably as hard as counting
+    \emph{all} satisfying assignments of a SAT formula -- even though, for a 0/1 matrix,
+    the permanent is just ``the number of perfect matchings'' in a bipartite graph
+    (Weeks 10--11). Two formulas that differ only by a sign; wildly different
+    difficulty.
+  \end{exampleblock}
 \end{frame}
 
 \begin{frame}{P vs.\ NP: the \$1{,}000{,}000 question}
   \begin{itemize}
     \item $P$ vs.\ $NP$ is one of the seven \textbf{Clay Millennium Prize Problems}
-    (\$1{,}000{,}000 for a correct proof either way). Only one Millennium Problem has
-    been solved so far (the Poincar\'e conjecture, by Grigori Perelman, 2003).
+    (\$1{,}000{,}000 for a correct proof either way). Only one has been solved so far
+    (the Poincar\'e conjecture, by Grigori Perelman, 2003).
     \item Almost every theorist believes $P \ne NP$ -- but belief is not proof, and the
     problem has resisted every attack for over 50 years.
     \item \textbf{Why you should care as a 2nd-year student:} every time you face a new
@@ -196,6 +391,32 @@
   \end{itemize}
 \end{frame}
 
+\begin{frame}{Worked example: Strassen's seven products}
+  Let $A = \left(\begin{smallmatrix}1&2\\3&4\end{smallmatrix}\right)$,
+  $B = \left(\begin{smallmatrix}5&6\\7&8\end{smallmatrix}\right)$. Direct computation:
+  $AB = \left(\begin{smallmatrix}19&22\\43&50\end{smallmatrix}\right)$ (8 multiplications).
+  \textbf{Strassen's seven products:}
+  \begin{small}
+  \begin{align*}
+    p_1 &= a_{11}(b_{12}-b_{22}) = 1(6-8) = -2, &
+    p_2 &= (a_{11}+a_{12})b_{22} = 3(8) = 24, \\
+    p_3 &= (a_{21}+a_{22})b_{11} = 7(5) = 35, &
+    p_4 &= a_{22}(b_{21}-b_{11}) = 4(2) = 8, \\
+    p_5 &= (a_{11}+a_{22})(b_{11}+b_{22}) = 5(13) = 65, &
+    p_6 &= (a_{12}-a_{22})(b_{21}+b_{22}) = (-2)(15) = -30, \\
+    p_7 &= (a_{11}-a_{21})(b_{11}+b_{12}) = (-2)(11) = -22. & &
+  \end{align*}
+  \end{small}
+  \textbf{Combine (only additions from here):}
+  \[
+    c_{11} = p_5{+}p_4{-}p_2{+}p_6 = 19, \;\;
+    c_{12} = p_1{+}p_2 = 22, \;\;
+    c_{21} = p_3{+}p_4 = 43, \;\;
+    c_{22} = p_5{+}p_1{-}p_3{-}p_7 = 50.
+  \]
+  Matches $AB$ exactly $\checkmark$ -- using \textbf{7}, not 8, multiplications.
+\end{frame}
+
 \begin{frame}{The exponent $\omega$: a 50-year race}
   Define $\omega$ as the smallest exponent such that $n\times n$ matrices can be
   multiplied in $O(n^{\omega+\varepsilon})$ time for every $\varepsilon > 0$.
@@ -223,9 +444,8 @@
 
 \begin{frame}{A different question: the small-case puzzle}
   \begin{itemize}
-    \item Separately from the asymptotic race, there is a very concrete combinatorial
-    question: \textbf{exactly how many scalar multiplications are needed to multiply
-    two $4\times 4$ matrices?}
+    \item Separately from the asymptotic race: \textbf{exactly how many scalar
+    multiplications are needed to multiply two $4\times 4$ matrices?}
     \item Applying Strassen recursively to a $4\times 4$ matrix (as two levels of
     $2\times 2$ blocks) uses $7\times 7 = \mathbf{49}$ multiplications.
     \item For over 50 years, \textbf{49} was the best known scheme for $4\times 4$
@@ -286,6 +506,47 @@
   \end{exampleblock}
 \end{frame}
 
+\begin{frame}{Worked example: Dijkstra finalizes in sorted order}
+  \begin{columns}
+  \begin{column}{0.48\textwidth}
+  \begin{center}
+  \begin{tikzpicture}[
+      vtx/.style={circle, draw, thick, minimum size=7mm},
+      >=Stealth]
+    \node[vtx] (s) at (0,0) {$s$};
+    \node[vtx] (a) at (1.8,1.3) {$a$};
+    \node[vtx] (b) at (1.8,-1.3) {$b$};
+    \node[vtx] (t) at (3.6,0) {$t$};
+    \draw[->, thick] (s) -- node[pos=0.45,above,font=\small]{2} (a);
+    \draw[->, thick] (s) -- node[pos=0.45,below,font=\small]{5} (b);
+    \draw[->, thick] (a) -- node[pos=0.5,right,font=\small]{1} (b);
+    \draw[->, thick] (a) -- node[pos=0.45,above,font=\small]{7} (t);
+    \draw[->, thick] (b) -- node[pos=0.45,below,font=\small]{2} (t);
+  \end{tikzpicture}
+  \end{center}
+  \end{column}
+  \begin{column}{0.52\textwidth}
+  \small
+  \begin{tabular}{@{}clll@{}}
+    \toprule
+    Step & Finalize & Relax & New tentative dist. \\
+    \midrule
+    1 & $s$ (0) & $s\to a$, $s\to b$ & $a{=}2$, $b{=}5$ \\
+    2 & $a$ (2) & $a\to b$, $a\to t$ & $b{=}3$, $t{=}9$ \\
+    3 & $b$ (3) & $b\to t$ & $t{=}5$ \\
+    4 & $t$ (5) & -- & -- \\
+    \bottomrule
+  \end{tabular}
+  \end{column}
+  \end{columns}
+  \vspace{0.5em}
+  \begin{exampleblock}{This \emph{is} the sorting barrier}
+    Finalization order $s, a, b, t$ is exactly increasing distance order
+    $0 < 2 < 3 < 5$. Dijkstra's algorithm is, structurally, sorting the vertices by
+    distance as it goes -- so it cannot run faster than sorting allows.
+  \end{exampleblock}
+\end{frame}
+
 \begin{frame}{2024: Dijkstra is ``universally optimal''}
   \begin{itemize}
     \item Haeupler, Rozho\v{n}, T\v{e}tek, Hladík, and Tarjan (\textsc{FOCS} 2024 best
@@ -313,8 +574,8 @@
       \item Use short, bounded bursts of the (usually slow) \textbf{Bellman--Ford}
       algorithm to find ``influential'' hub vertices worth exploring next.
     \end{itemize}
-    \item Because vertices are no longer finalized in sorted order, the sorting lower
-    bound simply \textbf{does not apply} to this algorithm.
+    \item Because vertices are no longer finalized in sorted order (unlike our
+    $s,a,b,t$ example above), the sorting lower bound simply \textbf{does not apply}.
   \end{itemize}
 \end{frame}
 
@@ -355,6 +616,43 @@
     \item \textbf{Actually finding} such a coloring quickly is a different, much harder
     story.
   \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example: when is $\Delta+1$ actually necessary?}
+  \begin{columns}
+  \begin{column}{0.5\textwidth}
+  \centering \textbf{Star $K_{1,3}$}: $\Delta = 3$
+  \begin{tikzpicture}[vtx/.style={circle,draw,thick,minimum size=6mm}]
+    \node[vtx] (c) at (0,0) {};
+    \node[vtx] (l1) at (-1.1,0.9) {};
+    \node[vtx] (l2) at (0,1.3) {};
+    \node[vtx] (l3) at (1.1,0.9) {};
+    \draw[thick, red] (c) -- (l1);
+    \draw[thick, blue] (c) -- (l2);
+    \draw[thick, green!60!black] (c) -- (l3);
+  \end{tikzpicture}
+  \\[4pt] \footnotesize 3 colors suffice ($=\Delta$): \textbf{Class 1}
+  \end{column}
+  \begin{column}{0.5\textwidth}
+  \centering \textbf{Triangle $K_3$}: $\Delta = 2$
+  \begin{tikzpicture}[vtx/.style={circle,draw,thick,minimum size=6mm}]
+    \node[vtx] (x) at (0,0) {};
+    \node[vtx] (y) at (1.3,0) {};
+    \node[vtx] (z) at (0.65,1.1) {};
+    \draw[thick, red] (x) -- (y);
+    \draw[thick, blue] (y) -- (z);
+    \draw[thick, green!60!black] (z) -- (x);
+  \end{tikzpicture}
+  \\[4pt] \footnotesize \textbf{3} colors needed ($=\Delta+1$): \textbf{Class 2}
+  \end{column}
+  \end{columns}
+  \vspace{0.6em}
+  \begin{exampleblock}{Why the triangle needs an extra color}
+    Every pair of the triangle's 3 edges shares an endpoint, so \emph{all three} must
+    get different colors -- $\Delta=2$ colors are not enough. Vizing's theorem's
+    ``$+1$'' is sometimes unavoidable, and telling class 1 from class 2 graphs is
+    itself NP-hard in general.
+  \end{exampleblock}
 \end{frame}
 
 \begin{frame}{A 40-year plateau}
@@ -406,12 +704,13 @@
 
 \begin{frame}{Summary}
   \begin{enumerate}
-    \item \textbf{Complexity classes} (P, NP, NP-complete, NP-hard, PSPACE, EXP) give you
-    a vocabulary for asking ``how hard, provably, is this problem?'' -- $P$ vs.\ $NP$
-    remains the field's central open question.
-    \item \textbf{Matrix multiplication:} the asymptotic exponent $\omega$ keeps
-    inching down (2.807 $\to$ 2.371), and AI-assisted search (AlphaTensor,
-    AlphaEvolve) has now improved even the small, 55-year-old $4\times 4$ case.
+    \item \textbf{The complexity zoo} -- L, NL, P, NP, coNP, PSPACE, EXP (time/space),
+    plus BPP/RP/ZPP (randomness) and \#P (counting) -- gives you a vocabulary for
+    asking ``how hard, provably, is this problem, and with respect to what resource?''
+    \item \textbf{Matrix multiplication:} Strassen's 7-product trick generalizes to an
+    asymptotic exponent $\omega$ that keeps inching down (2.807 $\to$ 2.371), and
+    AI-assisted search (AlphaTensor, AlphaEvolve) has now improved even the small,
+    55-year-old $4\times 4$ case.
     \item \textbf{Shortest paths:} Dijkstra's algorithm was proved \emph{universally
     optimal} in 2024 -- and its worst-case bound was still \emph{beaten} in 2025, by
     an algorithm that refuses to sort. Both are correct; they optimize different things.
