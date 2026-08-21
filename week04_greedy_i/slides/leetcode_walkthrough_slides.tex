@@ -1,0 +1,473 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{From First Instinct to Optimal Algorithm: Greedy Exchange Arguments in Practice\\
+\small Week 4 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{A Framework for Attacking a New Greedy Problem}
+% =================================================================
+
+\begin{frame}{Why walk through LeetCode problems?}
+  \begin{itemize}
+    \item This week's \texttt{LEETCODE.md} list gives ten Week 4 problems to
+    \emph{practice on your own}. This deck \textbf{narrates the thinking process} for
+    two of them, so you can reuse the process on the rest.
+    \item We pick one \textcolor{blue!50!black}{\textbf{Medium}} (\emph{Non-overlapping
+    Intervals}) that is almost literally this week's lecture, and one
+    \textcolor{red!60!black}{\textbf{Hard}} (\emph{Course Schedule III}) that extends
+    this week's ``job sequencing with deadlines'' case study with a heap.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The four-step process we will repeat twice}
+  \begin{enumerate}
+    \item \textbf{First instinct.} Write down the algorithm that follows most directly
+    from re-reading the problem statement -- usually brute force or exhaustive search.
+    \item \textbf{Measure why it hurts.} Compute the actual complexity, plug in the
+    problem's constraints, and see the number blow up.
+    \item \textbf{Find the structural insight.} Almost always this is an
+    \emph{exchange argument}: show that a greedy choice can replace any part of an
+    optimal solution without making it worse.
+    \item \textbf{Implement the optimal algorithm}, trace it by hand, then look for the
+    \emph{programming-level} tricks that make the implementation itself correct and
+    fast.
+  \end{enumerate}
+  \begin{alertblock}{This mirrors the course}
+    Steps 1--3 are exactly this week's ``exchange argument'' proof template applied to
+    a new problem; step 4 is what turns a correct algorithm into working code.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Non-overlapping Intervals}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 435 -- Non-overlapping Intervals (\textcolor{blue!50!black}{Medium})}
+    Given an array of intervals \texttt{intervals[i] = [start\_i, end\_i]}, return the
+    \textbf{minimum number of intervals you need to remove} so that the rest of the
+    intervals are pairwise non-overlapping. Intervals that only touch at an endpoint
+    (e.g.\ $[1,2]$ and $[2,3]$) do \textbf{not} count as overlapping.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le n \le 10^5$.
+    \item Removing the fewest intervals to leave a compatible set is the same as
+    \textbf{keeping the most} intervals compatible -- i.e., this \emph{is} this week's
+    Interval Scheduling problem, with the answer reported as $n$ minus the optimum.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \begin{columns}
+  \begin{column}{0.46\textwidth}
+  \begin{center}
+  \begin{tikzpicture}[>=Stealth]
+    \draw[very thick] (0,3) -- (2,3) node[right,font=\scriptsize]{$[1,2]$};
+    \draw[very thick] (0,2) -- (3,2) node[right,font=\scriptsize]{$[1,3]$};
+    \draw[very thick, red, dashed] (2,2) -- (2,2.3);
+    \draw[very thick] (2,1) -- (3,1) node[right,font=\scriptsize]{$[2,3]$};
+    \draw[very thick] (3,0) -- (4,0) node[right,font=\scriptsize]{$[3,4]$};
+  \end{tikzpicture}
+  \end{center}
+  \end{column}
+  \begin{column}{0.54\textwidth}
+  \small
+  \texttt{intervals = [[1,2],[1,3],[2,3],[3,4]]}
+  \begin{itemize}
+    \item $[1,2]$, $[2,3]$, $[3,4]$ are mutually compatible (touching endpoints are
+    fine) -- a compatible set of size $3$.
+    \item $[1,3]$ overlaps both $[1,2]$ and $[2,3]$, so it cannot join that set.
+    \item \textbf{Answer:} remove just $[1,3]$ $\Rightarrow \boxed{1}$.
+  \end{itemize}
+  \end{column}
+  \end{columns}
+\end{frame}
+
+\begin{frame}{First instinct: search over subsets}
+  \begin{block}{Most direct reading of the problem}
+    ``Find the fewest removals'' $\Rightarrow$ try every subset of intervals, check
+    which subsets are pairwise compatible, keep the largest compatible subset, and
+    report $n$ minus its size.
+  \end{block}
+  \begin{algorithmic}[1]
+    \State $best \gets 0$
+    \For{each subset $S \subseteq \{1,\dots,n\}$}
+      \If{all pairs in $S$ are pairwise compatible}
+        \State $best \gets \max(best, |S|)$
+      \EndIf
+    \EndFor
+    \State \Return $n - best$
+  \end{algorithmic}
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item There are $2^n$ subsets, and checking pairwise compatibility of a subset of
+    size $k$ costs $O(k^2)$ $\Rightarrow$ total time is exponential, roughly
+    $O(2^n n^2)$ in the worst case.
+    \item At $n = 10^5$, $2^n$ is astronomically larger than the number of atoms in the
+    observable universe. This does not merely time out -- it is not computable in the
+    lifetime of the sun.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    ``Try every subset'' is almost never the intended solution to a LeetCode Medium.
+    When the problem is secretly asking for a \emph{maximum compatible subset of
+    intervals}, that is a named problem this course already solved -- go find the
+    lecture's algorithm instead of reinventing search.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item Minimizing removals $\equiv$ maximizing the compatible subset kept, and
+    \textbf{maximizing a compatible subset of intervals is exactly this week's
+    Interval Scheduling problem.}
+    \item This week's exchange argument already proved: sorting by \textbf{finish
+    time} and greedily keeping every interval compatible with everything kept so far
+    produces a maximum compatible set.
+    \item So the answer is simply $n - |\text{greedy's kept set}|$ -- no new proof
+    needed, just a direct application of today's theorem.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \begin{algorithmic}[1]
+    \Function{MinRemovals}{intervals}
+      \State sort intervals by end time ascending
+      \State $prevEnd \gets -\infty$;\ $kept \gets 0$
+      \For{$(s, e)$ in sorted intervals}
+        \If{$s \ge prevEnd$}
+          \State $kept \gets kept + 1$;\ $prevEnd \gets e$ \Comment{compatible: keep it}
+        \EndIf
+      \EndFor
+      \State \Return $n - kept$
+    \EndFunction
+  \end{algorithmic}
+  Cost: $O(n \log n)$ for the sort, $O(n)$ for the scan -- this week's exact bound.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{intervals = [[1,2],[1,3],[2,3],[3,4]]}, sorted by end: $[1,2],\,[1,3],\,[2,3],\,[3,4]$
+  (the two end-$3$ intervals may appear in either order).
+  \begin{center}
+  \begin{tabular}{@{}cccl@{}}
+    \toprule
+    interval & $s \ge prevEnd$? & action & $prevEnd$ after \\
+    \midrule
+    $[1,2]$ & $1 \ge -\infty$, yes & keep (1st kept) & $2$ \\
+    $[1,3]$ & $1 \ge 2$? no & \textbf{skip} (removed) & $2$ \\
+    $[2,3]$ & $2 \ge 2$, yes & keep (2nd kept) & $3$ \\
+    $[3,4]$ & $3 \ge 3$, yes & keep (3rd kept) & $4$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{exampleblock}{Answer}
+    $kept = 3$, $n = 4 \Rightarrow$ removals $= 4 - 3 = 1$ -- matches the expected
+    output.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & Idea \\
+    \midrule
+    Search over subsets & $O(2^n n^2)$ & try every compatible subset \\
+    \textbf{Sort by end time, greedy scan} & $\boldsymbol{O(n\log n)}$ & this week's
+    earliest-finish-time-first \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+def eraseOverlapIntervals(intervals):
+    intervals.sort(key=lambda iv: iv[1])   # sort by END time, not start time!
+    prev_end = float('-inf')
+    kept = 0
+    for start, end in intervals:
+        if start >= prev_end:              # compatible with everything kept so far
+            kept += 1
+            prev_end = end
+    return len(intervals) - kept
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Sort by end time, not start time.} The single most common bug on
+    this problem: sorting by \texttt{iv[0]} (start) instead of \texttt{iv[1]} (end).
+    The exchange-argument proof only holds for the finish-time ordering -- swap the
+    key and the algorithm silently returns a wrong (usually too-small) kept count on
+    inputs where it matters.
+    \item \textbf{The comparison must be \texttt{>=}, not \texttt{>}.} Touching
+    endpoints ($[1,2]$ then $[2,3]$) are compatible by this problem's definition.
+    Using strict \texttt{>} would incorrectly reject touching intervals -- an
+    off-by-one that only shows up on boundary test cases.
+    \item \textbf{Track only the last kept end time, not the whole kept set.} Because
+    intervals are processed in sorted order, one running scalar (\texttt{prev\_end})
+    is enough -- no need to store or re-scan the kept intervals, which is what keeps
+    this $O(n)$ after the sort instead of $O(n^2)$.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Course Schedule III}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 630 -- Course Schedule III (\textcolor{red!60!black}{Hard})}
+    You are given \texttt{courses[i] = [duration\_i, lastDay\_i]}: course $i$ takes
+    \texttt{duration\_i} consecutive days and must be \textbf{finished} on or before day
+    \texttt{lastDay\_i}. You take courses one at a time (no overlap), starting on day
+    $1$. Return the \textbf{maximum number of courses} you can take.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le n \le 10^4$.
+    \item This is exactly this week's \textbf{job sequencing with deadlines} case
+    study, generalized so each job's duration need not be $1$ -- and now the question
+    is ``how many,'' not ``how much profit.''
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \small
+  \texttt{courses = [[100,200],[1000,1250],[200,1300],[2000,3200]]}
+  \begin{itemize}
+    \item Sorted by deadline: $(100,200),\,(1000,1250),\,(200,1300),\,(2000,3200)$.
+    \item Taking the first three in that order costs $100+1000+200 = 1300$ days total,
+    which fits before the tightest of their three deadlines ($1300$).
+    \item The fourth course alone needs $2000$ more days on top of that -- pushing the
+    total to $3300 > 3200$, its own deadline. It cannot be added without dropping
+    something.
+    \item \textbf{Answer:} $3$ courses (drop the $2000$-day course).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: try every ordering}
+  \begin{block}{Most direct reading of the problem}
+    ``Which subset, taken in which order, fits?'' $\Rightarrow$ try every permutation
+    of every subset of courses, check feasibility (running total of durations never
+    exceeds the deadline of the course just placed), keep the largest feasible subset.
+  \end{block}
+  \begin{algorithmic}[1]
+    \State $best \gets 0$
+    \For{each subset $S$, each ordering $\pi$ of $S$}
+      \If{$\pi$ is feasible (cumulative duration $\le$ each course's deadline in
+      order)}
+        \State $best \gets \max(best, |S|)$
+      \EndIf
+    \EndFor
+    \State \Return $best$
+  \end{algorithmic}
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item There are up to $2^n$ subsets, each with up to $n!$ orderings to check.
+    \item At $n = 10^4$, this is not merely exponential -- it is
+    \emph{super-exponential}, hopelessly beyond any brute-force search.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice (again)}
+    ``Try every ordering'' ignores a fact this week's lecture already proved for a
+    close cousin of this problem: when jobs have deadlines, a fixed, simple ordering
+    rule (sort by deadline) is enough -- you never need to consider arbitrary
+    orderings.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item \textbf{Always take courses in increasing order of deadline.} Reordering two
+    selected courses so the earlier-deadline one goes first can only help feasibility
+    (an exchange argument identical in spirit to this week's minimizing-lateness proof)
+    -- so an optimal solution can always be rearranged into deadline order without
+    losing any courses.
+    \item Once the order is fixed, scan courses by deadline and greedily try to take
+    each one. If taking it would blow the running total past \emph{its own} deadline
+    (the tightest deadline seen so far, since we're in deadline order), the schedule is
+    over-subscribed -- and the best fix is to \textbf{drop whichever selected course
+    has the longest duration}: that frees the most time while only affecting a course
+    whose deadline is at least as loose.
+    \item This is a second exchange argument: swapping the longest-duration course out
+    for a shorter one never increases total time and never decreases the count of
+    courses taken.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{MaxCourses}{courses}
+      \State sort courses by $lastDay$ ascending
+      \State $H \gets$ empty max-heap (keyed by duration);\ $total \gets 0$
+      \For{$(duration, lastDay)$ in sorted courses}
+        \State $total \gets total + duration$;\ push $duration$ onto $H$
+        \If{$total > lastDay$}
+          \State $total \gets total - \Call{PopMax}{H}$ \Comment{drop the longest
+          course so far}
+        \EndIf
+      \EndFor
+      \State \Return $|H|$
+    \EndFunction
+  \end{algorithmic}
+  Cost: $O(n \log n)$ -- one heap push/pop per course.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{courses = [[100,200],[1000,1250],[200,1300],[2000,3200]]}, already sorted by
+  deadline.
+  \begin{center}
+  \begin{tabular}{@{}cccl@{}}
+    \toprule
+    course $(d, \ell)$ & $total$ after push & $> \ell$? & action \\
+    \midrule
+    $(100, 200)$ & $100$ & no & keep -- $H=\{100\}$ \\
+    $(1000, 1250)$ & $1100$ & no & keep -- $H=\{100,1000\}$ \\
+    $(200, 1300)$ & $1300$ & no ($1300 \le 1300$) & keep -- $H=\{100,1000,200\}$ \\
+    $(2000, 3200)$ & $3300$ & \textbf{yes} ($3300 > 3200$) & pop max ($2000$),
+    $total \gets 1300$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{exampleblock}{Answer}
+    $|H| = 3$ at the end -- the $2000$-day course is popped right back off the heap
+    it was just pushed onto, since it is (unsurprisingly) the longest course seen.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & Idea \\
+    \midrule
+    Subsets $\times$ orderings & super-exponential & $2^n \cdot n!$ candidates \\
+    \textbf{Sort by deadline + max-heap} & $\boldsymbol{O(n \log n)}$ & two exchange
+    arguments \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+import heapq
+
+def scheduleCourse(courses):
+    courses.sort(key=lambda c: c[1])   # sort by deadline (lastDay)
+    max_heap = []                       # Python heapq is a MIN-heap...
+    total = 0
+    for duration, last_day in courses:
+        total += duration
+        heapq.heappush(max_heap, -duration)   # ...so push -duration to simulate max
+        if total > last_day:
+            total += heapq.heappop(max_heap)  # pop the (negated) longest duration
+    return len(max_heap)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Python's \texttt{heapq} is a min-heap only.} The algorithm needs a
+    \emph{max}-heap of durations. The standard trick is to push the
+    \textbf{negated} duration (\texttt{-duration}); the smallest negated value is the
+    largest true value. Popping then gives \texttt{-heapq.heappop(...)} back, or --
+    as above -- simply \texttt{total += heapq.heappop(max\_heap)} directly, since
+    adding a negative number is the same as subtracting its absolute value.
+    \item \textbf{Sort key must be \texttt{lastDay} (index 1), not duration.} Sorting
+    by duration instead silently breaks the exchange-argument guarantee -- the
+    algorithm will still run and return \emph{a} number, just not always the right
+    one, which makes this bug easy to miss on small test cases.
+    \item \textbf{\texttt{len(max\_heap)} is the answer, not a separate counter.}
+    Because every kept course corresponds to exactly one surviving heap entry, the
+    heap's size after the scan already \emph{is} the count -- no need to maintain a
+    redundant counter that could drift out of sync with the heap.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: two problems, one lesson}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Non-overlapping Intervals} is not a new problem in disguise -- it
+    \emph{is} this week's Interval Scheduling problem, with the answer read off as
+    $n$ minus the greedy's kept count. Recognizing the disguise is the whole
+    difficulty.
+    \item \textbf{Course Schedule III} extends this week's job-sequencing-with-deadlines
+    case study: sort by deadline (exchange argument \#1), then use a second exchange
+    argument (always evict the longest-duration course when over budget) to keep the
+    schedule optimal with a single max-heap.
+    \item Both times, the naive instinct was combinatorial search (subsets, or
+    subsets-times-orderings); both times, an exchange argument identical in spirit to
+    today's lecture collapsed the search down to one sort and one linear/heap-based
+    scan.
+    \item The implementation tricks (sort key choice, \texttt{>=} vs.\ \texttt{>},
+    simulating a max-heap with negation) are a second, independent layer: getting the
+    proof right is necessary but not sufficient -- the code has to match the proof
+    exactly.
+  \end{enumerate}
+  \begin{alertblock}{Keep practicing}
+    \texttt{LEETCODE.md} lists eight more Week 4 problems (\emph{Merge Intervals},
+    \emph{Meeting Rooms II}, \emph{Gas Station}, \emph{Task Scheduler}, \dots) -- try
+    applying the same four-step process to each of them.
+  \end{alertblock}
+\end{frame}
+
+\end{document}
+

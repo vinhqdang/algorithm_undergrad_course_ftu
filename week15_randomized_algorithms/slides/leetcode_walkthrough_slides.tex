@@ -1,0 +1,545 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{Expected Time vs.\ Worst Case: Randomized Selection and Hashing in Practice\\
+\small Week 15 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{A Framework for Attacking a New Problem}
+% =================================================================
+
+\begin{frame}{Why walk through LeetCode problems?}
+  \begin{itemize}
+    \item This week's \texttt{LEETCODE.md} list has eight Medium problems and
+    \textbf{no} official Hard -- the same situation as Week 4. This deck picks the
+    best-fitting Medium and adds one well-known, correctly-rated Hard as a stretch
+    problem, exactly as Week 3 did with \emph{Critical Connections in a Network}.
+    \item We pick one \textcolor{blue!50!black}{\textbf{Medium}} (\emph{Kth Largest
+    Element in an Array}, via randomized Quickselect) and one
+    \textcolor{red!60!black}{\textbf{Hard}} (\emph{Longest Duplicate Substring}, via
+    binary search $+$ Rabin--Karp rolling hash) -- both built directly from this week's
+    lecture: \textbf{randomized partitioning} and \textbf{universal hashing}.
+    \item The crucial new distinction this week teaches, and that both problems will
+    force you to be precise about: \textbf{expected} time vs.\ \textbf{worst-case} time
+    are \emph{not} the same guarantee.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The four-step process we will repeat twice}
+  \begin{enumerate}
+    \item \textbf{First instinct.} Write down the algorithm that follows most directly
+    from re-reading the problem statement -- usually ``sort everything'' or
+    ``compare every pair.''
+    \item \textbf{Measure why it hurts.} Compute the actual complexity, plug in the
+    problem's constraints, and see the number blow up -- or see that it does
+    \emph{more work than the question actually asked for}.
+    \item \textbf{Find the structural insight.} A randomized choice (a random pivot, a
+    random-looking hash) that lets you avoid the wasted work \emph{in expectation},
+    even though no single run is guaranteed to avoid it.
+    \item \textbf{Implement the optimal algorithm}, trace it by hand on a small example,
+    then look for the \emph{programming-level} tricks that make the implementation
+    itself correct and fast.
+  \end{enumerate}
+  \begin{alertblock}{This mirrors the course}
+    Steps 1--3 are exactly this week's ``Las Vegas gambles with time, Monte Carlo
+    gambles with correctness'' framing; step 4 is what turns a correct algorithm into
+    working code.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Kth Largest Element in an Array}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 215 -- Kth Largest Element in an Array
+  (\textcolor{blue!50!black}{Medium})}
+    Given an integer array \texttt{nums} and an integer $k$, return the $k$-th
+    \textbf{largest} element (not the $k$-th distinct element).
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le k \le \texttt{nums.length} \le 10^5$,
+    $-10^4 \le \texttt{nums[i]} \le 10^4$.
+    \item The $k$-th largest of $n$ elements is exactly the $(n-k)$-th smallest in
+    $0$-indexed sorted order -- \textbf{this week's Quickselect}, computing one order
+    statistic instead of a full sort.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \small
+  \texttt{nums = [3,2,1,5,6,4]},\quad $k=2$ (2nd largest).
+  \begin{itemize}
+    \item Sorted ascending: $[1,2,3,4,5,6]$; sorted descending: $[6,5,4,3,2,1]$.
+    \item The 2nd largest is $5$ -- equivalently, the element at $0$-indexed position
+    $n-k = 6-2 = 4$ in ascending sorted order (value $5$, at index $4$).
+    \item \textbf{Answer:} $5$.
+  \end{itemize}
+  \begin{center}
+  \begin{tabular}{@{}c|cccccc@{}}
+    index (asc.\ sorted) & 0 & 1 & 2 & 3 & \textbf{4} & 5 \\
+    \midrule
+    value & 1 & 2 & 3 & 4 & \textbf{5} & 6 \\
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}{First instinct: sort everything}
+  \begin{block}{Most direct reading of the problem}
+    ``Return the $k$-th largest'' $\Rightarrow$ sort \texttt{nums}, then read off
+    \texttt{nums[n-k]} (ascending) or \texttt{nums[k-1]} (descending).
+  \end{block}
+  \begin{algorithmic}[1]
+    \Function{KthLargestNaive}{nums, $k$}
+      \State sort \texttt{nums} in ascending order
+      \State \Return $\texttt{nums}[\,n-k\,]$
+    \EndFunction
+  \end{algorithmic}
+  Cost: $O(n\log n)$ -- correct, and often exactly what a candidate writes first.
+\end{frame}
+
+\begin{frame}{Why this is wasteful (not wrong, wasteful)}
+  \begin{itemize}
+    \item Sorting computes \emph{every} order statistic -- the 1st largest, 2nd
+    largest, \dots, $n$-th largest -- when the problem only asked for \emph{one} of
+    them.
+    \item A min-heap of size $k$ improves this to $O(n\log k)$ (push each element,
+    pop when size $>k$, answer is the heap's minimum) -- better, but still pays a
+    $\log$ factor for information you don't need.
+    \item Both approaches impose a total order on data where the question only needs
+    ``one specific rank.''
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    Whenever a problem asks for \emph{one} order statistic (a median, a $k$-th
+    smallest/largest), full sorting is doing $\log n$ times more work than necessary.
+    That gap is exactly what randomized Quickselect closes.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item Partitioning around a pivot (this week's lecture) tells you, in one pass,
+    \emph{which side} the answer is on -- without needing to know the relative order of
+    everything on that side.
+    \item So recurse into \textbf{only one} side (unlike QuickSort, which recurses into
+    both), and a \textbf{random} pivot keeps the expected shrink factor bounded on
+    \emph{every} input, with no adversarial worst case for a fixed pivot rule.
+    \item This week's Theorem (Quickselect) proved this gives \textbf{expected}
+    $O(n)$ -- linear, not $O(n\log n)$, because you stop paying for the side you never
+    recurse into.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: partition step (Lomuto partition)}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{Partition}{$A$, left, right, pivotIdx}
+      \State swap $A[\text{pivotIdx}]$ and $A[\text{right}]$;\ pivot $\gets A[\text{right}]$
+      \State store $\gets$ left
+      \For{$i \gets$ left \textbf{to} right$-1$}
+        \If{$A[i] <$ pivot} swap $A[i], A[\text{store}]$;\ store $\gets$ store$+1$ \EndIf
+      \EndFor
+      \State swap $A[\text{store}], A[\text{right}]$;\ \Return store
+    \EndFunction
+  \end{algorithmic}
+  Partitions $A[\text{left}..\text{right}]$ around the chosen pivot in place: everything
+  $<$ pivot ends up left of \texttt{store}, the pivot lands exactly at \texttt{store}.
+\end{frame}
+
+\begin{frame}{Optimal algorithm: the selection driver}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{Select}{$A$, left, right, target}
+      \If{left $=$ right} \Return $A[\text{left}]$ \EndIf
+      \State pivotIdx $\gets$ random integer in $[\text{left}, \text{right}]$
+      \State store $\gets \Call{Partition}{A, \text{left}, \text{right}, \text{pivotIdx}}$
+      \If{target $=$ store} \Return $A[\text{store}]$
+      \ElsIf{target $<$ store} \Return $\Call{Select}{A,\text{left},\text{store}-1,\text{target}}$
+      \Else\ \Return $\Call{Select}{A,\text{store}+1,\text{right},\text{target}}$
+      \EndIf
+    \EndFunction
+  \end{algorithmic}
+  Expected $O(n)$ time -- this week's bound, with target $= n-k$. Only \textbf{one}
+  recursive call ever happens (unlike QuickSort's two).
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \scriptsize
+  \texttt{nums = [3,2,1,5,6,4]}, target $= n-k = 4$. (One concrete run; any pivot
+  sequence gives the same final answer.)
+  \begin{center}
+  \begin{tabular}{@{}c p{4.2cm} c p{3.5cm}@{}}
+    \toprule
+    call & array state before & pivot chosen & result \\
+    \midrule
+    Select(0,5,4) & $[3,2,1,5,6,4]$ & index $5$ (value $4$) & partition $\to$
+    $[3,2,1,4,6,5]$, pivot lands at index $3$; target $4>3$ \\
+    Select(4,5,4) & $[6,5]$ (indices $4,5$) & index $5$ (value $5$) & partition $\to$
+    $[5,6]$ at indices $4,5$; pivot lands at index $4$; target $4=4$: \textbf{return
+    $A[4]=5$} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{exampleblock}{Answer}
+    Two recursive calls, one side discarded each time -- returns $5$, matching the
+    2nd-largest element. Notice the first call never looked at the relative order of
+    indices $0,1,2$ once it knew the answer was on the other side.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & Guarantee \\
+    \midrule
+    Sort everything & $O(n\log n)$ & worst-case \\
+    Min-heap of size $k$ & $O(n\log k)$ & worst-case \\
+    \textbf{Randomized Quickselect} & $\boldsymbol{O(n)}$ & \textbf{expected} --
+    worst-case $O(n^2)$ \\
+    Deterministic (median-of-medians) & $O(n)$ & worst-case, but larger constants \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{alertblock}{The precise claim, stated carefully}
+    Randomized Quickselect is expected-linear on \emph{every} input, with no
+    adversarial case for a fixed pivot rule -- but any \emph{single} run can, with tiny
+    probability, still take $\Theta(n^2)$. This week's advances deck covers the fully
+    deterministic worst-case-$O(n)$ alternative (Blum--Floyd--Pratt--Rivest--Tarjan,
+    1973) if you need a hard guarantee instead of an expected one.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation (part 1: partition)}
+  \begin{lstlisting}[style=py]
+import random
+
+def findKthLargest(nums, k):
+    target = len(nums) - k          # 0-indexed rank of the k-th largest
+
+    def partition(left, right, pivot_index):
+        pivot = nums[pivot_index]
+        nums[pivot_index], nums[right] = nums[right], nums[pivot_index]
+        store = left
+        for i in range(left, right):
+            if nums[i] < pivot:
+                nums[i], nums[store] = nums[store], nums[i]
+                store += 1
+        nums[right], nums[store] = nums[store], nums[right]
+        return store
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation (part 2: select)}
+  \begin{lstlisting}[style=py]
+    def select(left, right):
+        if left == right:
+            return nums[left]
+        pivot_index = random.randint(left, right)
+        store = partition(left, right, pivot_index)
+        if target == store:
+            return nums[store]
+        if target < store:
+            return select(left, store - 1)
+        return select(store + 1, right)
+
+    return select(0, len(nums) - 1)
+  \end{lstlisting}
+  \vspace{0.5em}
+  \texttt{select} is nested inside \texttt{findKthLargest} purely so it can close over
+  \texttt{nums} and \texttt{target} without passing them explicitly each call.
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Select is tail-recursive -- turn it into a loop.} Unlike QuickSort,
+    Quickselect only ever recurses into \emph{one} side. That means the recursive call
+    can be replaced by simply updating \texttt{left}/\texttt{right} in a
+    \texttt{while} loop, eliminating recursion depth entirely -- important since an
+    adversarial (if unlucky) sequence of pivot draws can still recurse $\Theta(n)$
+    deep, risking a \texttt{RecursionError} at $n$ near Python's default limit.
+    \item \textbf{Partition in place, not with new lists.} The lecture's proof-friendly
+    pseudocode builds new lists $L=\{y<x\}$, $R=\{y>x\}$; a real implementation
+    partitions the \emph{same} array in place (as above) to avoid $O(n)$ allocations
+    per recursive call.
+    \item \textbf{\texttt{random.randint}, not a hand-rolled generator.} Python's
+    default \texttt{random} module (Mersenne Twister) is fast and statistically good
+    enough here; there is no reason to reach for \texttt{secrets} (cryptographic
+    randomness), which is slower and solves a different problem.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Longest Duplicate Substring}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 1044 -- Longest Duplicate Substring
+  (\textcolor{red!60!black}{Hard})}
+    Given a string $s$, return any substring that occurs at least twice in $s$
+    (occurrences may overlap) with the \textbf{longest} possible length. Return
+    \texttt{""} if no such substring exists.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $2 \le |s| \le 3\times10^4$, lowercase English
+    letters only.
+    \item This is a \textbf{static} question (unlike Problem 1's \emph{online} order
+    statistic) about a whole string -- and it is naturally attacked with this week's
+    \textbf{hashing} section, not partitioning.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \small
+  \texttt{s = "banana"} ($n=6$).
+  \begin{center}
+  \begin{tabular}{@{}c|cccccc@{}}
+    index & 0 & 1 & 2 & 3 & 4 & 5 \\
+    \midrule
+    char & b & a & n & a & n & a \\
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item Substring \texttt{"ana"} occurs at index $1$ (\texttt{s[1:4]}) \textbf{and}
+    index $3$ (\texttt{s[3:6]}) -- an \emph{overlapping} duplicate.
+    \item No length-$4$ substring repeats (\texttt{"bana"}, \texttt{"anan"},
+    \texttt{"nana"} are all distinct).
+    \item \textbf{Answer:} \texttt{"ana"} (length $3$).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: compare every pair of substrings}
+  \begin{block}{Most direct reading of the problem}
+    For each candidate length $L$ from $n-1$ down to $1$, look at every substring of
+    length $L$ and check whether it matches any other substring of the same length.
+  \end{block}
+  \begin{algorithmic}[1]
+    \For{$L \gets n-1$ \textbf{downto} $1$}
+      \For{each pair of start indices $i < j$ with $j + L \le n$}
+        \If{$s[i..i{+}L) = s[j..j{+}L)$} \Return $s[i..i{+}L)$ \EndIf
+      \EndFor
+    \EndFor
+  \end{algorithmic}
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item For a fixed $L$, comparing all $O(n)$ pairs of length-$L$ substrings costs
+    $O(n)$ comparisons $\times$ $O(L)$ per comparison $= O(nL)$.
+    \item Summed over all $n$ possible lengths $L$: $O(n^2 L_{\text{avg}}) = O(n^3)$
+    in the worst case.
+    \item Plug in the constraint $n = 3\times10^4$: $n^3 = 2.7\times10^{13}$ -- utterly
+    infeasible, even though the problem ``only'' asks about a string of length
+    $30{,}000$.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    ``Compare every substring against every other substring'' re-derives string
+    equality from scratch each time, throwing away the fact that most substrings share
+    huge overlapping prefixes with their neighbors. That redundancy is exactly what a
+    \textbf{rolling hash} removes.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item \textbf{Monotonicity.} If a duplicated substring of length $L$ exists, one of
+    length $L-1$ also exists (trim it) -- so ``does a duplicate of length $\ge L$
+    exist'' is a monotone yes/no question in $L$, and \textbf{binary search} finds the
+    largest feasible $L$ in $O(\log n)$ probes instead of trying every length.
+    \item \textbf{Rolling hash (Rabin--Karp), this week's universal-hashing idea.}
+    Treat each length-$L$ window as a base-$26$ number mod a large modulus; sliding the
+    window by one position updates the hash in $O(1)$ instead of rehashing $O(L)$
+    characters -- so one feasibility check, for a fixed $L$, costs $O(n)$ total.
+    \item Combined: $O(\log n)$ binary-search steps $\times\ O(n)$ per step
+    $= O(n\log n)$ -- versus the naive $O(n^3)$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \scriptsize
+  \texttt{s = "banana"}, $n=6$. Binary search $L$ over $[1, n-1] = [1,5]$.
+  \begin{center}
+  \begin{tabular}{@{}c c p{7.2cm}@{}}
+    \toprule
+    iteration & mid $L$ & feasibility check \\
+    \midrule
+    1 & $3$ & substrings \texttt{ban,ana,nan,ana}: index $3$'s \texttt{"ana"} repeats
+    index $1$'s $\Rightarrow$ \textbf{feasible}. Record \texttt{"ana"}; search $L>3$. \\
+    2 & $4$ & substrings \texttt{bana,anan,nana}: all distinct $\Rightarrow$
+    \textbf{infeasible}; search $L<4$. \\
+    -- & -- & range exhausted (lo$=4>$hi$=3$): stop \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{exampleblock}{Answer}
+    Two feasibility checks (not five, one per length) find the answer \texttt{"ana"} --
+    matching the expected output.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $n=3\times10^4$ \\
+    \midrule
+    Compare every substring pair, every length & $O(n^3)$ & $\sim 2.7\times10^{13}$
+    ops \\
+    \textbf{Binary search $+$ rolling hash} & $\boldsymbol{O(n\log n)}$ &
+    $\sim 4.5\times10^5$ ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{alertblock}{The precise claim, stated carefully}
+    A hash \emph{match} is a candidate, not a proof -- two different substrings can
+    collide. The implementation below always verifies with a direct string comparison
+    on a hash hit, so the algorithm is correct with certainty (Las Vegas in spirit),
+    not merely ``probably correct'' (Monte Carlo).
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation (part 1: the feasibility check)}
+  \begin{lstlisting}[style=py,aboveskip=0pt,belowskip=0pt,basicstyle=\ttfamily\tiny]
+def longestDupSubstring(s):
+    n = len(s)
+    nums = [ord(c) - ord('a') for c in s]
+    base, mod = 26, (1 << 32) - 1
+
+    def search(L):
+        h = 0
+        for i in range(L):
+            h = (h * base + nums[i]) % mod
+        seen = {h: [0]}
+        power = pow(base, L - 1, mod)          # precomputed once per call
+        for start in range(1, n - L + 1):
+            h = ((h - nums[start - 1] * power) * base
+                 + nums[start + L - 1]) % mod
+            if h in seen:
+                for j in seen[h]:
+                    if s[j:j + L] == s[start:start + L]:
+                        return start            # verified, not just hashed
+                seen[h].append(start)
+            else:
+                seen[h] = [start]
+        return -1
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation (part 2: the binary search driver)}
+  \begin{lstlisting}[style=py]
+    lo, hi, result = 1, n - 1, ""
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        start = search(mid)
+        if start != -1:
+            result = s[start:start + mid]
+            lo = mid + 1                       # duplicate found: try longer
+        else:
+            hi = mid - 1                       # none found: try shorter
+    return result
+  \end{lstlisting}
+  \vspace{0.5em}
+  \texttt{hi = n - 1}, not \texttt{n}: a duplicate needs two \emph{distinct} start
+  positions, so the longest possible duplicate has length $n-1$.
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Precompute the power once per length, not once per position.}
+    \texttt{power = pow(base, L-1, mod)} costs $O(\log L)$ via fast modular
+    exponentiation and is reused across all $n-L$ rolling updates -- computing it fresh
+    inside the loop would silently reintroduce an $O(n\log L)$ factor.
+    \item \textbf{Only slice strings on a hash \emph{hit}.} \texttt{s[j:j+L]} is
+    $O(L)$; calling it unconditionally on every position would erase the entire benefit
+    of rolling hashes. It is called only when two hashes already match -- rare, so the
+    amortized cost stays low.
+    \item \textbf{A fixed modulus like $2^{32}-1$ is convenient but not adversary-proof.}
+    Because it is a well-known constant, a maliciously constructed test string could in
+    principle be built to collide against it. This week's own \textbf{universal
+    hashing} idea (choose the hash function's parameters at random, or use a large
+    random prime modulus / double hashing) removes that risk -- exactly the same fix
+    that motivated universal hashing in lecture.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: two problems, one lesson}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Kth Largest Element} needs only \emph{one} order statistic --
+    randomized Quickselect answers it in expected $O(n)$ by recursing into only the
+    side that matters, instead of sorting (or heap-ordering) everything.
+    \item \textbf{Longest Duplicate Substring} needs a \emph{global} yes/no answer
+    about a whole string at many candidate lengths -- monotonicity turns that into a
+    binary search, and a rolling hash (this week's universal-hashing idea) makes each
+    check $O(n)$ instead of $O(n^2)$.
+    \item Both times, the naive instinct did \emph{more work than the question asked
+    for} (sorting everything; comparing every substring pair); both times, randomness
+    -- a random pivot, a random-looking hash -- let the algorithm skip the unnecessary
+    work \emph{in expectation}.
+    \item Both times, precision about the guarantee mattered: \textbf{expected} $O(n)$
+    for Quickselect (worst case $O(n^2)$, unless you pay median-of-medians' constants),
+    and a rolling hash that is correct \emph{with certainty} only because every match is
+    verified before being trusted.
+  \end{enumerate}
+  \begin{alertblock}{This closes out the course's LeetCode-walkthrough series}
+    \texttt{LEETCODE.md} lists seven more Week 15 problems (\emph{Shuffle an Array},
+    \emph{Random Pick with Weight}, \emph{Insert Delete GetRandom O(1)}, \dots) -- and
+    fourteen weeks of problems before them. The same four-step process applies to all
+    of them: find the naive approach, measure why it hurts, find the structural
+    insight, then mind the implementation details.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

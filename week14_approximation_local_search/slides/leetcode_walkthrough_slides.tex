@@ -1,0 +1,433 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{Binary Search on the Answer: Turning Optimization into a Bound\\
+\small Week 14 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{A Shared Idea: Binary Search on the Answer}
+% =================================================================
+
+\begin{frame}{The same bounding trick, in a new costume}
+  \begin{itemize}
+    \item This week's lecture unifying lesson was: never compute $\mathrm{OPT}$ directly
+    -- squeeze the algorithm against a quantity you \emph{can} reason about.
+    \item Both problems below are ``minimize the worst-case value $V$'' problems where
+    \textbf{feasibility at value $V$ is monotonic}: if $V$ works, every larger value also
+    works. That single fact turns an optimization problem into a fast decision problem,
+    and \textbf{binary search} does the rest -- no LP, no matching, no MST needed.
+    \item We pick one \textcolor{blue!50!black}{\textbf{Medium}} (\emph{Koko Eating
+    Bananas}) and one \textcolor{red!60!black}{\textbf{Hard}} (\emph{Split Array Largest
+    Sum}), both official Week 14 practice problems, and apply the same four-step process
+    used in Week 3: naive instinct $\to$ why it hurts $\to$ the monotonicity insight
+    $\to$ optimal algorithm and implementation tricks.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Koko Eating Bananas}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 875 -- Koko Eating Bananas (\textcolor{blue!50!black}{Medium})}
+    There are $n$ piles of bananas; pile $i$ has \texttt{piles[i]} bananas. Koko eats at
+    a constant integer speed of $k$ bananas/hour. Each hour she picks one pile and eats
+    $\min(k, \text{pile size})$ bananas from it (a pile smaller than $k$ finishes in that
+    hour without carrying leftover speed to another pile). Find the \textbf{minimum}
+    integer $k$ so she can finish all piles within $h$ hours.
+  \end{block}
+  Constraints (LeetCode): $1 \le n \le 10^4$, $1 \le \texttt{piles[i]} \le 10^9$,
+  $n \le h \le 10^9$.
+\end{frame}
+
+\begin{frame}{Worked example}
+  \texttt{piles = [3, 6, 7, 11], h = 8}
+  \begin{center}
+  \begin{tabular}{@{}lcccccc@{}}
+    \toprule
+    speed $k$ & pile 3 & pile 6 & pile 7 & pile 11 & total hours & fits in $h{=}8$? \\
+    \midrule
+    $3$ & $1$ & $2$ & $3$ & $4$ & $10$ & no \\
+    $4$ & $1$ & $2$ & $2$ & $3$ & $8$ & \textbf{yes} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Hours for a pile at speed $k$ is $\lceil \text{pile}/k \rceil$. \textbf{Answer:} $4$ --
+  the smallest speed for which the total is $\le h$.
+\end{frame}
+
+\begin{frame}{First instinct: scan every speed from 1 upward}
+  \begin{algorithmic}[1]
+    \For{$k \gets 1, 2, 3, \dots, \max(\texttt{piles})$}
+      \If{\Call{HoursNeeded}{piles, $k$} $\le h$}
+        \State \Return $k$
+      \EndIf
+    \EndFor
+  \end{algorithmic}
+  \begin{alertblock}{Why this is bad}
+    Each check costs $O(n)$. In the worst case you scan up to $\max(\texttt{piles})$
+    speeds. Plug in real constraints: $\texttt{piles[i]}$ up to $10^9$, $n$ up to $10^4$
+    $\Rightarrow$ up to $10^9 \times 10^4 = 10^{13}$ operations. This will never finish.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item Define $\mathrm{feasible}(k) = [\,\text{Koko finishes within } h \text{ hours
+    at speed } k\,]$. Increasing $k$ can only \emph{decrease or keep} the hours needed
+    for each pile ($\lceil p/k\rceil$ is non-increasing in $k$) -- so
+    $\mathrm{feasible}$ is \textbf{monotonic}: false, false, \dots, false, true, true,
+    \dots, true.
+    \item Finding the boundary of a monotonic boolean sequence is exactly what
+    \textbf{binary search} does, in $O(\log(\max(\texttt{piles})))$ probes instead of
+    $O(\max(\texttt{piles}))$ linear steps.
+    \item This is the same shape as this week's bounding technique: we never evaluate
+    every candidate $k$ -- we bound the search range and halve it every step.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: binary search on the answer}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{HoursNeeded}{piles, $k$}
+      \State \Return $\sum_{p\,\in\,\text{piles}} \lceil p / k \rceil$
+    \EndFunction
+    \Function{MinEatingSpeed}{piles, $h$}
+      \State $lo \gets 1$;\ $hi \gets \max(\text{piles})$
+      \While{$lo < hi$}
+        \State $mid \gets \lfloor (lo+hi)/2 \rfloor$
+        \If{\Call{HoursNeeded}{piles, $mid$} $\le h$}
+          \State $hi \gets mid$ \Comment{$mid$ works: the answer is $\le mid$}
+        \Else
+          \State $lo \gets mid+1$ \Comment{$mid$ fails: the answer is $> mid$}
+        \EndIf
+      \EndWhile
+      \State \Return $lo$
+    \EndFunction
+  \end{algorithmic}
+  Cost: $O(n \log(\max(\texttt{piles})))$.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{piles = [3, 6, 7, 11], h = 8} -- binary search for the feasibility boundary:
+  \begin{center}
+  \begin{tabular}{@{}ccccl@{}}
+    \toprule
+    step & $lo$ & $hi$ & $mid$ & hours at $mid$ / action \\
+    \midrule
+    1 & $1$ & $11$ & $6$ & $1{+}1{+}2{+}2{=}6 \le 8$: $hi \gets 6$ \\
+    2 & $1$ & $6$ & $3$ & $1{+}2{+}3{+}4{=}10 > 8$: $lo \gets 4$ \\
+    3 & $4$ & $6$ & $5$ & $1{+}2{+}2{+}3{=}8 \le 8$: $hi \gets 5$ \\
+    4 & $4$ & $5$ & $4$ & $1{+}2{+}2{+}3{=}8 \le 8$: $hi \gets 4$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  $lo = hi = 4$: loop ends. \textbf{Answer: $4$} -- matches the worked example.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $\max(\texttt{piles})=10^9,\,n=10^4$ \\
+    \midrule
+    Linear scan over $k$ & $O(n \cdot \max(\texttt{piles}))$ & $\sim 10^{13}$ ops \\
+    \textbf{Binary search on $k$} & $\boldsymbol{O(n \log(\max(\texttt{piles})))}$ &
+    $\sim 3\times 10^5$ ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+def minEatingSpeed(piles, h):
+    def hours_needed(k):
+        return sum(-(-p // k) for p in piles)   # ceil(p / k) without floats
+
+    lo, hi = 1, max(piles)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if hours_needed(mid) <= h:
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Ceiling division without floats.} \texttt{-(-p // k)} (or
+    \texttt{(p + k - 1) // k}) computes $\lceil p/k \rceil$ using only integer
+    arithmetic. \texttt{math.ceil(p / k)} looks equivalent but risks a wrong answer:
+    Python floats have $53$ bits of mantissa, and $p$ up to $10^9$ divided by a small
+    $k$ can round incorrectly at the boundary in rare cases -- pure integer arithmetic
+    sidesteps this entirely.
+    \item \textbf{The \texttt{hi = mid} vs.\ \texttt{hi = mid - 1} choice is not
+    cosmetic.} We are searching for the \emph{leftmost} $k$ where \texttt{feasible(k)}
+    is true, and $mid$ itself might already be that answer -- so on success we must
+    keep $mid$ in play (\texttt{hi = mid}), not discard it (\texttt{hi = mid - 1}, the
+    pattern used when searching for a value \emph{equal to} a target). Mixing up the two
+    binary-search templates is the single most common bug in this problem.
+    \item \texttt{hi = max(piles)} is a \emph{provably sufficient} upper bound (eating at
+    that speed finishes every pile in exactly one hour each) -- no need to guess a larger
+    bound.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Split Array Largest Sum}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 410 -- Split Array Largest Sum (\textcolor{red!60!black}{Hard})}
+    Given an integer array \texttt{nums} and an integer $m$, split \texttt{nums} into
+    exactly $m$ non-empty \textbf{contiguous} subarrays so as to \textbf{minimize the
+    largest sum} among the $m$ subarrays. Return that minimized largest sum.
+  \end{block}
+  Constraints (LeetCode): $1 \le n \le 1000$, $0 \le \texttt{nums[i]} \le 10^6$,
+  $1 \le m \le \min(50, n)$.
+\end{frame}
+
+\begin{frame}{Worked example}
+  \texttt{nums = [7, 2, 5, 10, 8], m = 2} -- every way to cut it into $2$ contiguous parts:
+  \begin{center}
+  \begin{tabular}{@{}ll@{}}
+    \toprule
+    split & part sums (largest) \\
+    \midrule
+    $[7] \mid [2,5,10,8]$ & $7,\ 25$ \ (largest $25$) \\
+    $[7,2] \mid [5,10,8]$ & $9,\ 23$ \ (largest $23$) \\
+    $[7,2,5] \mid [10,8]$ & $14,\ 18$ \ (largest $\mathbf{18}$) \\
+    $[7,2,5,10] \mid [8]$ & $24,\ 8$ \ (largest $24$) \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \textbf{Answer:} $18$ -- the split $[7,2,5]\,|\,[10,8]$ minimizes the largest part sum.
+\end{frame}
+
+\begin{frame}{First instinct: try every split, or DP over split points}
+  \begin{itemize}
+    \item \textbf{Pure brute force:} enumerate all $\binom{n-1}{m-1}$ ways to choose $m-1$
+    cut points among $n-1$ gaps, score each, keep the best. For $n=1000$, $m=50$ this is
+    astronomically large -- not even close to feasible.
+    \item \textbf{A better naive instinct -- DP:} let $f(i,j)$ be the best (minimized
+    largest-part) answer for splitting the first $i$ elements into $j$ parts:
+    \[
+      f(i,j) = \min_{k<i}\ \max\big(f(k,j-1),\ \text{sum}(k{+}1..i)\big).
+    \]
+    This is a legitimate polynomial algorithm, $O(n^2 m)$ with prefix sums. At
+    $n{=}1000, m{=}50$: $1000^2 \times 50 = 5\times 10^7$ -- survivable, but far more
+    work than necessary, and it is a genuinely different (harder to get right) algorithm
+    than the one below.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item Define $\mathrm{feasible}(L) = [\,\texttt{nums} \text{ can be split into} \le m
+    \text{ contiguous parts, each with sum} \le L\,]$. Larger $L$ can only make splitting
+    \emph{easier} (fewer parts needed) -- $\mathrm{feasible}$ is \textbf{monotonic} in
+    $L$, exactly like Koko's speed.
+    \item Checking $\mathrm{feasible}(L)$ needs no DP at all: greedily pack elements into
+    the current part until the \emph{next} element would push the sum over $L$, then
+    start a new part. Count the parts used; feasible iff that count $\le m$. This greedy
+    check is $O(n)$.
+    \item So: binary search over $L \in [\max(\texttt{nums}),\ \mathrm{sum}(\texttt{nums})]$
+    (a single part can never be smaller than the largest element, and can never need to
+    exceed the sum of everything), each probe an $O(n)$ greedy check.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: the $O(n)$ feasibility check}
+  \begin{algorithmic}[1]
+    \Function{Feasible}{nums, $m$, $L$}
+      \State $parts \gets 1$;\ $cur \gets 0$
+      \For{$x$ in nums}
+        \If{$cur + x > L$}
+          \State $parts \gets parts + 1$;\ $cur \gets x$ \Comment{start a new part}
+        \Else
+          \State $cur \gets cur + x$
+        \EndIf
+      \EndFor
+      \State \Return $parts \le m$
+    \EndFunction
+  \end{algorithmic}
+  Greedily pack elements into the current part until the next one would overflow it,
+  then start a new part -- count the parts used and compare to $m$.
+\end{frame}
+
+\begin{frame}{Optimal algorithm: binary search on the answer}
+  \begin{algorithmic}[1]
+    \Function{SplitLargestSum}{nums, $m$}
+      \State $lo \gets \max(\text{nums})$;\ $hi \gets \mathrm{sum}(\text{nums})$
+      \While{$lo < hi$}
+        \State $mid \gets \lfloor (lo+hi)/2 \rfloor$
+        \If{\Call{Feasible}{nums, $m$, $mid$}} $hi \gets mid$ \Else\ $lo \gets mid+1$
+        \EndIf
+      \EndWhile
+      \State \Return $lo$
+    \EndFunction
+  \end{algorithmic}
+  Cost: $O(n \log(\mathrm{sum}(\text{nums})))$ -- same shape as Koko's search, with a
+  greedy-packing feasibility check in place of a sum-of-ceilings check.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{nums = [7, 2, 5, 10, 8], m = 2} -- $lo = \max = 10$, $hi = \mathrm{sum} = 32$.
+  \begin{center}
+  \begin{tabular}{@{}ccccl@{}}
+    \toprule
+    step & $lo$ & $hi$ & $mid$ & parts needed at limit $mid$ / action \\
+    \midrule
+    1 & $10$ & $32$ & $21$ & $[7,2,5],[10,8]$: $2$ parts $\le 2$: $hi \gets 21$ \\
+    2 & $10$ & $21$ & $15$ & $[7,2,5],[10],[8]$: $3$ parts $> 2$: $lo \gets 16$ \\
+    3 & $16$ & $21$ & $18$ & $[7,2,5],[10,8]$: $2$ parts $\le 2$: $hi \gets 18$ \\
+    4 & $16$ & $18$ & $17$ & $[7,2,5],[10],[8]$: $3$ parts $> 2$: $lo \gets 18$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  $lo = hi = 18$: loop ends. \textbf{Answer: $18$} -- matches the worked example.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $n=1000,\,m=50$ \\
+    \midrule
+    Brute-force enumerate cut points & $O\big(\binom{n-1}{m-1}\big)$ & astronomical \\
+    DP over split points & $O(n^2 m)$ & $\sim 5\times 10^7$ ops \\
+    \textbf{Binary search + greedy check} & $\boldsymbol{O(n\log(\mathrm{sum}))}$ &
+    $\sim 3\times 10^4$ ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Binary search is not just faster here -- it is also a \emph{simpler} algorithm to
+  implement correctly than the $O(n^2m)$ DP.
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+def splitArray(nums, m):
+    def feasible(limit):
+        parts, cur = 1, 0
+        for x in nums:
+            if cur + x > limit:
+                parts += 1
+                cur = x
+                if parts > m:          # early exit: already infeasible
+                    return False
+            else:
+                cur += x
+        return True
+
+    lo, hi = max(nums), sum(nums)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if feasible(mid):
+            hi = mid
+        else:
+            lo = mid + 1
+    return lo
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Early exit inside the greedy check.} The moment \texttt{parts > m}, the
+    rest of the array cannot rescue feasibility -- returning immediately (line 9 above)
+    avoids scanning the remaining elements. On adversarial inputs (e.g.\ every element
+    forces a new part) this turns a wasted full pass into an early bailout.
+    \item \textbf{Check \texttt{parts > m} \emph{after} incrementing, not before.} A
+    common off-by-one bug is comparing \texttt{parts} to \texttt{m} before the increment
+    that just happened -- that silently allows one extra part.
+    \item \texttt{lo = max(nums)}, not \texttt{lo = 0} or \texttt{lo = 1}. A limit smaller
+    than the largest single element can \emph{never} be feasible (that element alone
+    would overflow its part), so starting the search range there is not just an
+    optimization -- it rules out probing values that would waste a whole $O(n)$ feasibility
+    check only to learn something already known for free.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: one trick, two problems}
+  \footnotesize
+  \begin{enumerate}
+    \item Both problems ask ``minimize the worst-case value of something,'' and both have
+    a \textbf{monotonic feasibility test}: once a candidate value works, every larger
+    value also works -- check for this before reaching for the technique.
+    \item The pattern is always the same: (a) find a provably sufficient $[lo, hi]$
+    range, (b) write an $O(n)$-ish \texttt{feasible(mid)} check (often a small greedy
+    algorithm, as in Split Array), (c) binary-search using the \emph{``does $mid$
+    work?''} template (\texttt{hi = mid} on success), never the \emph{``equals the
+    target?''} template.
+    \item Same unifying idea as this week's approximation proofs: avoid computing
+    $\mathrm{OPT}$ directly, bound it and squeeze -- here the ``bound'' is a candidate
+    answer, and binary search is the squeeze.
+    \item The DP alternative for Split Array is a reminder that a \emph{correct,
+    polynomial} algorithm is not automatically the \emph{simplest} one; monotonic
+    structure can replace a whole DP table with a dozen lines of binary search.
+  \end{enumerate}
+  \begin{alertblock}{Keep practicing}
+    \texttt{LEETCODE.md} lists more Week 14 problems that reuse this exact technique
+    (\emph{Minimize Max Distance to Gas Station}, \emph{Minimize the Maximum Difference of
+    Pairs}) plus others that need different tools (\emph{Maximum Performance of a Team},
+    \emph{Smallest Sufficient Team}, \emph{Minimum Number of Arrows to Burst Balloons}) --
+    try spotting which category each one falls into before you start coding.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,410 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{From First Instinct to Optimal Algorithm: Dynamic Programming in Practice\\
+\small Week 8 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{A Framework for Attacking a New DP Problem}
+% =================================================================
+
+\begin{frame}{Why walk through LeetCode problems?}
+  \begin{itemize}
+    \item This week's \texttt{LEETCODE.md} list gives ten Week 8 problems to practice
+    on your own. This deck narrates the thinking process for two of them, end to end,
+    so you can reuse it on the rest.
+    \item We pick one \textcolor{blue!50!black}{\textbf{Medium}} (\emph{Coin Change} --
+    unbounded knapsack) and one \textcolor{red!60!black}{\textbf{Hard}} (\emph{Maximum
+    Profit in Job Scheduling} -- weighted interval scheduling, this week's \emph{other}
+    lecture topic, revisited).
+    \item Both times the naive instinct is the same one the lecture already warned
+    about: a recursive solution with \textbf{overlapping subproblems} that recomputes
+    the same answer over and over -- exactly the Fibonacci blow-up from this week's
+    notes.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The four-step process we will repeat twice}
+  \begin{enumerate}
+    \item \textbf{First instinct.} Write the recursive recurrence that follows directly
+    from the problem statement, with no memoization.
+    \item \textbf{Measure why it hurts.} Count how many times the same subproblem gets
+    recomputed, and see the exponential blow-up.
+    \item \textbf{Find the structural insight.} Identify the \emph{subproblem} (this
+    week's step 1 of the 5-step DP recipe) whose optimal-substructure recurrence
+    (step 2) lets one pass fill every value exactly once.
+    \item \textbf{Implement the optimal algorithm}, trace the DP table by hand on a
+    small example, then look for the programming-level tricks that make the
+    implementation itself correct and fast.
+  \end{enumerate}
+  \begin{alertblock}{This mirrors the course}
+    Steps 1--3 are exactly this week's ``define the subproblem, write the recurrence,
+    analyze the cost'' recipe; step 4 is what turns a correct recurrence into working
+    code.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Coin Change}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 322 -- Coin Change (\textcolor{blue!50!black}{Medium})}
+    You are given coin denominations \texttt{coins} (an unlimited supply of each) and a
+    target \texttt{amount}. Return the \textbf{fewest} coins needed to make up
+    \texttt{amount}, or $-1$ if it cannot be made up at all.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le \texttt{coins.length} \le 12$,
+    $1 \le \texttt{amount} \le 10^4$.
+    \item This is exactly the \textbf{unbounded knapsack} variant this week's lecture
+    covers under ``Coin change: minimum number of coins.''
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \begin{block}{\texttt{coins = [1, 2, 5]}, \texttt{amount = 11}}
+    \textbf{Answer: 3} -- e.g.\ $5+5+1 = 11$ using three coins. (Also $5+2+2+2=11$ uses
+    four -- more, so it's not optimal.)
+  \end{block}
+  \begin{itemize}
+    \item Greedy ``always take the largest coin that fits'' happens to work for US
+    coinage but is not correct in general (e.g.\ \texttt{coins=[1,3,4]},
+    \texttt{amount=6}: greedy gives $4+1+1=3$ coins, but $3+3=2$ coins is better). We
+    need an algorithm that is \emph{provably} optimal for \emph{any} coin set.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: recurse on ``which coin last?''}
+  \begin{block}{Most direct reading of the problem}
+    $\textsc{MinCoins}(a) = 1 + \min_{c \,\in\, \texttt{coins},\, c \le a}
+    \textsc{MinCoins}(a-c)$, with $\textsc{MinCoins}(0)=0$.
+  \end{block}
+  \begin{algorithmic}[1]
+    \Function{MinCoins}{$a$}
+      \If{$a = 0$} \Return $0$ \EndIf
+      \If{$a < 0$} \Return $\infty$ \EndIf
+      \State \Return $1 + \min_{c \in \texttt{coins}} \Call{MinCoins}{a - c}$
+    \EndFunction
+  \end{algorithmic}
+  This is a direct transcription of the problem -- and it is \textbf{correct}.
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item \texttt{MinCoins(11)} calls \texttt{MinCoins(10)}, \texttt{MinCoins(9)},
+    \texttt{MinCoins(6)}; \texttt{MinCoins(10)} \emph{also} calls \texttt{MinCoins(9)}
+    and \texttt{MinCoins(8)} and \texttt{MinCoins(5)} -- the same smaller amounts get
+    recomputed from many different paths.
+    \item This is \textbf{exactly} the overlapping-subproblems blow-up this week's
+    notes illustrate with Fibonacci ($F(n)$ makes $2F(n+1)-1$ calls without
+    memoization). Here the branching factor is $|\texttt{coins}|$ and the depth is up
+    to \texttt{amount}, so the call count grows like $|\texttt{coins}|^{\texttt{amount}}$
+    in the worst case.
+    \item At \texttt{amount} $=10^4$ this is not a slowdown -- it is astronomically
+    infeasible.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    Whenever a recursion's arguments repeat across different call paths, that is the
+    signature of overlapping subproblems -- memoize by that argument.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item There are only \texttt{amount}$+1$ \emph{distinct} subproblems
+    ($a = 0, 1, \dots, \texttt{amount}$), each doing $O(|\texttt{coins}|)$ work once its
+    smaller answers are known.
+    \item \textbf{Subproblem (step 1 of this week's recipe):} $dp[a]$ = fewest coins to
+    make amount $a$.
+    \item \textbf{Recurrence (step 2):} $dp[a] = 1 + \min_{c \le a} dp[a-c]$,
+    $dp[0]=0$, evaluated bottom-up for $a = 1, \dots, \texttt{amount}$ so every smaller
+    value is already known -- no recomputation, ever.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \scriptsize
+  \texttt{coins = [1, 2, 5]} -- $dp[a]$ for $a = 0, \dots, 11$ (bottom-up):
+  \begin{center}
+  \begin{tabular}{@{}c*{12}{c}@{}}
+    \toprule
+    $a$ & 0 & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 \\
+    \midrule
+    $dp[a]$ & 0 & 1 & 1 & 2 & 2 & 1 & 2 & 2 & 3 & 3 & 2 & \textbf{3} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item $dp[5]=1$ (one 5-coin) is what makes $dp[10]=2$ ($5+5$) and, in turn,
+    $dp[11] = 1+dp[10] = 1 + 2 = 3$ ($5+5+1$) beat $1+dp[9]=4$ and $1+dp[6]=3$ (tied,
+    both valid optimal decompositions).
+    \item Result: $dp[11] = 3$, matching the expected answer.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At \texttt{amount}$=10^4$ \\
+    \midrule
+    Unmemoized recursion & $O(|\texttt{coins}|^{\texttt{amount}})$ & astronomically
+    infeasible \\
+    \textbf{Bottom-up DP} & $\boldsymbol{O(\texttt{amount}\times|\texttt{coins}|)}$ &
+    $\le 1.2\times10^5$ ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Exactly the same shape of improvement as this week's Knapsack DP: exponential
+  recursion collapses to (number of subproblems) $\times$ (work per subproblem) once
+  each subproblem is solved only once.
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+def coinChange(coins, amount):
+    INF = amount + 1                  # sentinel: "not (yet) reachable"
+    dp = [0] + [INF] * amount         # dp[a] = fewest coins for amount a
+
+    for a in range(1, amount + 1):
+        for c in coins:
+            if c <= a:
+                dp[a] = min(dp[a], dp[a - c] + 1)
+
+    return dp[amount] if dp[amount] != INF else -1
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Sentinel choice: \texttt{amount + 1}, not \texttt{float('inf')}.}
+    \texttt{amount+1} is already larger than any valid answer (which is at most
+    \texttt{amount}, using all 1-coins), and unlike \texttt{float('inf')} it stays an
+    \texttt{int}, so \texttt{dp[a-c] + 1} never silently becomes a float.
+    \item \textbf{Iterative DP, not memoized recursion, for the same reason as
+    Week 3's Union-Find.} A recursive \texttt{@lru\_cache} version recurses to depth
+    \texttt{amount} in the worst case (e.g.\ \texttt{coins=[1]}); at
+    \texttt{amount}$=10^4$ that exceeds Python's default recursion limit
+    ($\approx 1000$) and crashes. The bottom-up loop has no such limit.
+    \item \textbf{Loop order doesn't matter here, but it would for ``Coin Change II.''}
+    Because each coin can be reused arbitrarily (unbounded knapsack), iterating
+    \texttt{amount} outside and \texttt{coins} inside is safe. In the closely related
+    \emph{counting} problem (number of \emph{combinations}, not permutations), swapping
+    the loop order changes the answer -- a classic, easy-to-miss bug.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Maximum Profit in Job Scheduling}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 1235 -- Maximum Profit in Job Scheduling
+  (\textcolor{red!60!black}{Hard})}
+    You are given \texttt{n} jobs, each with a \texttt{startTime}, \texttt{endTime}, and
+    \texttt{profit}. You may schedule any subset of \textbf{non-overlapping} jobs
+    (job $A$ and job $B$ don't overlap if $A$'s end $\le$ $B$'s start, or vice versa).
+    Return the \textbf{maximum total profit}.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le n \le 5\times10^4$.
+    \item This is \textbf{exactly} this week's other lecture topic -- Weighted Interval
+    Scheduling -- with \texttt{profit} playing the role of $w_j$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \begin{block}{\texttt{startTime=[1,2,3,3]}, \texttt{endTime=[3,4,5,6]},
+  \texttt{profit=[50,10,40,70]}}
+    \textbf{Answer: 120} -- take job $1$ ($[1,3)$, profit $50$) and job $4$ ($[3,6)$,
+    profit $70$): they don't overlap ($3 \le 3$), total $50+70=120$. Any other
+    combination scores less (e.g.\ job $3$ alone plus job $4$ overlaps, since $3 < 5$
+    is not $\le 3$).
+  \end{block}
+\end{frame}
+
+\begin{frame}{First instinct, and why the naive version is bad}
+  \small
+  \begin{block}{Most direct reading of the problem}
+    Try every subset of jobs, keep the non-overlapping ones with maximum profit sum.
+  \end{block}
+  \begin{itemize}
+    \item That is $O(2^n)$ -- utterly infeasible at $n = 5\times10^4$.
+    \item Even the ``obviously smarter'' fix -- sort by end time, then for each job
+    scan \emph{all previous} jobs to find the latest one that ends before it starts --
+    is a real DP (correct!), but costs $O(n)$ per job for that scan, so
+    $O(n^2)$ total. At $n=5\times10^4$ that's $2.5\times10^9$ operations: still too
+    slow.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    A DP whose recurrence is right but whose \emph{per-subproblem} work is a linear
+    scan is a sign that the scan itself can probably be replaced by a binary search --
+    exactly this week's lecture on Weighted Interval Scheduling.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item Sort jobs by \textbf{end time}. Define $p(j)$ = the largest index $i < j$
+    with $\text{end}_i \le \text{start}_j$ (the latest job compatible with $j$).
+    \item \textbf{Subproblem:} $M[j]$ = max profit using only jobs $1,\dots,j$.
+    \item \textbf{Recurrence:} $M[j] = \max\big(M[j-1],\ \text{profit}_j + M[p(j)]\big)$
+    -- either skip job $j$, or take it and add the best profit compatible with it.
+    \item Because jobs are sorted by end time, $p(j)$ is exactly ``the rightmost
+    already-processed end time that is $\le \text{start}_j$'' -- a \textbf{binary
+    search} into the (already sorted) array of end times, in $O(\log n)$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  Sorted by end time: job1$(1,3,50)$, job2$(2,4,10)$, job3$(3,5,40)$, job4$(3,6,70)$.
+  \begin{center}
+  \begin{tabular}{@{}cccccl@{}}
+    \toprule
+    $j$ & start$_j$ & profit$_j$ & $p(j)$ & $M[j]$ & reasoning \\
+    \midrule
+    1 & 1 & 50 & 0 & $50$ & $\max(M[0]{=}0,\ 50+M[0]{=}50)$ \\
+    2 & 2 & 10 & 0 & $50$ & $\max(M[1]{=}50,\ 10+M[0]{=}10)$ \\
+    3 & 3 & 40 & 1 & $90$ & $\max(M[2]{=}50,\ 40+M[1]{=}90)$ \\
+    4 & 3 & 70 & 1 & \textbf{120} & $\max(M[3]{=}90,\ 70+M[1]{=}120)$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  $p(3)=p(4)=1$ because job1 is the latest job ending at or before start $3$.
+  Result: $M[4] = 120$, matching the expected answer.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $n=5\times10^4$ \\
+    \midrule
+    Try all subsets & $O(2^n)$ & infeasible \\
+    DP with linear scan for $p(j)$ & $O(n^2)$ & $\sim 2.5\times10^9$ ops \\
+    \textbf{DP with binary search for $p(j)$} & $\boldsymbol{O(n\log n)}$ &
+    $\sim 8\times10^5$ ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Same $O(n\log n)$ bound as this week's lecture proves for Weighted Interval
+  Scheduling in general.
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+from bisect import bisect_right
+
+def jobScheduling(startTime, endTime, profit):
+    jobs = sorted(zip(endTime, startTime, profit))   # sort by end time
+    ends = [e for e, s, p in jobs]                   # already sorted, reused below
+
+    n = len(jobs)
+    M = [0] * (n + 1)                # M[j] = best profit using jobs[0:j]
+    for j in range(1, n + 1):
+        end_j, start_j, profit_j = jobs[j - 1]
+        i = bisect_right(ends, start_j, 0, j - 1)     # p(j): jobs[0:i] all end <= start_j
+        M[j] = max(M[j - 1], profit_j + M[i])
+
+    return M[n]
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Sort the three parallel arrays \emph{together}.} A common bug is
+    sorting \texttt{endTime} alone and forgetting to permute \texttt{startTime} and
+    \texttt{profit} to match. Zipping all three into tuples before sorting makes this
+    impossible to get wrong.
+    \item \textbf{Reuse \texttt{bisect\_right} instead of hand-rolling binary search.}
+    \texttt{bisect\_right(ends, start\_j, 0, j-1)} directly returns the count of already
+    -processed jobs whose end time is $\le \text{start}_j$ -- which \emph{is} $p(j)$ in
+    this 1-indexed $M$ array, with zero off-by-one arithmetic to get wrong.
+    \item \textbf{The bound \texttt{0, j-1} matters.} Searching only the \emph{prefix}
+    already sorted by end time (jobs $1,\dots,j-1$) is both correct and avoids
+    accidentally matching a later job that happens to share the same end time as job
+    $j$ itself.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: two problems, one lesson}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Coin Change} is unbounded knapsack: the naive recursion recomputes
+    the same amount from many paths (this week's Fibonacci warning, restated), and
+    bottom-up DP fixes it in $O(\texttt{amount}\times|\texttt{coins}|)$.
+    \item \textbf{Maximum Profit in Job Scheduling} is Weighted Interval Scheduling with
+    a different name: the DP recurrence is already optimal, but a linear scan for
+    $p(j)$ silently costs $O(n^2)$ -- replacing it with binary search recovers the
+    lecture's $O(n\log n)$ bound.
+    \item Both times, the naive instinct was correct but wasteful, in the \emph{exact}
+    shape this week's 5-step DP recipe predicts: define the subproblem, write the
+    recurrence, and only then does the running time become (subproblems) $\times$
+    (work per subproblem) -- and that per-subproblem work is itself worth optimizing.
+    \item The implementation tricks (integer sentinels, iterative not recursive DP,
+    \texttt{bisect} instead of hand-rolled search) are a second, independent layer:
+    even an asymptotically optimal recurrence can fail in practice if the code hits
+    language-level limits or off-by-one errors.
+  \end{enumerate}
+  \begin{alertblock}{Keep practicing}
+    \texttt{LEETCODE.md} lists eight more Week 8 problems (\emph{House Robber},
+    \emph{Partition Equal Subset Sum}, \emph{Target Sum}, \emph{Ones and Zeroes},
+    \dots) -- try applying the same four-step process to each of them.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

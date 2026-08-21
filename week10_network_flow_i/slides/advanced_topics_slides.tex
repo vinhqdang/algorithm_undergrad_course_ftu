@@ -1,0 +1,251 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\title{Beyond the Syllabus}
+\subtitle{Network Flow: The 66-Year Race Toward Almost-Linear Time\\
+\small Week 10 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \begin{itemize}
+    \item This week you proved that Edmonds-Karp -- Ford-Fulkerson augmenting along
+    \emph{shortest} paths -- runs in $O(VE)$ augmentations, each costing $O(E)$ for the
+    BFS, for a total of $O(VE^2)$: polynomial, and independent of the edge capacities.
+    \item A natural question the lecture doesn't answer: \textbf{is $O(VE^2)$ close to
+    the best possible, or is there room for a much faster algorithm?}
+    \item The honest answer is startling: as of this decade, max-flow can be solved in
+    time that is \textbf{almost linear} in the size of the input -- a bound that seemed
+    out of reach for the 60+ years between Ford-Fulkerson (1956) and 2022.
+  \end{itemize}
+  \begin{alertblock}{How this supplement is different from a survey}
+    We trace the \emph{actual sequence of ideas} -- not just headline numbers -- from
+    this week's $O(VE^2)$ up to $m^{1+o(1)}$, with every specific bound and year sourced
+    to a real, checkable paper.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{Why $O(VE^2)$ actually hurts at scale}
+  \small
+  Plug in graph sizes you'd meet in practice (web-scale routing, large logistics
+  networks) and compare $O(VE^2)$ against ``almost linear'' ($m^{1+\epsilon}$ for tiny
+  $\epsilon$, where $m \approx V \approx E$ here for simplicity):
+  \begin{center}
+  \begin{tabular}{@{}rrr@{}}
+    \toprule
+    $V = E = m$ & $VE^2 = m^3$ & $m^{1.01}$ (illustrative ``almost linear'') \\
+    \midrule
+    $10^3$ & $10^9$ & $\approx 1.1\times10^3$ \\
+    $10^4$ & $10^{12}$ & $\approx 1.1\times10^4$ \\
+    $10^6$ & $10^{18}$ & $\approx 1.4\times10^6$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{exampleblock}{The gap}
+    At $m=10^6$, $O(VE^2)=10^{18}$ operations is not just slow -- it is
+    \emph{physically uncomputable} in a human lifetime on any real machine, while
+    $m^{1.01}$ is finished before you can blink. This is the gap the algorithms below
+    close.
+  \end{exampleblock}
+\end{frame}
+
+% =================================================================
+\section{A 70-Year Timeline}
+% =================================================================
+
+\begin{frame}{From Ford-Fulkerson to almost-linear time}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Year & Algorithm & Bound \\
+    \midrule
+    1956 & Ford--Fulkerson & finite, but not polynomial in $n,m$ alone \\
+    1972 & \textbf{Edmonds--Karp (this week)} & $O(VE^2)$ \\
+    1998 & Goldberg--Rao & $O\big(m\min(\sqrt{m}, n^{2/3})\log\tfrac{n^2}{m}\log U\big)$ \\
+    2022 & Chen, Kyng, Liu, Peng, Probst Gutenberg, Sachdeva & $m^{1+o(1)}$ (randomized) \\
+    2023 & van den Brand \emph{et al.} & $m^{1+o(1)}$ (\textbf{deterministic}) \\
+    2025 & van den Brand, Gholizadeh, Jiang, de Vos & parallel, $\tilde O(m{+}n^{1.5})$ work \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  For 24 years (1998--2022), Goldberg--Rao's J.ACM bound was simply the best anyone
+  could prove for general max-flow. Then two papers in three years broke it open.
+\end{frame}
+
+% =================================================================
+\section{2022: Max-Flow in Almost-Linear Time}
+% =================================================================
+
+\begin{frame}{The 2022 breakthrough}
+  \begin{block}{Chen, Kyng, Liu, Peng, Probst Gutenberg, Sachdeva -- ``Maximum Flow and
+  Minimum-Cost Flow in Almost-Linear Time,'' FOCS 2022 (\textbf{Best Paper})}
+    An algorithm computing \emph{exact} max-flow and min-cost flow on directed graphs
+    with $m$ edges and polynomially-bounded integer capacities/costs, in
+    $m^{1+o(1)}$ time.
+  \end{block}
+  \begin{itemize}
+    \item $m^{1+o(1)}$ means: for any $\epsilon>0$, the running time is
+    $O(m^{1+\epsilon})$ for $m$ large enough -- ``almost'' linear, with the hidden
+    exponent shrinking to $0$ as $m$ grows. This is qualitatively different from any
+    polynomial bound with a fixed exponent $>1$, like this week's $O(VE^2)$.
+    \item arXiv:2203.00671; published at FOCS 2022, pp.\ 612--623.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The core idea: replace augmenting paths with a continuous method}
+  \begin{itemize}
+    \item Augmenting-path methods (Ford-Fulkerson, Edmonds-Karp) improve the flow
+    \emph{one path at a time} -- inherently $\Omega(m)$ separate improvement steps in
+    the worst case, each needing its own graph search.
+    \item The 2022 algorithm instead builds the flow via an \textbf{interior-point
+    method}: it takes only $m^{1/2+o(1)}$ \emph{global} steps, and each step is a
+    single ``approximate minimum-ratio cycle'' computed on the \emph{whole} graph at
+    once via an electrical-flow (graph Laplacian) solver.
+    \item The remaining trick is a new \textbf{dynamic graph data structure} that
+    maintains these approximate min-ratio cycles under edge-weight updates in
+    \emph{amortized $m^{o(1)}$ time per update} -- structurally the same flavor of
+    result as this week's ``near-constant amortized cost per operation,'' just for a
+    much harder maintained quantity than Union-Find's connected components.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why this result is bigger than just max-flow}
+  \small
+  The same interior-point-plus-dynamic-Laplacian-solver framework gives
+  $m^{1+o(1)}$-time algorithms for any flow problem minimizing a \emph{general
+  edge-separable convex cost} to high accuracy -- not just linear costs. The paper's
+  own examples:
+  \begin{itemize}
+    \item entropy-regularized optimal transport (a core primitive in modern generative
+    modeling and domain adaptation),
+    \item matrix scaling,
+    \item $p$-norm flows and $p$-norm isotonic regression on arbitrary DAGs.
+  \end{itemize}
+  \begin{alertblock}{The pattern to notice}
+    A single algorithmic idea (fast dynamic Laplacian solvers) closed the gap on a
+    32-year-old flow bound \emph{and} gave new best-known algorithms for four unrelated-
+    looking problems at once -- exactly how the biggest wins in algorithms tend to
+    happen.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{2023: Making It Deterministic}
+% =================================================================
+
+\begin{frame}{Why ``randomized'' was not the end of the story}
+  \begin{itemize}
+    \item The 2022 algorithm is \textbf{randomized}: correct with high probability, but
+    it uses random bits and its worst-case guarantee is over the algorithm's own coin
+    flips, not adversarial in the traditional deterministic sense.
+    \item For safety-critical or adversarial settings, a \textbf{deterministic}
+    guarantee -- correct on \emph{every} input, every time, with no dependence on luck
+    -- is strictly stronger and often required.
+  \end{itemize}
+  \begin{block}{van den Brand, Chen, Kyng, Liu, Peng, Probst Gutenberg, Sachdeva, Sidford
+  -- ``A Deterministic Almost-Linear Time Algorithm for Minimum-Cost Flow,'' FOCS 2023}
+    Derandomizes the 2022 result: exact max-flow and min-cost flow in $m^{1+o(1)}$ time,
+    \textbf{deterministically}. This was the first improvement to the deterministic
+    max-flow running time (for polynomially-bounded capacities) since Goldberg--Rao in
+    1998 -- a 25-year gap. arXiv:2309.16629.
+  \end{block}
+\end{frame}
+
+% =================================================================
+\section{2025: Making It Parallel}
+% =================================================================
+
+\begin{frame}{Why ``almost-linear time'' still isn't the end of the story}
+  \begin{itemize}
+    \item $m^{1+o(1)}$ counts \textbf{total work} on a single processor. On modern
+    hardware (multi-core CPUs, GPUs, distributed clusters), the number that determines
+    \emph{wall-clock} time is \textbf{depth} -- the length of the longest chain of
+    operations that must happen strictly in sequence.
+    \item An algorithm can have optimal total work and still be slow in practice if its
+    depth is $\Omega(m)$ -- exactly the failure mode of augmenting-path methods, which
+    are inherently sequential (each augmentation depends on the residual graph left by
+    the last one).
+  \end{itemize}
+  \begin{block}{van den Brand, Gholizadeh, Jiang, de Vos -- ``Parallel Minimum Cost Flow
+  in Near-Linear Work and Square Root Depth for Dense Instances,'' SPAA 2025}
+    A randomized parallel min-cost-flow algorithm with $\tilde O(m+n^{1.5})$ total work
+    and $\tilde O(\sqrt{n})$ depth, for graphs with $m > n^{1.5}$ edges -- the first
+    algorithm combining near-linear work \emph{and} sublinear depth in that regime.
+    Corollaries improve parallel bipartite matching, shortest paths, and reachability
+    too. arXiv:2503.13274.
+  \end{block}
+\end{frame}
+
+\begin{frame}{As of Aug 2026: still a very active frontier}
+  \small
+  This line of work has not slowed down. Titles accepted at ICALP 2026 continuing the
+  same program include \emph{``Back in the Saddle: Toward Parallel Approximate
+  Minimum-Cost Flow''} and \emph{``Parallel Reachability and Shortest Paths on
+  Non-Sparse Digraphs: Near-Linear Work and Sub-Square-Root Depth''} -- both pushing
+  the 2025 parallel result further. The exact final bounds for \emph{general} (sparse)
+  graphs in \emph{low} parallel depth remain open as of this writing; treat any specific
+  number you see quoted for 2026 results as something to verify against the published
+  version, the same discipline this supplement has followed throughout.
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{This week's $O(VE^2)$} is a correct, teachable, historically accurate
+    stepping stone -- not the state of the art, and not intended to be.
+    \item \textbf{The 24-year plateau (1998--2022)} at Goldberg--Rao's bound shows that
+    ``no one has improved this in decades'' is not the same claim as ``no improvement
+    exists.''
+    \item \textbf{Almost-linear (2022) $\to$ deterministic (2023) $\to$ parallel
+    (2025)}: three separate real results were needed to turn one breakthrough into a
+    worst-case-safe, hardware-friendly algorithm -- finding the bound and making it
+    fully deployable are different milestones.
+    \item The engine (fast dynamic graph-Laplacian solvers) is the same kind of tool
+    this course meets again informally in Week 15, and is why the field moved past
+    purely combinatorial augmenting-path methods for the hardest instances.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week reduces \textbf{bipartite matching} to a single max-flow computation --
+    in practice almost always solved with the simpler Hopcroft--Karp or Edmonds-Karp
+    algorithms from this week, since real matching instances rarely need
+    almost-linear-time machinery to run fast enough.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

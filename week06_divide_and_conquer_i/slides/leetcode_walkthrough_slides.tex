@@ -1,0 +1,484 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{From First Instinct to Optimal Algorithm: Quickselect and Merge-Sort Counting in
+Practice\\
+\small Week 6 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{A Framework for Attacking a New D\&C Problem}
+% =================================================================
+
+\begin{frame}{The four-step process (same as Week 3)}
+  \begin{enumerate}
+    \item \textbf{First instinct.} Write the algorithm that follows most directly from
+    the problem statement.
+    \item \textbf{Measure why it hurts.} Compute the real complexity and plug in the
+    problem's actual constraints.
+    \item \textbf{Find the structural insight.} What lets you avoid redoing work? For
+    Divide \& Conquer, this is almost always: \emph{recurse into only the part that can
+    possibly contain the answer}, or \emph{piggyback bookkeeping onto an existing
+    recursive combine step}.
+    \item \textbf{Implement, trace by hand, then look for programming-level tricks.}
+  \end{enumerate}
+  \begin{alertblock}{Today's two problems}
+    \textbf{Medium -- Kth Largest Element in an Array}: quickselect, this week's expected
+    $\Theta(n)$ selection algorithm. \textbf{Hard -- Count of Smaller Numbers After Self}:
+    a direct extension of this week's \emph{counting inversions during merge} technique.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Kth Largest Element in an Array}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 215 -- Kth Largest Element in an Array (\textcolor{blue!50!black}{Medium})}
+    Given an integer array \texttt{nums} and an integer $k$, return the $k$-th largest
+    element in the array (the $k$-th largest, \emph{not} the $k$-th distinct element).
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le k \le \text{nums.length} \le 10^5$.
+    \item ``$k$-th largest'' is the same \textbf{selection problem} from this week's
+    lecture, just indexed from the top: the $k$-th largest is the element at ascending
+    index $n-k$ (0-indexed) -- i.e.\ \texttt{Quickselect(A, n-k)} in the lecture's notation.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \small
+  \texttt{nums = [3,2,1,5,6,4]}, \texttt{k = 2} $\Rightarrow$ expected output $5$.
+  \begin{itemize}
+    \item Sorted ascending: $[1,2,3,4,5,6]$. The ``2nd largest'' sits at ascending index
+    $n-k = 6-2 = 4$, and $[1,2,3,4,\mathbf{5},6][4] = 5$. \checkmark
+    \item Three ways to get there:
+    \begin{enumerate}
+      \item Repeatedly scan for the current maximum, remove it, repeat $k$ times.
+      \item Sort the whole array, then index.
+      \item \textbf{Quickselect}: partition around a pivot, recurse into \emph{only} the
+      side that must contain index $n-k$.
+    \end{enumerate}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: repeatedly extract the maximum}
+  \begin{block}{Most direct reading of ``$k$-th largest''}
+    Find the maximum, remove it; find the new maximum, remove it; \ldots after $k$
+    extractions, the $k$-th one found is the answer.
+  \end{block}
+  \begin{algorithmic}[1]
+    \For{$t \gets 1$ \textbf{to} $k$}
+      \State scan all remaining elements, find and remove the maximum
+    \EndFor
+    \State \Return the last element removed
+  \end{algorithmic}
+  Each scan is $\Theta(n)$, repeated $k$ times: $\Theta(nk)$.
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item $\Theta(nk)$ -- fine for small $k$, but at $k = n/2$ (a valid input) this is
+    $\Theta(n^2)$: at $n=10^5$, roughly $5\times10^9$ operations.
+    \item Sorting the whole array first is $\Theta(n \log n)$, always better than the naive
+    loop for large $k$ -- but it fully \textbf{orders every element}, when the problem only
+    asks for \emph{one} order statistic.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    Whenever you only need \emph{one} piece of information about a total order (the
+    minimum, the median, the $k$-th value) but the algorithm computes the \emph{entire}
+    order first, ask: can I discard the part of the data that is provably irrelevant, the
+    way binary search discards half the array without looking at it?
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item After partitioning around a pivot $p$ into \textit{less}, \textit{equal},
+    \textit{greater}, the target index $k'$ falls into \emph{exactly one} of the three
+    groups -- and once you know which, the other two groups are provably irrelevant to
+    the answer and can be thrown away entirely.
+    \item This is this week's \textsc{Quickselect} (lecture pseudocode), applied with
+    target index $k' = n - k$ for ``$k$-th largest.''
+    \item With a \emph{uniformly random} pivot, the lecture proves
+    $T(n) \le T(3n/4) + O(n)$ in expectation -- a decreasing geometric series, so
+    $T(n) = \Theta(n)$ \emph{expected}, even though a single sort already needs
+    $\Theta(n \log n)$ \emph{every} time.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{KthLargest}{$A$, $k$}
+      \State \Return \Call{Quickselect}{$A$, $|A| - k$} \Comment{$k$-th largest = ascending index $n-k$}
+    \EndFunction
+    \Function{Quickselect}{$A$, $k$}
+      \State choose a pivot $p$ from $A$ \Comment{random pivot for expected $\Theta(n)$}
+      \State $less, equal, greater \gets$ partition $A$ by comparison to $p$
+      \If{$k < |less|$} \State \Return \Call{Quickselect}{$less$, $k$}
+      \ElsIf{$k < |less| + |equal|$} \State \Return $p$
+      \Else \State \Return \Call{Quickselect}{$greater$, $k - |less| - |equal|$}
+      \EndIf
+    \EndFunction
+  \end{algorithmic}
+  Expected $\Theta(n)$ with a random pivot; worst case $\Theta(n^2)$ with a
+  \emph{consistently} bad pivot (same theorem as this week's lecture).
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{nums = [3,2,1,5,6,4]}, target index $k' = n-k = 6-2 = 4$. Using the
+  \emph{deterministic last-element} pivot rule from the lecture's exercises:
+  \begin{center}
+  \scriptsize
+  \begin{tabular}{@{}c c c c p{5.4cm}@{}}
+    \toprule
+    call & array & pivot & $k'$ & outcome \\
+    \midrule
+    1 & $[3,2,1,5,6,4]$ & $4$ & $4$ & $less{=}[3,2,1]$, $equal{=}[4]$, $greater{=}[5,6]$;
+    $k'{=}4$ is not $<|less|{+}|equal|{=}4$ $\Rightarrow$ recurse right, $k'' = 4-3-1=0$ \\
+    2 & $[5,6]$ & $6$ & $0$ & $less{=}[5]$, $equal{=}[6]$; $0 < |less|{=}1$ $\Rightarrow$
+    recurse left \\
+    3 & $[5]$ & -- & $0$ & single element: \Return $5$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \small Result: $5$ -- matches the expected output.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & Notes \\
+    \midrule
+    Extract max, $k$ times & $\Theta(nk)$ & $\Theta(n^2)$ when $k \approx n/2$ \\
+    Sort, then index & $\Theta(n \log n)$ & always orders far more than needed \\
+    \textbf{Quickselect} & $\boldsymbol{\Theta(n)}$ \textbf{expected} & $\Theta(n^2)$
+    worst case without randomization \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+import random
+
+def findKthLargest(nums, k):
+    target = len(nums) - k          # k-th largest = ascending index n-k
+
+    def quickselect(arr, k):
+        if len(arr) == 1:
+            return arr[0]
+        pivot = random.choice(arr)                    # avoid adversarial worst case
+        less    = [x for x in arr if x < pivot]
+        equal   = [x for x in arr if x == pivot]
+        greater = [x for x in arr if x > pivot]
+        if k < len(less):
+            return quickselect(less, k)
+        elif k < len(less) + len(equal):
+            return pivot
+        else:
+            return quickselect(greater, k - len(less) - len(equal))
+
+    return quickselect(nums, target)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Randomize the pivot -- this is not optional on LeetCode.} The lecture
+    notes that a deterministic ``always last element'' pivot is ``fine for the exercises.''
+    On LeetCode it is not: judges routinely include already-sorted and reverse-sorted test
+    cases specifically because they are the worst case for a fixed-position pivot,
+    triggering the proven $\Theta(n^2)$ blow-up. \texttt{random.choice(arr)} converts that
+    adversarial worst case into an astronomically unlikely one -- exactly the theorem this
+    week proves.
+    \item \textbf{Recursion depth is a real (if rare) risk here too.} Even with
+    randomization, an $O(n)$-deep call chain has nonzero probability; at $n=10^5$ this can
+    still exceed Python's recursion limit. Because each quickselect call is
+    \emph{tail-recursive} (the recursive call's result is returned immediately, with no
+    work after it), it converts trivially into a \texttt{while} loop -- unlike Week 3's DFS,
+    where work happens \emph{after} the recursive call returns and an explicit stack was
+    needed instead.
+    \item \textbf{The 3-list partition here is $O(n)$ extra space per level.} It matches
+    the lecture exactly and is easy to prove correct; a production implementation would use
+    Hoare's in-place partition scheme for $O(1)$ extra space, at the cost of a fiddlier
+    correctness argument.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Count of Smaller Numbers After Self}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 315 -- Count of Smaller Numbers After Self (\textcolor{red!60!black}{Hard})}
+    Given an integer array \texttt{nums}, return an array \texttt{counts} where
+    \texttt{counts[i]} is the number of elements to the \textbf{right} of \texttt{nums[i]}
+    that are \textbf{strictly smaller} than \texttt{nums[i]}.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le \text{nums.length} \le 10^5$.
+    \item This is \textbf{this week's ``counting inversions during merge''} technique,
+    generalized: instead of one grand total, report the count \emph{per element}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \small
+  \texttt{nums = [5,2,6,1]} $\Rightarrow$ expected output $[2,1,1,0]$.
+  \begin{itemize}
+    \item Right of $5$: $\{2,6,1\}$, smaller than $5$: $\{2,1\}$ $\Rightarrow 2$.
+    \item Right of $2$: $\{6,1\}$, smaller than $2$: $\{1\}$ $\Rightarrow 1$.
+    \item Right of $6$: $\{1\}$, smaller than $6$: $\{1\}$ $\Rightarrow 1$.
+    \item Right of $1$: $\{\}$ $\Rightarrow 0$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: check every pair}
+  \begin{block}{Most direct reading of the problem}
+    For each index $i$, scan every index $j > i$ and count how many satisfy
+    $\texttt{nums}[j] < \texttt{nums}[i]$.
+  \end{block}
+  \begin{algorithmic}[1]
+    \For{$i \gets 0$ \textbf{to} $n-1$}
+      \State $counts[i] \gets 0$
+      \For{$j \gets i+1$ \textbf{to} $n-1$}
+        \If{$nums[j] < nums[i]$} \State $counts[i] \gets counts[i] + 1$ \EndIf
+      \EndFor
+    \EndFor
+  \end{algorithmic}
+  $\Theta(n^2)$ total -- exactly the brute-force inversion count the lecture opens with.
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item $\Theta(n^2)$: at $n = 10^5$, about $10^{10}$ comparisons -- far too slow.
+    \item This is the \emph{identical} shape of blow-up as plain inversion counting; the
+    lecture already tells us the fix: \textbf{piggyback the counting onto mergesort}.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    ``For each element, count how many later elements satisfy some comparison'' is exactly
+    the inversion-counting pattern -- whenever you see it, reach for the merge-and-count
+    technique instead of nested loops.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item Carry each value's \textbf{original index} alongside it through the sort:
+    work with pairs $(\text{value}, \text{original index})$.
+    \item Split by \emph{position} (not value) into a left half and a right half exactly as
+    in mergesort -- every element of the right half is, by construction, still to the
+    \emph{right} of every element of the left half in the original array.
+    \item During \textsc{MergeAndCount}, whenever the merge is about to emit a
+    \textbf{left}-half element $L[i]$ (because $L[i] \le R[j]$), every right-half element
+    already emitted -- there are exactly $j$ of them -- is strictly smaller than $L[i]$
+    \emph{and} originally to its right. So: $counts[L[i].\text{index}] \mathrel{+}= j$.
+    \item Recursing on the left and right halves accumulates each element's count from
+    \emph{within} its own half; the merge step above adds the \emph{cross}-half count.
+    Same recurrence as plain mergesort: $T(n) = 2T(n/2) + \Theta(n) = \Theta(n \log n)$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{MergeAndCount}{$L$, $R$, $counts$} \Comment{$L,R$: sorted (value, index) pairs}
+      \State $M \gets$ empty; $i \gets 0$; $j \gets 0$
+      \While{$i < |L|$ \textbf{and} $j < |R|$}
+        \If{$L[i].\text{val} \le R[j].\text{val}$}
+          \State $counts[L[i].\text{idx}] \mathrel{+}= j$ \Comment{$j$ smaller right-elements already emitted}
+          \State append $L[i]$ to $M$; $i \gets i+1$
+        \Else
+          \State append $R[j]$ to $M$; $j \gets j+1$
+        \EndIf
+      \EndWhile
+      \State append remaining elements of $L$ (each gets $counts \mathrel{+}= j = |R|$) and of $R$
+      \State \Return $M$
+    \EndFunction
+  \end{algorithmic}
+  Wrapped in an ordinary mergesort over $(\text{value}, \text{index})$ pairs:
+  $\Theta(n \log n)$ total.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \scriptsize
+  \texttt{nums = [5,2,6,1]}, pairs $(5,0),(2,1),(6,2),(1,3)$. Split into left
+  $=\{(5,0),(2,1)\}$, right $=\{(6,2),(1,3)\}$.
+  \begin{center}
+  \scriptsize
+  \begin{tabular}{@{}c p{5.4cm} p{3.4cm}@{}}
+    \toprule
+    step & merge & effect on \texttt{counts} \\
+    \midrule
+    1 & merge $[(5,0)]$, $[(2,1)]$: emit $(2,1)$ first ($j{:}0{\to}1$), then $(5,0)$ &
+    $j{=}1$ when $(5,0)$ emitted: $counts[0]\mathrel{+}=1$ \\
+    2 & merge $[(6,2)]$, $[(1,3)]$: emit $(1,3)$ first ($j{:}0{\to}1$), then $(6,2)$ &
+    $j{=}1$ when $(6,2)$ emitted: $counts[2]\mathrel{+}=1$ \\
+    3 & merge $[(2,1),(5,0)]$, $[(1,3),(6,2)]$: emit $(1,3)$; emit $(2,1)$ at $j{=}1$;
+    emit $(5,0)$ at $j{=}1$; emit $(6,2)$ &
+    $counts[1]\mathrel{+}=1$; $counts[0]\mathrel{+}=1$ (total $2$); final:
+    $[2,1,1,0]$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \small Result: $[2,1,1,0]$ -- matches the expected output exactly.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $n = 10^5$ \\
+    \midrule
+    All pairs, nested loops & $\Theta(n^2)$ & $\sim 10^{10}$ comparisons \\
+    \textbf{Merge-sort with index tracking} & $\boldsymbol{\Theta(n \log n)}$ & $\sim
+    1.7\times10^6$ operations \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Roughly four orders of magnitude apart, from re-using a combine step already being
+  computed for free.
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation (part 1: merge with counting)}
+  \begin{lstlisting}[style=py,aboveskip=0pt,belowskip=0pt]
+def countSmaller(nums):
+    n = len(nums)
+    counts = [0] * n
+    indexed = list(enumerate(nums))     # [(original_index, value), ...]
+
+    def merge_and_count(pairs):
+        if len(pairs) <= 1:
+            return pairs
+        mid = len(pairs) // 2
+        left = merge_and_count(pairs[:mid])
+        right = merge_and_count(pairs[mid:])
+        merged, i, j = [], 0, 0
+        while i < len(left) and j < len(right):
+            if left[i][1] <= right[j][1]:
+                counts[left[i][0]] += j        # j smaller right-elements seen so far
+                merged.append(left[i]); i += 1
+            else:
+                merged.append(right[j]); j += 1
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation (part 2: leftovers \& driver)}
+  \begin{lstlisting}[style=py,aboveskip=0pt,belowskip=0pt]
+        while i < len(left):                   # leftovers: all of `right` was smaller
+            counts[left[i][0]] += len(right) - j
+            merged.append(left[i]); i += 1
+        merged.extend(right[j:])
+        return merged
+
+    merge_and_count(indexed)
+    return counts
+  \end{lstlisting}
+  \vspace{0.5em}
+  Note the leftover-handling line: once \texttt{right} is exhausted first, every remaining
+  \texttt{left} element has \emph{all} of \texttt{right} (size \texttt{len(right) - j} at
+  that point, but since \texttt{j} no longer advances, it is simply \texttt{len(right)} for
+  each) to its right and smaller -- the same ``append the tail'' step from the lecture's
+  plain \textsc{Merge}, just with a matching count update.
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Carry $(\text{index}, \text{value})$ pairs, never bare values.} The
+    entire algorithm depends on knowing \emph{where} each value originally came from once
+    it has been reordered by the sort -- losing the index is the single most common bug
+    when adapting mergesort to this problem.
+    \item \textbf{\texttt{pairs[:mid]} / \texttt{pairs[mid:]} slicing is $O(n)$ per call.}
+    It does not change the asymptotic bound (still $\Theta(n \log n)$ overall, same as
+    ordinary Python mergesort), but a maximally tight implementation passes index ranges
+    into a shared array instead of allocating new lists at every level, roughly halving
+    constant-factor overhead in Python.
+    \item \textbf{Recursion depth is $\Theta(\log n)$ here, not $\Theta(n)$} -- unlike
+    quickselect's worst case, mergesort's recursion always halves regardless of the data,
+    so at $n=10^5$ the depth is only $\approx 17$: no recursion-limit concerns, in contrast
+    to both problems in Week 3's deck and quickselect above.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: two problems, one lesson}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Kth Largest Element} needs only \emph{one} order statistic, so
+    quickselect recurses into a single shrinking partition -- expected $\Theta(n)$,
+    strictly less work than fully sorting.
+    \item \textbf{Count of Smaller Numbers After Self} needs a count \emph{per element},
+    so it reuses mergesort's already-happening combine step and attaches one extra piece
+    of bookkeeping -- $\Theta(n \log n)$, the same bound as sorting itself, for free.
+    \item Both times, the naive instinct re-derived information from scratch (rescanning
+    for each extraction, or comparing every pair); both times, the fix was to recognize
+    that a \emph{recursive combine step already being computed} could carry the answer
+    along with it, at no extra asymptotic cost.
+    \item The randomization trick in quickselect and the index-tracking trick in
+    merge-and-count are both, in their own way, about turning a \emph{worst case} (bad
+    pivots; losing track of position) into something the algorithm is structurally
+    protected against.
+  \end{enumerate}
+  \begin{alertblock}{Keep practicing}
+    \texttt{LEETCODE.md} lists more Week 6 problems (\emph{Sort an Array}, \emph{Maximum
+    Subarray}, \emph{Pow(x, n)}, \emph{Reverse Pairs}, \emph{Different Ways to Add
+    Parentheses}, \dots) -- try the same four-step process on each.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,292 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\title{Beyond the Syllabus}
+\subtitle{Is Quadratic Really Necessary? Fine-Grained Lower Bounds and the Fall of
+Bellman--Ford's 70-Year Barrier\\
+\small Week 9 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \begin{itemize}
+    \item This week you proved two upper bounds: edit distance / LCS in
+    $O(nm)$ time via a 2-D DP table, and shortest paths with negative edges in
+    $O(mn)$ time via Bellman--Ford.
+    \item Two questions a curious student should ask next:
+    \begin{enumerate}
+      \item Is $O(nm)$ edit distance actually the \textbf{best possible}, or is a
+      truly-subquadratic algorithm just waiting to be discovered?
+      \item Dijkstra beats brute-force shortest paths when weights are non-negative.
+      Is there an analogous ``fast'' algorithm once negative weights are allowed, or is
+      $O(mn)$ Bellman--Ford as good as it gets?
+      \item[$\to$] The first question was answered (no) in 2015. The second was answered
+      (yes!) only in 2022 -- and sharpened again in \textbf{2026}.
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{How this supplement is different from a survey}
+    Every result below is a specific, citable paper (author, venue, year, and an
+    arXiv/DOI identifier), verified before this slide was written -- not a vague
+    ``researchers have shown.''
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Is Quadratic Edit Distance Actually Necessary?}
+% =================================================================
+
+\begin{frame}{Recap: the bound you proved this week}
+  \begin{block}{This week's lecture}
+    Edit distance / sequence alignment between strings of length $n$ and $m$ is
+    computable in $O(nm)$ time via a 2-D dynamic-programming table, using the
+    ``what happens to the last character'' recurrence.
+  \end{block}
+  \begin{itemize}
+    \item Every algorithms textbook presents $O(nm)$ as \emph{the} answer -- but is it
+    optimal, or just the best anyone happened to find?
+    \item Ruling out something faster needs a completely different kind of argument: a
+    \textbf{conditional lower bound}, tying edit distance's difficulty to a
+    widely-believed complexity-theoretic conjecture.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The conjecture: SETH}
+  \begin{block}{Strong Exponential Time Hypothesis (SETH)}
+    Boolean satisfiability on $n$ variables cannot be solved in
+    $O(2^{(1-\varepsilon)n})$ time for \emph{any} fixed $\varepsilon > 0$ -- i.e.\ no
+    algorithm beats exhaustive search by an exponentially-growing factor.
+  \end{block}
+  \begin{itemize}
+    \item SETH is believed true (decades of SAT-solving research have found no
+    counterexample) but is \emph{unproven} -- exactly like $P \ne NP$.
+    \item A ``SETH-hardness'' result for problem $X$ says: \emph{if} $X$ has a
+    truly-subquadratic algorithm, \emph{then} SETH is false. So a faster algorithm for
+    $X$ would be a major breakthrough, not just an incremental improvement.
+    \item The standard tool for proving this is a fine-grained reduction from
+    \textbf{Orthogonal Vectors (OV)}: given two sets of $n$ boolean vectors in
+    $\{0,1\}^{d}$ ($d = O(\log n)$), decide if some pair is orthogonal. OV is known to
+    require $n^{2-o(1)}$ time under SETH.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The result: edit distance is SETH-hard}
+  \begin{block}{Backurs \& Indyk, STOC 2015}
+    ``Edit Distance Cannot Be Computed in Strongly Subquadratic Time (unless SETH is
+    false).'' \emph{DOI:} \texttt{10.1145/2746539.2746612}.
+  \end{block}
+  \begin{itemize}
+    \item They give a reduction turning an Orthogonal Vectors instance into two strings
+    $X, Y$ of length $O(n)$ such that $\mathrm{edit\_distance}(X,Y)$ reveals whether an
+    orthogonal pair exists.
+    \item \textbf{Consequence:} an $O((nm)^{1-\varepsilon})$ edit-distance algorithm, for
+    any $\varepsilon>0$, would give a truly-subquadratic OV algorithm, hence refute SETH.
+    \item So the $O(nm)$ bound from this week's lecture is, modulo SETH, \textbf{exactly
+    optimal} -- not a limitation of Kleinberg--Tardos's presentation, but a genuine wall.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{What the lower bound does \emph{not} rule out}
+  \begin{itemize}
+    \item The Backurs--Indyk bound is about \textbf{exact}, \textbf{classical}
+    algorithms only. Two escape hatches remain, and both are real, active research:
+    \begin{enumerate}
+      \item \textbf{Approximation.} Allowing a constant-factor approximation to the edit
+      distance (rather than the exact value) sidesteps the reduction entirely.
+      \item \textbf{Quantum computation.} A quantum algorithm might exploit structure the
+      SETH reduction doesn't forbid.
+    \end{enumerate}
+    \item A 2018 result combines \emph{both} escape hatches at once.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The escape hatch: a quantum algorithm beats the wall}
+  \begin{block}{Boroujeni, Ehsani, Ghodsi, HajiAghayi \& Seddighin, SODA 2018}
+    ``Approximating Edit Distance in Truly Subquadratic Time: Quantum and MapReduce.''
+    \emph{arXiv:} \texttt{1804.04178}.
+  \end{block}
+  \begin{itemize}
+    \item They give a \textbf{quantum} algorithm running in $O(n^{1.858})$ time that
+    approximates edit distance within a factor of $7$ -- genuinely subquadratic, and
+    provably impossible \emph{classically} (exactly) under SETH.
+    \item A second variant pushes the exponent down to $O(n^{1.781})$ for a larger
+    approximation factor -- a direct time/accuracy trade-off.
+    \item \textbf{Why this doesn't contradict Backurs--Indyk:} the SETH-hardness proof is
+    for the \emph{exact} value; approximating within a constant factor is a
+    genuinely easier problem, and quantum algorithms are a genuinely different
+    computational model.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Section takeaway}
+  \begin{enumerate}
+    \item This week's $O(nm)$ DP for \emph{exact} edit distance is, modulo a
+    widely-believed conjecture (SETH), the best any classical algorithm can ever do.
+    \item That is a remarkably strong and clean statement -- most algorithms you meet in
+    this course have \emph{no} matching lower bound at all.
+    \item The wall is specifically about exact, classical computation: relax either
+    constraint (allow approximation, allow quantum resources) and truly-subquadratic
+    algorithms exist today.
+  \end{enumerate}
+\end{frame}
+
+% =================================================================
+\section{Breaking Bellman--Ford's 70-Year Barrier}
+% =================================================================
+
+\begin{frame}{Recap: the bound you proved this week}
+  \begin{block}{This week's lecture}
+    With negative edges allowed, Dijkstra's greedy strategy breaks (a settled vertex's
+    distance can still decrease). Bellman--Ford instead relaxes every edge $n-1$ times,
+    running in $O(mn)$ time, and can also detect negative cycles.
+  \end{block}
+  \begin{itemize}
+    \item Bellman--Ford itself dates to the 1950s. For \emph{general} graphs with
+    negative integer weights, no combinatorial algorithm improved meaningfully on this
+    for decades -- unlike the non-negative case, where Dijkstra plus a good priority
+    queue gives near-linear time immediately.
+    \item Question: is $O(mn)$ actually necessary once negative weights are allowed, the
+    way $O(nm)$ is (conditionally) necessary for edit distance above?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The 27-year plateau}
+  \begin{block}{Goldberg, SIAM J.\ Computing, 1995 -- ``Scaling algorithms for the
+  shortest paths problem''}
+    A scaling technique (solve a coarser version of the weights, then refine) gives
+    $O(m\sqrt{n}\,\log W)$ time, where $W$ bounds the largest negative weight magnitude.
+  \end{block}
+  \begin{itemize}
+    \item This beats $O(mn)$ whenever $n$ is large relative to $\log W$, and it was the
+    best \emph{combinatorial} bound for negative-weight SSSP for roughly 27 years.
+    \item Near-linear time was known only for special cases (e.g.\ planar directed
+    graphs) -- the general case seemed stuck.
+    \item Contrast with this week's Dijkstra/Floyd--Warshall/DAG material: every one of
+    those \emph{already} runs in close to $O(m+n)$ or $O(n^3)$ for all-pairs. Negative
+    weights, for 70 years, cost you a factor of $\sqrt{n}$ or worse.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The 2022 breakthrough: near-linear time, at last}
+  \begin{block}{Bernstein, Nanongkai \& Wulff-Nilsen, FOCS 2022 (pp.\ 600--611)}
+    ``Negative-Weight Single-Source Shortest Paths in Near-linear Time.''
+    \emph{arXiv:} \texttt{2203.03456}.
+  \end{block}
+  \begin{itemize}
+    \item A \textbf{randomized} algorithm solving negative-weight SSSP in
+    $\widetilde{O}(m\log W)$ time (near-linear, up to $\mathrm{polylog}$ factors) --
+    matching, up to those factors, the non-negative-weight world Dijkstra already lives
+    in.
+    \item Core idea (very high level): combine the classical \emph{scaling} approach
+    with \textbf{low-diameter graph decompositions} to repeatedly reduce the problem to
+    a bounded-diameter instance that a cheap adaptation of Dijkstra can solve, without
+    ever paying Bellman--Ford's full $n$ rounds of relaxation.
+    \item This closed a gap that had stood, in some form, since Bellman--Ford itself.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The 2026 sequel: removing the randomness}
+  \begin{block}{Haeupler, Jiang \& Saranurak, STOC 2026 -- ``Deterministic Negative-Weight
+  Shortest Paths in Nearly Linear Time via Path Covers''}
+    \emph{arXiv:} \texttt{2511.08551}.
+  \end{block}
+  \begin{itemize}
+    \item Every near-linear-time algorithm since 2022 relied on \textbf{randomized}
+    low-diameter decompositions. This 2026 paper gives the first fully
+    \textbf{deterministic} nearly-linear algorithm, via a new structural primitive for
+    directed graphs called a \textbf{path cover}.
+    \item Running time: $\widetilde{O}(m)\cdot\log(nW)$ -- deterministic, no
+    randomization anywhere, and it also detects negative cycles.
+    \item \textbf{Small-world note:} Bernhard Haeupler is also the author (with
+    Hershkowitz \& Li) behind the ``is Dijkstra universally optimal?'' result cited in
+    Week 2's supplement -- the same research group is now rewriting the negative-weight
+    side of shortest paths too.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The bound, over 70 years}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Year & Bound (negative integer weights) & Source \\
+    \midrule
+    1950s & $O(mn)$ & Bellman--Ford \\
+    1995 & $O(m\sqrt{n}\,\log W)$ & Goldberg (scaling) \\
+    2022 & $\widetilde{O}(m\log W)$, \textbf{randomized} & Bernstein--Nanongkai--Wulff-Nilsen \\
+    2026 & $\widetilde{O}(m)\log(nW)$, \textbf{deterministic} & Haeupler--Jiang--Saranurak \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{exampleblock}{Perspective}
+    Going from $O(mn)$ to near-linear is the same \emph{qualitative} leap as going from
+    ``try every permutation'' to Karatsuba in Week 1 -- except here it took the research
+    community 70 years, not one clever recursion.
+  \end{exampleblock}
+\end{frame}
+
+\begin{frame}{Section takeaway}
+  \begin{enumerate}
+    \item $O(mn)$ Bellman--Ford is \textbf{not} optimal -- unlike edit distance, there
+    was no lower-bound wall here, just an unsolved algorithmic question, and it fell.
+    \item The fix came from importing a tool (low-diameter decompositions) from a
+    different corner of algorithms research, not from a cleverer relaxation order.
+    \item As of this supplement (Aug 2026), the deterministic version is only months
+    old -- this is genuinely current research, not textbook history.
+  \end{enumerate}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \small
+  \begin{enumerate}
+    \item \textbf{Edit distance is provably hard:} Backurs \& Indyk (2015) showed
+    $O(nm)$ is optimal for exact computation, modulo SETH -- one of the cleanest
+    fine-grained lower bounds in the field.
+    \item \textbf{But only for exact, classical computation:} Boroujeni et al.\ (2018)
+    show a quantum algorithm can approximate edit distance in truly subquadratic time --
+    the wall is real, but narrower than it first looks.
+    \item \textbf{Bellman--Ford's $O(mn)$ bound, in contrast, was never a wall:}
+    Bernstein--Nanongkai--Wulff-Nilsen (2022) reached near-linear time, and
+    Haeupler--Jiang--Saranurak (2026) just removed the last randomization.
+    \item \textbf{The general lesson:} ``textbook optimal'' always means
+    \emph{optimal among known techniques at the time the textbook was written} --
+    sometimes that turns out to be a provable wall, and sometimes it is simply the
+    frontier of what anyone had tried yet.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (Kleinberg \& Tardos, Ch.\ 7) moves to \textbf{network flow} -- where the
+    story repeats once more: the textbook $O(VE^2)$ Edmonds--Karp bound is nowhere near
+    the current frontier either.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

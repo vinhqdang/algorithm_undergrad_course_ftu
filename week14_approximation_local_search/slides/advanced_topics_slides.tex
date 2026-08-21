@@ -1,0 +1,255 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{Beyond the Syllabus}
+\subtitle{Approximation and Local Search: How Close Is Close Enough?\\
+\small Week 14 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \begin{itemize}
+    \item This week's unifying lesson was the \textbf{bounding technique}: never compute
+    $\mathrm{OPT}$, but squeeze the algorithm's value against a quantity you \emph{can}
+    reason about (a matching, an MST, the triangle inequality).
+    \item The lecture notes themselves flag a loose end: the MST-doubling tour is a
+    $2$-approximation for Metric TSP, and a remark says Christofides refines this to
+    $\tfrac{3}{2}$ -- ``we do not pursue it here.'' Three questions a curious student
+    should ask next:
+    \begin{enumerate}
+      \item Christofides' $\tfrac32$ stood unbeaten for over $40$ years. Did anyone ever
+      beat it?
+      \item This week's Vertex Cover $2$-approximation is dead simple. Is $2$ actually
+      the best \emph{any} efficient algorithm could ever do?
+      \item Max-Cut local search is a $2$-approximation that always terminates -- but
+      \emph{how fast}, and why does local search work so well in practice on problems
+      with no such guarantee at all?
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{How this supplement is different from a survey}
+    Every section is sourced to a specific, verified paper (venue, year, and an
+    arXiv/DOI identifier), the same standard used in the Week 2 and Week 3 supplements.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Breaking Christofides After 44 Years}
+% =================================================================
+
+\begin{frame}{Recap: the ratios you have, in order}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Algorithm & Ratio & Source \\
+    \midrule
+    MST doubling + shortcut & $2$ & this week's lecture \\
+    Christofides--Serdyukov (odd-vertex matching) & $\tfrac{3}{2}$ & 1976 \\
+    \textbf{?} & \textbf{?} & open for $\sim\!44$ years \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  For over four decades, no one could push the ratio below $\tfrac32$ for \emph{general}
+  metric TSP, even though nobody could prove $\tfrac32$ was optimal either (the best
+  unconditional hardness result only rules out ratios below about $1.006$).
+\end{frame}
+
+\begin{frame}{The 2021 breakthrough}
+  \begin{block}{Karlin, Klein \& Oveis Gharan, \emph{STOC 2021} (Best Paper Award)}
+    For some $\varepsilon > 10^{-36}$, there is a randomized $(\tfrac32-\varepsilon)$-
+    approximation algorithm for metric TSP -- the first improvement over Christofides in
+    $44$ years. arXiv:\texttt{2007.01409}; journal version in \emph{Operations Research}
+    72(6):2543--2594, 2024.
+  \end{block}
+  \begin{itemize}
+    \item \textbf{Idea, at a very high level:} instead of picking \emph{one} spanning
+    tree (as the MST-based algorithm does) or one matching (as Christofides does), sample
+    a spanning tree from a carefully chosen \textbf{max-entropy probability
+    distribution} over spanning trees, then patch it into a tour the Christofides way.
+    \item The $\varepsilon$ is astronomically small ($>10^{-36}$) -- this is a
+    \emph{feasibility} result (``the ratio $\tfrac32$ is \emph{not} a hard wall'') far
+    more than a practical algorithm. It reopened a problem many researchers had started
+    to suspect was permanently stuck.
+    \item A 2022 follow-up (arXiv:\texttt{2212.06296}) derandomized the result, giving a
+    \emph{deterministic} $(\tfrac32-\varepsilon)$-approximation.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why this connects to next week}
+  \begin{itemize}
+    \item Notice what did the work: \textbf{randomness}. Sampling a spanning tree from a
+    max-entropy distribution -- rather than deterministically taking the MST -- is what
+    breaks through $\tfrac32$.
+    \item This is exactly the pattern next week's lecture previews for Max-Cut: ``a coin
+    flip alone gives a $\tfrac12$-approximation \emph{in expectation}, complementing this
+    week's deterministic local-search guarantee.'' Randomization is not a minor trick
+    here -- in both cases it is what an exhaustive $40$-year deterministic search could
+    not find.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Is 2 Really the Best We Can Do for Vertex Cover?}
+% =================================================================
+
+\begin{frame}{Two kinds of ``can we do better than 2?''}
+  \begin{itemize}
+    \item This week's Vertex Cover algorithm (take both endpoints of every edge of a
+    maximal matching) is a clean $2$-approximation. Two very different questions ask
+    ``is $2$ optimal?'':
+    \begin{enumerate}
+      \item \textbf{Unconditional hardness:} can we prove, from $\mathrm{P}\ne\mathrm{NP}$
+      alone, that no efficient algorithm beats some ratio? Dinur \& Safra (2002) proved
+      Vertex Cover cannot be approximated below $1.3606$ unless $\mathrm{P}=\mathrm{NP}$
+      -- real, but far from ruling out ratios between $1.36$ and $2$.
+      \item \textbf{Conditional hardness under a second conjecture:} assume something
+      \emph{stronger} than $\mathrm{P}\ne\mathrm{NP}$, and see how much further the wall
+      moves.
+    \end{enumerate}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Unique Games Conjecture (UGC)}
+  \begin{block}{Khot, \emph{STOC 2002}}
+    The \textbf{Unique Games Conjecture} posits that a certain constraint-satisfaction
+    problem (label each vertex of a graph so that, for each edge, a specified bijection
+    between endpoint-labels is respected) is NP-hard to approximate even
+    \emph{extremely} well. It remains \textbf{open} as of 2026 -- one of the most
+    consequential unresolved questions in theoretical computer science, on the same tier
+    as $\mathrm{P}$ vs.\ $\mathrm{NP}$.
+  \end{block}
+  \begin{itemize}
+    \item If true, UGC implies a large collection of matching upper/lower approximation
+    bounds across many NP-hard problems -- turning ``the best known algorithm'' into
+    ``provably the best \emph{possible} algorithm'' for each of them.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Vertex Cover's 2 is (conditionally) exactly tight}
+  \begin{block}{Khot \& Regev, \emph{CCC 2003} / \emph{J.\ Comput.\ Syst.\ Sci.} 2008}
+    Assuming the Unique Games Conjecture, Vertex Cover cannot be approximated within
+    $2-\varepsilon$ for \emph{any} fixed $\varepsilon>0$, in polynomial time.
+  \end{block}
+  \begin{itemize}
+    \item Combine with this week's theorem: the maximal-matching algorithm achieves
+    ratio $2$, and (conditionally) \textbf{nothing can do better}. This week's simplest
+    algorithm in the whole approximation toolkit is, plausibly, already optimal.
+    \item Contrast with Set Cover: this week's greedy $O(\log n)$-approximation is
+    \emph{also} known to be optimal, but \emph{unconditionally} (Feige, 1998, via a
+    different technique) -- Vertex Cover's optimality is the more fragile, UGC-dependent
+    kind.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Why Does Local Search Work So Well in Practice?}
+% =================================================================
+
+\begin{frame}{Recap: what this week proved about Max-Cut local search}
+  \begin{itemize}
+    \item Every single-vertex-flip local optimum cuts $\ge m/2$ edges -- a
+    $2$-approximation -- and each improving flip increases an integer cut value bounded
+    by $m$, so termination takes \emph{at most} $m$ flips.
+    \item That worst-case bound of $m$ flips is real, but for some other local-search
+    problems the analogous bound is \textbf{exponential}: there exist instances (for
+    problems in the complexity class \textbf{PLS}, ``Polynomial Local Search'') where
+    every improving-move sequence to a local optimum has exponential length, even though
+    checking a single move is fast.
+    \item So why does local search -- including Max-Cut's own natural neighbourhood --
+    so consistently converge fast \emph{in practice}, on real, non-adversarial inputs?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Smoothed analysis answers ``fast in practice, slow in theory''}
+  \begin{block}{Angel, Bubeck, Peres \& Wei / follow-up line; unifying result: \emph{ICALP
+  2024} / \emph{Math.\ Oper.\ Res.} 2024 (arXiv:\texttt{2211.07547})}
+    ``On the Smoothed Complexity of Combinatorial Local Search'' gives a unifying
+    framework: perturb the input instance slightly at random (e.g.\ edge weights get
+    tiny random noise), then bound the \emph{expected} number of improving moves. For the
+    classic $2$-FLIP local search on Max-Cut, this smoothed number of steps is
+    \textbf{quasi-polynomial} -- far below the exponential worst case.
+  \end{block}
+  \begin{itemize}
+    \item \textbf{Reading it correctly:} this does not contradict the existence of
+    genuinely exponential worst-case instances -- it says such instances are
+    \emph{fragile}: an infinitesimal, realistic perturbation almost always destroys them.
+    \item This is exactly why this week's lecture recommends \textbf{random restarts}
+    and \textbf{simulated annealing} as practical remedies -- randomizing the input or
+    the search path is precisely the kind of perturbation smoothed analysis models.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \small
+  \begin{enumerate}
+    \item \textbf{TSP:} Christofides' $\tfrac32$ stood for $44$ years until Karlin, Klein
+    \& Oveis Gharan (STOC 2021 Best Paper) broke it with a randomized max-entropy
+    spanning-tree sampler, later derandomized (2022) -- randomness, not a smarter
+    deterministic rule, was the key.
+    \item \textbf{Vertex Cover:} this week's $2$-approximation is (conditionally, via
+    Khot \& Regev 2003/2008 and the still-open Unique Games Conjecture) already the best
+    \emph{any} efficient algorithm can do -- a rare case where the simplest algorithm in
+    the course may be provably unbeatable.
+    \item \textbf{Local search:} Max-Cut's $\ge m/2$ guarantee terminates in $\le m$
+    steps, but general local search can take exponentially many steps in the worst case;
+    smoothed analysis (2022--2024) explains why real instances almost never hit that
+    worst case.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (\emph{Randomized Algorithms}) makes randomness itself the main tool:
+    randomized rounding, a randomized min-cut algorithm, and a one-coin-flip
+    $\tfrac12$-approximation for Max-Cut \emph{in expectation}. You have already seen a
+    preview of why this matters -- this week's biggest open-problem-breaking result was
+    itself a randomized algorithm.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,464 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{From First Instinct to Optimal Algorithm: Two-Dimensional DP in Practice\\
+\small Week 9 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{A Framework for Attacking a New DP Problem}
+% =================================================================
+
+\begin{frame}{Why walk through LeetCode problems?}
+  \begin{itemize}
+    \item This week's \texttt{LEETCODE.md} list gives ten problems to practice on your
+    own. This deck \textbf{narrates the thinking process} for two of them end to end.
+    \item We pick one \textcolor{blue!50!black}{\textbf{Medium}} (\emph{Edit Distance} --
+    exactly this week's lecture problem) and one \textcolor{red!60!black}{\textbf{Hard}}
+    (\emph{Distinct Subsequences}) -- both solved by the \emph{same} two-parameter DP
+    recurrence taught this week, applied to two different questions: ``what is the
+    \textbf{best} alignment?'' vs.\ ``\textbf{how many} alignments are there?''
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The four-step process we will repeat twice}
+  \begin{enumerate}
+    \item \textbf{First instinct.} Write the brute-force recursion that follows directly
+    from the problem statement -- try every choice at every step.
+    \item \textbf{Measure why it hurts.} Compute the actual size of the recursion tree
+    and plug in the problem's real constraints.
+    \item \textbf{Find the structural insight.} Identify the \emph{overlapping
+    subproblems} -- the same (prefix-of-$X$, prefix-of-$Y$) pair recomputed exponentially
+    many times -- and memoize on exactly that pair.
+    \item \textbf{Implement the optimal algorithm}, hand-trace it on a small example,
+    then look for programming-level (not algorithmic) implementation tricks.
+  \end{enumerate}
+  \begin{alertblock}{This mirrors the course}
+    Step 3 \emph{is} this week's core lesson: a DP recurrence is nothing more than
+    ``memoize the brute-force recursion on its real parameters.''
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Edit Distance}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 72 -- Edit Distance (\textcolor{blue!50!black}{Medium})}
+    Given two strings \texttt{word1} and \texttt{word2}, return the minimum number of
+    single-character \textbf{insert}, \textbf{delete}, or \textbf{replace} operations
+    needed to turn \texttt{word1} into \texttt{word2}.
+  \end{block}
+  \begin{itemize}
+    \item This \emph{is} this week's Levenshtein edit distance: $\delta = 1$ (gap cost)
+    and $\alpha_{pq} = 1$ for $p \ne q$ (mismatch cost).
+    \item Constraints (LeetCode): $0 \le |\texttt{word1}|, |\texttt{word2}| \le 500$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \texttt{word1 = "horse"}, \texttt{word2 = "ros"} $\to$ answer \textbf{3}.
+  \begin{center}
+  \small
+  \begin{tabular}{@{}cccccc@{}}
+    horse & $\to$ & rorse & $\to$ & rose & $\to$ ros \\
+    & \scriptsize replace h$\to$r & & \scriptsize delete r & & \scriptsize delete e \\
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item Three operations suffice: replace \texttt{h}$\to$\texttt{r}, delete the
+    second \texttt{r}, delete the trailing \texttt{e}.
+    \item Is 3 really the \emph{minimum}? Nothing above proves it -- we need the DP to
+    certify optimality, which is exactly what the recurrence below does.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: brute-force recursion}
+  \begin{block}{Most direct reading of the problem}
+    To convert \texttt{word1[0:i]} into \texttt{word2[0:j]}: if the last characters
+    match, recurse on both shorter prefixes for free; otherwise, try all three
+    operations on the last character and take the best.
+  \end{block}
+  \begin{algorithmic}[1]
+    \Function{Edit}{$i, j$}
+      \If{$i = 0$} \Return $j$ \ElsIf{$j = 0$} \Return $i$ \EndIf
+      \If{$word1[i] = word2[j]$}
+        \State \Return \Call{Edit}{$i-1, j-1$}
+      \Else
+        \State \Return $1 + \min\big(\Call{Edit}{i-1,j},\ \Call{Edit}{i,j-1},\
+        \Call{Edit}{i-1,j-1}\big)$
+      \EndIf
+    \EndFunction
+  \end{algorithmic}
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item Every mismatched pair branches into (up to) 3 recursive calls, each on
+    strings one shorter.
+    \item Worst case (two totally mismatched strings): the recursion tree has up to
+    $3^{\min(n,m)}$ leaves.
+    \item Plug in real numbers: two 20-character strings $\Rightarrow$ up to
+    $3^{20} \approx 3.49$ billion recursive calls -- for strings LeetCode allows up to
+    length \textbf{500}, this is astronomically infeasible.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    \Call{Edit}{$i,j$} gets called with the \emph{same} $(i,j)$ pair over and over from
+    different branches of the recursion tree -- the function has only
+    $(n+1)(m+1) \le 501^2$ possible distinct inputs, yet the raw recursion revisits them
+    billions of times.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item \textbf{Overlapping subproblems:} there are only $(n+1)(m+1)$ distinct
+    $(i,j)$ pairs the recursion can ever be called on. Memoize the answer for each pair
+    the first time it is computed, and every later call is $O(1)$.
+    \item \textbf{Optimal substructure:} once you fix what happens to the last
+    characters, the rest of an optimal alignment is provably an optimal alignment of
+    the two shorter prefixes -- exactly the argument from this week's lecture.
+    \item Together these give $O(nm)$ time and space: fill a table bottom-up instead of
+    recursing top-down, in whichever order guarantees $dp[i-1][\cdot]$ and
+    $dp[\cdot][j-1]$ are ready before $dp[i][j]$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: bottom-up DP}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{EditDistance}{$word1, word2$}
+      \State $n, m \gets |word1|, |word2|$
+      \State $dp[i][0] \gets i$ for $i=0,\dots,n$;\quad $dp[0][j] \gets j$ for
+      $j=0,\dots,m$
+      \For{$i \gets 1$ \textbf{to} $n$}
+        \For{$j \gets 1$ \textbf{to} $m$}
+          \If{$word1[i] = word2[j]$}
+            \State $dp[i][j] \gets dp[i-1][j-1]$
+          \Else
+            \State $dp[i][j] \gets 1 + \min(dp[i-1][j],\ dp[i][j-1],\ dp[i-1][j-1])$
+          \EndIf
+        \EndFor
+      \EndFor
+      \State \Return $dp[n][m]$
+    \EndFunction
+  \end{algorithmic}
+  $O(nm)$ time and space -- exactly this week's bound.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{word1 = "horse"} (rows), \texttt{word2 = "ros"} (columns). $dp[i][j]$ = edit
+  distance between the first $i$ letters of \texttt{horse} and first $j$ of \texttt{ros}.
+  \begin{center}
+  \begin{tabular}{@{}c|cccc@{}}
+     & "" & r & o & s \\
+    \midrule
+    "" & 0 & 1 & 2 & 3 \\
+    h & 1 & 1 & 2 & 3 \\
+    o & 2 & 2 & 1 & 2 \\
+    r & 3 & 2 & 2 & 2 \\
+    s & 4 & 3 & 3 & 2 \\
+    e & 5 & 4 & 4 & \textbf{3} \\
+  \end{tabular}
+  \end{center}
+  Bottom-right cell $dp[5][3]=3$ matches the answer. E.g.\ $dp[2][2]=1$ because
+  \texttt{h,o} vs.\ \texttt{r,o}: last letters \texttt{o}=\texttt{o} match, so
+  $dp[2][2]=dp[1][1]=1$.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $n=m=500$ \\
+    \midrule
+    Brute-force recursion & $O(3^{\min(n,m)})$ & incomputable \\
+    \textbf{Memoized / bottom-up DP} & $\boldsymbol{O(nm)}$ & $250{,}000$ ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  The DP visits each of the $(n{+}1)(m{+}1)$ table cells exactly once, doing $O(1)$ work
+  per cell -- the entire saving comes from never solving the same subproblem twice.
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+def minDistance(word1, word2):
+    n, m = len(word1), len(word2)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]
+    for i in range(n + 1):
+        dp[i][0] = i
+    for j in range(m + 1):
+        dp[0][j] = j
+
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            if word1[i - 1] == word2[j - 1]:
+                dp[i][j] = dp[i - 1][j - 1]
+            else:
+                dp[i][j] = 1 + min(dp[i - 1][j],      # delete
+                                    dp[i][j - 1],      # insert
+                                    dp[i - 1][j - 1])  # replace
+    return dp[n][m]
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Table size is $(n{+}1)\times(m{+}1)$, not $n \times m$.} The extra row
+    and column hold the ``one string is empty'' base cases; forgetting the $+1$ is the
+    single most common off-by-one bug in this problem.
+    \item \textbf{Rolling 1-D array.} $dp[i][\cdot]$ only ever depends on row $i-1$, so
+    you can drop the table from $O(nm)$ to $O(\min(n,m))$ \emph{space} (swap the strings
+    so the shorter one indexes the array) -- a pure memory optimization, it does not
+    change the $O(nm)$ time.
+    \item \textbf{Recursive memoization (\texttt{@lru\_cache}) works but costs more in
+    practice} than the flat array above: each call pays dict-hashing/function-call
+    overhead, and strings longer than Python's recursion limit ($\approx$1000) will
+    crash a naive recursive version outright -- prefer the iterative table for anything
+    performance-sensitive.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Distinct Subsequences}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 115 -- Distinct Subsequences (\textcolor{red!60!black}{Hard})}
+    Given strings $s$ and $t$, return the number of distinct \textbf{ways} $t$ occurs as
+    a subsequence of $s$ (count by which positions of $s$ you pick, not by the resulting
+    string value).
+  \end{block}
+  \begin{itemize}
+    \item This is the exact same ``align a prefix of $X$ with a prefix of $Y$'' idea as
+    Edit Distance -- but instead of asking for the \emph{best} alignment, it asks you to
+    \textbf{count} all valid ones.
+    \item Constraints (LeetCode): $|s| \le 1000$, $|t| \le 1000$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \texttt{s = "aab"}, \texttt{t = "ab"} $\to$ answer \textbf{2}.
+  \begin{itemize}
+    \item Positions of $s$ (0-indexed) \texttt{a a b}: pick index $0$ (\texttt{a}) and
+    index $2$ (\texttt{b}) $\to$ spells \texttt{"ab"}.
+    \item Pick index $1$ (\texttt{a}) and index $2$ (\texttt{b}) $\to$ also spells
+    \texttt{"ab"}.
+    \item Two \emph{different} choices of positions both spell \texttt{t}, so the answer
+    counts \textbf{2} -- even though the resulting string is the same both times.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: try every subset of positions}
+  \begin{block}{Most direct reading of the problem}
+    Try every subset of positions of $s$; keep it if the characters at those positions,
+    read in order, spell exactly $t$; count how many subsets qualify.
+  \end{block}
+  \begin{algorithmic}[1]
+    \State $count \gets 0$
+    \For{each of the $2^{|s|}$ subsets $S$ of positions of $s$}
+      \If{characters of $s$ at positions $S$, in order, equal $t$}
+        \State $count \gets count + 1$
+      \EndIf
+    \EndFor
+    \State \Return $count$
+  \end{algorithmic}
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item There are $2^{|s|}$ subsets, and checking each one against $t$ costs $O(|t|)$.
+    \item Plug in real numbers: LeetCode allows $|s|$ up to $1000$
+    $\Rightarrow 2^{1000}$ subsets -- a number with over 300 digits, far beyond the
+    $\sim\!10^{80}$ atoms in the observable universe (the same futility we saw with
+    $\log^* n$ in Week 3's supplement, but here the blow-up is the search space itself,
+    not a growth rate).
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    Once again: the recursive version of ``does a match starting here work?'' only ever
+    gets called with a pair (position in $s$, position in $t$) -- just
+    $(|s|{+}1)(|t|{+}1) \le 1001^2$ distinct pairs -- yet brute force revisits them an
+    astronomical number of times.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  Let $dp[i][j]$ = number of ways $t[0{:}j]$ occurs as a subsequence of $s[0{:}i]$.
+  Reason about $s_i$, the last character of the current prefix of $s$:
+  \begin{itemize}
+    \item $s_i$ can always be \textbf{skipped} (not used in the match): this
+    contributes $dp[i-1][j]$ ways, regardless of what $s_i$ is.
+    \item If $s_i = t_j$, $s_i$ can \emph{additionally} be \textbf{used} to match
+    $t_j$: this contributes $dp[i-1][j-1]$ more ways.
+  \end{itemize}
+  \[
+    dp[i][j] = dp[i-1][j] + \big[s_i = t_j\big]\cdot dp[i-1][j-1], \qquad
+    dp[i][0] = 1,\ \ dp[0][j>0] = 0.
+  \]
+  This is the \emph{same} recurrence shape as Edit Distance's ``last character'' case
+  analysis -- sum instead of min, because we are counting instead of optimizing.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{s = "aab"} (rows), \texttt{t = "ab"} (columns). $dp[i][j]$ = number of ways
+  $t[0{:}j]$ is a subsequence of $s[0{:}i]$.
+  \begin{center}
+  \begin{tabular}{@{}c|ccc@{}}
+     & "" & a & b \\
+    \midrule
+    "" & 1 & 0 & 0 \\
+    a & 1 & 1 & 0 \\
+    a & 1 & 2 & 0 \\
+    b & 1 & 2 & \textbf{2} \\
+  \end{tabular}
+  \end{center}
+  Row 3 (\texttt{s[2]="b"}), column ``b'': $s_3=t_2=$\texttt{b}, so
+  $dp[3][2] = dp[2][2] + dp[2][1] = 0 + 2 = 2$ -- matches the expected answer.
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{NumDistinct}{$s, t$}
+      \State $n, m \gets |s|, |t|$
+      \State $dp[i][0] \gets 1$ for $i = 0,\dots,n$;\quad $dp[0][j>0] \gets 0$
+      \For{$i \gets 1$ \textbf{to} $n$}
+        \For{$j \gets 1$ \textbf{to} $m$}
+          \State $dp[i][j] \gets dp[i-1][j]$
+          \If{$s_i = t_j$}
+            \State $dp[i][j] \gets dp[i][j] + dp[i-1][j-1]$
+          \EndIf
+        \EndFor
+      \EndFor
+      \State \Return $dp[n][m]$
+    \EndFunction
+  \end{algorithmic}
+  $O(nm)$ time and space -- versus $O(2^n \cdot m)$ for brute force.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $|s|=1000,\,|t|=100$ \\
+    \midrule
+    Try every subset of $s$ & $O(2^{|s|}\cdot|t|)$ & incomputable \\
+    \textbf{Bottom-up DP} & $\boldsymbol{O(|s|\,|t|)}$ & $100{,}000$ ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+def numDistinct(s, t):
+    n, m = len(s), len(t)
+    dp = [[0] * (m + 1) for _ in range(n + 1)]   # NOT [[0]*(m+1)]*(n+1) !
+    for i in range(n + 1):
+        dp[i][0] = 1                              # empty t: exactly one way
+
+    for i in range(1, n + 1):
+        for j in range(1, m + 1):
+            dp[i][j] = dp[i - 1][j]               # always allowed: skip s[i-1]
+            if s[i - 1] == t[j - 1]:
+                dp[i][j] += dp[i - 1][j - 1]       # also allowed: use s[i-1]
+    return dp[n][m]
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{\texttt{[[0]*(m+1) for \_ in range(n+1)]}, never
+    \texttt{[[0]*(m+1)]*(n+1)}.} The second form creates $n{+}1$ references to the
+    \emph{same} inner list -- mutating one row silently mutates every row. This is one
+    of the most common real Python bugs in 2-D DP, and it compiles/runs without any
+    error, it just silently gives the wrong answer.
+    \item \textbf{Counting DP has no overflow issue in Python} (unlike C/C++/Java, where
+    the count can need 64-bit or even bignum arithmetic for large $|s|$) -- but note
+    that LeetCode's official constraints keep the true answer within signed 32-bit
+    range specifically \emph{because} other languages need to represent it.
+    \item \textbf{If space-optimizing to a 1-D rolling array,} you must update $j$ in
+    \emph{increasing} order (each new value needs the \emph{old}, not-yet-overwritten
+    $dp[j-1]$ from the previous row) -- the \emph{opposite} direction from the
+    right-to-left rule you may know from 0/1-knapsack space optimization. Mixing the two
+    conventions up is a genuinely common bug.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: two problems, one recurrence}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Edit Distance} asks for the \emph{best} way to align two prefixes;
+    \textbf{Distinct Subsequences} asks \emph{how many} ways a prefix of $t$ embeds in a
+    prefix of $s$. Both recurrences reason about ``what happens to the last character,''
+    exactly this week's recipe -- one takes a $\min$, the other takes a $+$.
+    \item Both naive instincts were the same shape: brute-force enumeration
+    (all edit sequences; all position subsets) that revisits a tiny number of distinct
+    $(i,j)$ subproblems an exponential number of times.
+    \item Both fixes were the same shape too: notice the overlap, memoize on $(i,j)$,
+    get $O(nm)$.
+    \item The implementation tricks (rolling arrays, list-of-lists aliasing, the
+    knapsack-vs-subsequence rolling-array direction) are a second, independent layer --
+    the \emph{algorithm} can be optimal while the \emph{code} is still subtly wrong.
+  \end{enumerate}
+  \begin{alertblock}{Keep practicing}
+    \texttt{LEETCODE.md} lists eight more Week 9 problems (\emph{Longest Common
+    Subsequence}, \emph{Regular Expression Matching}, \emph{Unique Paths},
+    \emph{Cheapest Flights Within K Stops}, \dots) -- try the same four-step process on
+    each.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

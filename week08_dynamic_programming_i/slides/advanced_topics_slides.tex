@@ -1,0 +1,266 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{Closing the Gap on Knapsack}
+\subtitle{Fine-Grained Lower Bounds, Near-Quadratic Algorithms, and Learning-Augmented
+Scheduling\\
+\small Week 8 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \begin{itemize}
+    \item This week you built an $O(nW)$ DP for 0/1 Knapsack and proved it is only
+    \textbf{pseudo-polynomial}: polynomial in the \emph{numeric value} $W$, but
+    exponential in the \emph{number of bits} needed to write $W$ down.
+    \item Two questions a curious student should ask next -- both are recently
+    (2017--2024) resolved or actively developing research threads:
+    \begin{enumerate}
+      \item Is $O(nW)$ actually close to the \textbf{best possible} in terms of the
+      \emph{numeric} capacity, or could a smarter algorithm beat it substantially?
+      \item This week's DP is \textbf{offline}: it assumes every item/job is known in
+      advance. What happens when jobs arrive one at a time, with the future unknown?
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{How this supplement is different from a survey}
+    Every claim below is sourced to a specific, verifiable paper (venue and year given).
+    Where a bound looks suspiciously precise, that precision is the actual point --
+    these are hard-won constants from real proofs, not rounding for slides.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{How Tight Is O(nW), Really?}
+% =================================================================
+
+\begin{frame}{Recap: the bound you proved this week}
+  \begin{block}{This week's lecture notes}
+    0/1 Knapsack's DP runs in $O(nW)$ time and space -- polynomial in the \emph{value}
+    $W$, but $W$ itself takes only $O(\log W)$ bits to write down, so the algorithm is
+    exponential in input \emph{size}. This is \textbf{pseudo-polynomial}, and Knapsack is
+    NP-hard, so no genuinely polynomial (in bit-length) algorithm is believed to exist.
+  \end{block}
+  \begin{itemize}
+    \item That settles the question of whether Knapsack is polynomial in the input
+    \emph{size}. It says nothing about whether $O(nW)$ is the best possible algorithm
+    that is polynomial in the \emph{numeric value} $W$ -- a narrower, sharper question
+    that fine-grained complexity theory answers precisely.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The conditional lower bound}
+  \small
+  Write $w_{\max}$ for the largest item weight (so $W \le n\,w_{\max}$; the DP's real
+  cost is naturally stated in terms of $n$ and $w_{\max}$).
+  \begin{block}{Theorem (Cygan, Mucha, Węgrzycki \& Włodarczyk, 2017; independently
+  Künnemann, Paturi \& Schneider, 2017)}
+    Under the \textbf{$(\min,+)$-convolution hypothesis}, 0/1 Knapsack has \emph{no}
+    $O\big((n+w_{\max})^{2-\delta}\big)$-time algorithm for any $\delta > 0$.
+  \end{block}
+  \begin{itemize}
+    \item $(\min,+)$-convolution: given arrays $A, B$ of length $N$, compute
+    $C[k] = \min_i \big(A[i] + B[k-i]\big)$ for every $k$. The naive algorithm is
+    $O(N^2)$; despite decades of effort, no one has beaten this by a polynomial factor.
+    The \emph{hypothesis} is that $\Omega(N^{2-o(1)})$ is actually necessary.
+    \item This is the same style of assumption as 3SUM-hardness or SETH -- a
+    widely-believed barrier used to explain \emph{why} a whole family of problems seems
+    stuck at quadratic time.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Proof idea: knapsack \emph{is} a convolution in disguise}
+  \small
+  \begin{itemize}
+    \item Recall the knapsack recurrence: $M[i,c] = \max\big(M[i-1,c],\ v_i +
+    M[i-1, c-w_i]\big)$ -- at each capacity $c$, you take the better of ``skip item
+    $i$'' and ``take item $i$.''
+    \item Group items by weight; merging the DP table across a block of items with the
+    \emph{same} weight is exactly a $(\min,+)$-style combination of two ``profile''
+    arrays (one array's best value at each residual capacity, combined with another).
+    \item The 2017 reduction makes this precise in the other direction: it builds a
+    knapsack instance out of two arbitrary $(\min,+)$-convolution inputs, such that
+    \emph{any} algorithm solving that knapsack instance in $o\big((n+w_{\max})^{2}\big)$
+    time would also solve $(\min,+)$-convolution in $o(N^2)$ time -- contradicting the
+    hypothesis.
+    \item Takeaway: the ``quadratic wall'' isn't a failure of imagination in this
+    week's DP -- it is now tied to one of the deepest open barriers in fine-grained
+    complexity.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The race to close the gap (2017--2024)}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Algorithm & Time (in $n, w_{\max}$) & Source \\
+    \midrule
+    This week's folklore DP & $O(n\,w_{\max})$ & standard textbook DP \\
+    Polak, Rohwedder \& Węgrzycki & $O(n + w_{\max}^{3})$ & 2021 \\
+    Chen, Lian, Mao \& Zhang & $\widetilde{O}(n + w_{\max}^{12/5})$ & 2023 \\
+    \textbf{Jin} & $\boldsymbol{O(n + w_{\max}^{2}\log^{4} w_{\max})}$ & \textbf{STOC 2024}
+    \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item Jin's 2024 result (``0-1 Knapsack in Nearly Quadratic Time,'' STOC 2024,
+    arXiv:2308.04093) is deterministic and matches the 2017 conditional lower bound up
+    to only a $\mathrm{polylog}(w_{\max})$ factor -- the gap is essentially closed.
+    \item This is a genuine, seven-year, multi-paper research arc: a believable
+    hardness \emph{hypothesis} (2017) followed by a sequence of algorithms that chase
+    the matching upper bound down to almost exactly that wall (2021 $\to$ 2023 $\to$
+    2024).
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Weighted Interval Scheduling Meets Machine Learning}
+% =================================================================
+
+\begin{frame}{A silent assumption in this week's DP}
+  \begin{itemize}
+    \item Weighted Interval Scheduling's $O(n\log n)$ DP -- and Knapsack's $O(nW)$ DP --
+    are both \textbf{offline}: every interval/item, with its weight, is known before the
+    algorithm starts.
+    \item Real schedulers (a cloud job queue, an ad-auction system, a CPU scheduler)
+    must commit to decisions \textbf{online}, as requests arrive, without knowing what
+    is coming next. The right question changes from ``what is the optimum?'' to ``how
+    close to optimum can \emph{any} algorithm get without seeing the future?'' -- a
+    \textbf{competitive ratio}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Warm-up: the ski rental problem}
+  \small
+  \begin{itemize}
+    \item Renting skis costs \$1/day; buying costs \$$B$ once, after which every day is
+    free. You don't know in advance how many days $d$ you will ski.
+    \item \textbf{Strategy:} rent for the first $B-1$ days, then buy on day $B$ if you're
+    still skiing.
+    \item \textbf{Worked example, $B=10$:} if $d=9$, you pay exactly $9$ (never buy) --
+    optimal. If $d=10$, you pay $9$ (renting) $+\,10$ (buying on day 10) $= 19$, versus
+    the optimal-with-hindsight cost of $10$ -- a ratio of $1.9$, approaching the
+    worst-case ratio of $2$ as $B$ grows.
+    \item This deterministic strategy is provably \textbf{2-competitive}, and no
+    deterministic algorithm without extra information can do better in the worst case.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Beating the worst case with a prediction}
+  \small
+  \begin{block}{Purohit, Svitkina \& Kumar, ``Improving Online Algorithms via ML
+  Predictions,'' NeurIPS 2018}
+    Suppose an ML model predicts $\hat{d}$, the number of days you'll ski. Buy on day
+    $\min(\hat d, B)$ instead of always waiting until day $B$.
+  \end{block}
+  \begin{itemize}
+    \item If the prediction is \textbf{accurate} ($\hat d \approx d$), this strategy's
+    cost approaches the \emph{optimal-with-hindsight} cost -- far better than the
+    worst-case ratio of $2$.
+    \item If the prediction is \textbf{wildly wrong}, a tunable parameter $\lambda \in
+    [0,1]$ trades off how much you trust it, guaranteeing the cost never exceeds a
+    bounded multiple of the 2-competitive baseline -- the algorithm degrades gracefully
+    instead of failing catastrophically.
+    \item The same paper applies this idea to \textbf{non-clairvoyant job scheduling} --
+    exactly this week's scheduling setting, but online and with a predicted job length
+    replacing the ``$w_j$, known in advance'' assumption of the offline DP.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Formalizing the trade-off: consistency vs.\ robustness}
+  \small
+  \begin{block}{Mitzenmacher \& Vassilvitskii, ``Algorithms with Predictions,''
+  Communications of the ACM, 2022}
+    Every learning-augmented algorithm should be measured on two axes:
+    \begin{itemize}
+      \item \textbf{Consistency:} performance when the prediction is perfect (ideally
+      matching the offline optimum).
+      \item \textbf{Robustness:} performance when the prediction is adversarially wrong
+      (ideally still bounded by the classical worst-case guarantee).
+    \end{itemize}
+  \end{block}
+  \begin{itemize}
+    \item This framework, formalized in 2018--2022 and still an active research area
+    through 2024--2026, is now applied to scheduling, caching, bloom filters, and
+    -- yes -- knapsack-style packing problems: exactly the offline problems this week
+    introduced, now redesigned to gracefully use (possibly imperfect) predictions about
+    the future instead of assuming perfect foreknowledge.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \small
+  \begin{enumerate}
+    \item \textbf{The $O(nW)$ pseudo-polynomial bound is not an accident of laziness.}
+    A 2017 conditional lower bound (Cygan--Mucha--Węgrzycki--Włodarczyk;
+    Künnemann--Paturi--Schneider) ties any substantial improvement to breaking the
+    $(\min,+)$-convolution hardness hypothesis.
+    \item \textbf{The gap is now almost closed.} A sequence of papers (2021, 2023, and
+    Jin's STOC 2024 result) pushed the true \emph{upper} bound down to
+    $O(n+w_{\max}^2\log^4 w_{\max})$ -- matching the lower bound up to polylog factors.
+    \item \textbf{The offline assumption itself is now optional.} Learning-augmented
+    algorithms (Purohit--Svitkina--Kumar 2018; formalized by Mitzenmacher--Vassilvitskii
+    2022) let this week's scheduling ideas work online, using ML predictions with
+    provable consistency/robustness guarantees.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (Dynamic Programming II) applies the same five-step DP recipe to sequence
+    alignment and shortest paths -- and, as you'll see, edit distance's $O(nm)$ bound has
+    its \emph{own} fine-grained lower bound story.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

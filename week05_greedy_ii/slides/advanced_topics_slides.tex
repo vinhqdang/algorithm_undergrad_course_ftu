@@ -1,0 +1,211 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{Beyond Dijkstra and the Cut Property}
+\subtitle{Breaking the Sorting Barrier for Shortest Paths, and the Frontier of Cut Algorithms\\
+\small Week 5 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \begin{itemize}
+    \item This week you proved Dijkstra's algorithm correct via ``greedy stays
+    ahead,'' and MST correctness via the \textbf{cut property} -- both landing on
+    an $O((m+n)\log n)$ bound with a binary heap.
+    \item Two questions a curious student should ask next:
+    \begin{enumerate}
+      \item Dijkstra repeatedly extracts the \emph{minimum}-distance unvisited
+      vertex -- which looks a lot like \textbf{sorting} the vertices by distance.
+      Sorting $n$ items needs $\Omega(n\log n)$ comparisons in general. Is
+      Dijkstra's $O(m+n\log n)$ therefore an unavoidable ``sorting barrier''?
+      \item The cut property says the cheapest edge crossing \emph{any} cut is
+      safe to add. The reverse question -- \emph{what is the cheapest cut
+      itself?} (global minimum cut) -- is a natural dual problem. How fast can
+      it be found?
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{Both questions were resolved only very recently}
+    The shortest-path question was open for decades and fell in 2025; a faster
+    algorithm followed within a year. The min-cut question fell in 2024. Every
+    claim below is sourced to a specific, verified paper.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Breaking the Sorting Barrier (STOC 2025)}
+% =================================================================
+
+\begin{frame}{Recap: why Dijkstra looks like sorting}
+  \begin{itemize}
+    \item Dijkstra's algorithm, run with a binary heap, repeatedly does
+    \textsc{ExtractMin} to settle vertices in increasing order of
+    $\mathrm{dist}(\cdot)$ -- by the time it finishes, it has produced the
+    vertices \emph{sorted} by distance from $s$.
+    \item Comparison-based sorting needs $\Omega(n\log n)$ comparisons in the
+    worst case -- so for decades, $O(m+n\log n)$ looked like it might be an
+    \emph{inherent} barrier for any algorithm that settles vertices one at a
+    time in distance order.
+    \item This is exactly the same shape of question this course asked about
+    Union-Find's $\alpha(n)$ bound in Week 3: \emph{is the best known algorithm
+    also the best possible one?}
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The 2025 breakthrough}
+  \begin{block}{Theorem (Duan, J.~Mao, X.~Mao, Shu, Yin, STOC 2025)}
+    On directed graphs with real, non-negative edge weights (comparison-addition
+    model), single-source shortest paths can be solved
+    \textbf{deterministically in $O(m\log^{2/3} n)$ time} -- strictly beating
+    Dijkstra's $O(m+n\log n)$ on sparse graphs ($m = O(n)$).
+  \end{block}
+  \begin{itemize}
+    \item ``Breaking the Sorting Barrier for Directed Single-Source Shortest
+    Paths,'' \emph{Proc.\ 57th ACM STOC} (2025), pp.\ (see DOI). \emph{DOI:}
+    \texttt{10.1145/3717823.3718179}; also \texttt{arXiv:2504.17033}.
+    \item \textbf{Idea, in one sentence:} instead of a single global priority
+    queue that forces a strict total order on \emph{all} vertices, the algorithm
+    recursively partitions the graph into bounded-hop sub-problems and only
+    partially orders \emph{groups} of vertices -- paying for a full sort only
+    within small groups, not across the whole graph.
+    \item This is the first algorithm ever to beat Dijkstra's asymptotic time on
+    sparse directed graphs with real weights -- proving the ``sorting barrier''
+    was a property of Dijkstra's algorithm, not of the shortest-path
+    \emph{problem}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{An even faster algorithm -- eight months later}
+  \begin{block}{Theorem (Duan, X.~Mao, Shu, Yin, ICALP 2026)}
+    A refinement improves the bound to
+    $O\!\big(m\sqrt{\log n} + \sqrt{mn\log n\log\log n}\big)$, which is
+    $O(m\sqrt{\log n\log\log n})$ on sparse graphs -- faster still than the 2025
+    result.
+  \end{block}
+  \begin{itemize}
+    \item ``A Faster Directed Single-Source Shortest Path Algorithm,''
+    \emph{Proc.\ 53rd ICALP} (2026); \texttt{arXiv:2602.07868}.
+    \item Submitted April 2025 $\to$ improved by February 2026: this is an
+    \textbf{active, fast-moving} research frontier, not a settled result -- a
+    reminder that ``the textbook algorithm'' can still be an open research
+    question, exactly as this course's Week 2 supplement discussed for Dijkstra's
+    \emph{universal} optimality on specific graph shapes.
+    \item Whether $O(m+n)$ -- truly linear, matching BFS -- is achievable for
+    real-weighted directed SSSP remains \textbf{open}.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{The Cut Property's Dual: Global Minimum Cut}
+% =================================================================
+
+\begin{frame}{Recap: the cut property, and its dual question}
+  \begin{itemize}
+    \item This week's cut property: for any cut (a partition of $V$ into
+    $S, V\setminus S$), the cheapest edge crossing it is safe to add to the MST.
+    Kruskal/Prim exploit this crossing-edge structure \emph{locally}, one cut at
+    a time.
+    \item The \textbf{dual} question asks about cuts \emph{globally}: over
+    \emph{all} possible cuts of the graph, which one has the smallest total
+    crossing weight? This is the \textbf{global minimum cut} problem -- central
+    to network reliability (the cheapest way to disconnect a network).
+    \item Randomized near-linear-time algorithms for this problem existed
+    earlier, but a \textbf{deterministic} near-linear-time algorithm for
+    \emph{weighted} graphs was open for years.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The 2024 result}
+  \begin{block}{Theorem (Henzinger, J.~Li, Rao, D.~Wang, SODA 2024)}
+    There is a \textbf{deterministic, near-linear-time} algorithm for the global
+    minimum cut in weighted graphs.
+  \end{block}
+  \begin{itemize}
+    \item ``Deterministic Near-Linear Time Minimum Cut in Weighted Graphs,''
+    \emph{Proc.\ 2024 ACM-SIAM SODA}, pp.\ 3089--3139; \texttt{arXiv:2401.05627}.
+    \item Builds on Kawarabayashi \& Thorup's earlier near-linear-time result for
+    \emph{simple} (unweighted) graphs; the core new tool is a clustering
+    procedure that provably \emph{preserves} every minimum cut while shrinking
+    the graph.
+    \item The connection to this week: MST's cut property and min-cut are both
+    ``cut-structure'' problems on the same graph -- one is easy to exploit
+    locally (MST), the other took until 2024 to pin down fast and
+    deterministically \emph{globally}.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \small
+  \begin{enumerate}
+    \item \textbf{Dijkstra is not asymptotically optimal.} Duan, Mao, Mao, Shu \&
+    Yin (STOC 2025) broke the ``sorting barrier'' with a deterministic
+    $O(m\log^{2/3}n)$ algorithm for directed real-weighted SSSP; a 2026 follow-up
+    pushed this further to $O(m\sqrt{\log n\log\log n})$ on sparse graphs.
+    \item \textbf{This is an active frontier, not settled history.} Both results
+    postdate this course's textbook and appeared within the last 16 months --
+    whether truly linear-time SSSP is possible remains open.
+    \item \textbf{The cut property has a global dual.} Henzinger, Li, Rao \&
+    Wang (SODA 2024) gave the first deterministic near-linear-time algorithm for
+    global minimum cut in weighted graphs, resolving a problem that had resisted
+    derandomization for years.
+    \item \textbf{The lesson repeats from Week 2 and Week 3:} a clean, decades-old
+    greedy algorithm can still hide open questions about \emph{optimality} --
+    and those questions are actively being resolved today.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (Kleinberg \& Tardos, Chapter 5) leaves greedy design behind for
+    \textbf{divide and conquer}: merge sort, recurrences, and the Master theorem
+    -- the same style of ``prove a tight bound, then ask if it's optimal''
+    thinking applies there too (as Week 1's Karatsuba supplement already hinted).
+  \end{alertblock}
+\end{frame}
+
+\end{document}

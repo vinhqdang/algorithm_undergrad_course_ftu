@@ -1,0 +1,272 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\title{Beyond the Syllabus}
+\subtitle{Multiplication and the FFT: A Solved Conjecture, an Open Problem, and a Dynamic
+Closest Pair\\
+\small Week 7 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \footnotesize
+  \begin{itemize}
+    \item This week you proved two $\Theta(n\log n)$ bounds: the \textbf{closest pair of
+    points} via the strip argument, and \textbf{polynomial multiplication} via the FFT
+    (evaluate at roots of unity, multiply pointwise, interpolate back).
+    \item You also saw Karatsuba's $\Theta(n^{\log_2 3})$ integer multiplication --
+    Week 1's algorithm, revisited as one point on a whole \emph{hierarchy} of
+    multiplication algorithms.
+    \item Three questions a curious student should ask next:
+    \begin{enumerate}
+      \item Karatsuba beat grade-school; the FFT-based approach beats Karatsuba. Is there
+      an algorithm that beats \emph{that}, reaching $O(n\log n)$ for integers too?
+      \item Is $\Theta(n\log n)$ actually \textbf{proven optimal} for the FFT itself, the
+      way Week 3 proved Union-Find's bound optimal?
+      \item Your closest-pair algorithm assumed a fixed, static point set. What if points
+      keep arriving and leaving?
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{Note on scope}
+    This deck deliberately does \emph{not} revisit the matrix-multiplication exponent
+    $\omega$ (Strassen, AlphaTensor/AlphaEvolve) -- that story is already told in Week 2's
+    supplement. Every claim below is sourced to a specific, checked paper.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Closing the Loop: Integer Multiplication Reaches $O(n\log n)$}
+% =================================================================
+
+\begin{frame}{Recap: the hierarchy you have built so far}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Algorithm & Time & Where it comes from \\
+    \midrule
+    Grade-school & $\Theta(n^2)$ & direct definition of multiplication \\
+    Karatsuba (Week 1) & $\Theta(n^{\log_2 3}) \approx \Theta(n^{1.585})$ & 3 products
+    instead of 4 \\
+    Toom--Cook ($k$-way split) & $\Theta(n^{1+\varepsilon})$, any $\varepsilon>0$ & Karatsuba
+    generalized to $k$ pieces \\
+    Sch\"onhage--Strassen (1971) & $O(n\log n\log\log n)$ & FFT over integers (this week's
+    idea) \\
+    \textbf{Harvey--van der Hoeven} & $\boldsymbol{O(n\log n)}$ & next slide \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Each row is a strictly better asymptotic bound -- and, as you will see, each is
+  optimized for a \emph{different} range of $n$ in practice.
+\end{frame}
+
+\begin{frame}{Schönhage \& Strassen's 1971 conjecture, confirmed in 2021}
+  \begin{block}{Theorem (Harvey \& van der Hoeven, \emph{Annals of Mathematics} 193(2),
+  2021, pp.\ 563--617)}
+    Two $n$-bit integers can be multiplied using $O(n\log n)$ bit operations. \emph{DOI:}
+    \texttt{10.4007/annals.2021.193.2.4}.
+  \end{block}
+  \begin{itemize}
+    \item In 1971, Schönhage and Strassen introduced the $O(n\log n\log\log n)$ FFT-based
+    algorithm you studied this week's ideas from, and \textbf{conjectured} $O(n\log n)$
+    was the truth -- then it stood open for \textbf{48 years}.
+    \item Harvey and van der Hoeven (2019, published 2021) finally constructed such an
+    algorithm, confirming the conjecture.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The key idea: replace complex roots of unity with something exact}
+  \begin{itemize}
+    \item This week's FFT multiplies coefficient vectors by evaluating at complex
+    $n$-th roots of unity $\omega_n = e^{2\pi i/n}$. Done with floating-point
+    arithmetic, this accumulates \textbf{rounding error} that grows with $n$ --
+    fine for polynomials with modest coefficients, fatal for multiplying huge
+    exact integers.
+    \item Schönhage--Strassen's fix: work in a ring $\mathbb{Z}/(2^m+1)\mathbb{Z}$ that
+    has an exact analogue of a root of unity (a power of 2), so the transform is
+    \textbf{exact} integer arithmetic, not floating point -- at the cost of an extra
+    $\log\log n$ factor from recursively multiplying the (smaller) transformed
+    coefficients.
+    \item Harvey--van der Hoeven's contribution is a more intricate recursive choice of
+    such rings (multi-dimensional FFTs over carefully engineered finite rings) that
+    removes even that $\log\log n$ factor -- full technical machinery is well beyond this
+    course, but the \emph{shape} of the idea -- ``do the FFT idea, but over an exact
+    ring instead of $\mathbb{C}$'' -- is exactly this week's convolution trick, pushed
+    one level further.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Theory vs.\ Practice: When Does the Optimal Algorithm Actually Win?}
+% =================================================================
+
+\begin{frame}{A cautionary crossover point}
+  \begin{alertblock}{How large does $n$ have to be?}
+    Harvey and van der Hoeven's algorithm only beats Schönhage--Strassen (and Fürer's
+    2007 intermediate algorithm) once the integers being multiplied have more than
+    \[
+      2^{1729^{12}} \text{ bits.}
+    \]
+  \end{alertblock}
+  \begin{itemize}
+    \item For scale: the number of particles in the observable universe is estimated at
+    about $2^{270}$. The crossover point is unimaginably larger than that.
+    \item Source: D.\ Harvey, ``Integer multiplication in time $O(n\log n)$'' (talk
+    slides, UNSW 2019); reported in \emph{Communications of the ACM}, ``Multiplication
+    Hits the Speed Limit'' (Jan.\ 2020).
+    \item Compare Week 3's $\alpha(n)$ table: there, a function that is \emph{unusably
+    slow-growing in the good sense} (never exceeds 5 for any $n$ you could write down).
+    Here, a crossover point that is \emph{unusably large in the bad sense}. Both are
+    ``$O(1)$ for all practical purposes'' -- just in opposite directions.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{What multiplication libraries actually run}
+  \begin{itemize}
+    \item No production library implements Harvey--van der Hoeven: the crossover point
+    above puts it firmly in ``theoretical gold, not deployable'' territory.
+    \item GMP (used by Python's \texttt{int}, SageMath, and most computer-algebra
+    systems) instead switches, at \emph{measured} thresholds tuned per CPU, between
+    grade-school $\to$ Karatsuba $\to$ Toom--Cook $\to$ FFT/Schönhage--Strassen-style
+    methods as $n$ grows -- exactly the hierarchy from two slides ago, chosen
+    empirically rather than by asymptotics alone.
+    \item Recent (2024) work continues to refine this in new directions, e.g.\ evaluating
+    NTT (Number-Theoretic Transform, an exact finite-field FFT)/Karatsuba \emph{hybrid}
+    designs for $>16{,}000$-bit integers on FPGA hardware -- the same idea this week's FFT
+    teaches you, retargeted at silicon.
+  \end{itemize}
+  \begin{exampleblock}{The lesson}
+    ``Asymptotically optimal'' and ``fastest for the sizes you will ever multiply'' are
+    different claims. This week's Karatsuba/FFT material is the one that actually wins in
+    practice, for essentially every $n$ a computer will ever see.
+  \end{exampleblock}
+\end{frame}
+
+% =================================================================
+\section{Is the FFT Itself Optimal? A Genuinely Open Problem}
+% =================================================================
+
+\begin{frame}{Recall Week 3's move: prove a matching lower bound}
+  \begin{itemize}
+    \item For Union-Find, an upper bound ($O(m\,\alpha(n))$, Tarjan) was later matched by
+    a lower bound (Fredman \& Saks, 1989, cell-probe model) -- so we \emph{know}
+    Union-Find is optimal.
+    \item Natural question: is $\Theta(n\log n)$ for computing the Discrete Fourier
+    Transform of $n$ numbers similarly \textbf{proven optimal}?
+  \end{itemize}
+  \begin{alertblock}{Surprising answer: not in general}
+    Whether \emph{every} algorithm computing the DFT needs $\Omega(n\log n)$ operations,
+    in a fully general model of computation, is a genuinely \textbf{open problem} in
+    complexity theory. Unlike Union-Find, this loop has not been closed.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{What \emph{is} known}
+  \small
+  Unconditional lower bounds exist only for \emph{restricted} models of computation:
+  \begin{itemize}
+    \item \textbf{Algebraic circuit model.} If you only count additions/multiplications
+    in a linear circuit, $\Omega(n\log n)$ \emph{is} known and matches the FFT's upper
+    bound -- so within that specific (very natural) model, the FFT is provably optimal.
+    \item \textbf{Restricted unitary-gate model.} Ailon (2013), ``A Lower Bound for
+    Fourier Transform Computation in a Linear Model Over $2{\times}2$ Unitary Gates
+    Using Matrix Entropy'' (arXiv:1305.4745), proves $\Omega(n\log n)$ when each
+    computation step is restricted to a $2{\times}2$ unitary operation on two
+    coordinates at a time -- a model chosen to mimic how real FFT circuits are built.
+    \item \textbf{Online, cell-probe model.} Clifford \& Jalsenius, ``Tight Cell-Probe
+    Bounds for Online Integer Multiplication and Convolution'' (ICALP 2011,
+    arXiv:1101.0768), prove a \emph{matching} lower bound specifically for the
+    \emph{online} version (coefficients of one input revealed one at a time) --
+    using the very same cell-probe technique as Fredman--Saks in Week 3.
+  \end{itemize}
+  No one has yet ruled out a fundamentally different, non-algebraic algorithm beating
+  $n\log n$ for the general, offline DFT.
+\end{frame}
+
+% =================================================================
+\section{Closest Pair Goes Parallel and Dynamic}
+% =================================================================
+
+\begin{frame}{Recap: this week's static, single-shot algorithm}
+  \begin{itemize}
+    \item This week's closest-pair algorithm assumes: (a) all $n$ points are known in
+    advance, and (b) you compute the answer once, sequentially.
+    \item Real applications -- ride-sharing dispatch, collision detection in a physics
+    simulation, nearest-neighbor indexes -- need the closest pair \emph{as points keep
+    being added and removed}, and ideally computed on many cores at once.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{A parallel, batch-dynamic closest pair}
+  \begin{block}{Wang, Yu, Gu \& Shun, ``A Parallel Batch-Dynamic Data Structure for the
+  Closest Pair Problem'' (SoCG 2021; arXiv:2010.02379)}
+    A data structure that maintains the closest pair of a point set under
+    \textbf{batches} of insertions and deletions, with each batch update running in
+    $O(\log^2 n)$ \emph{parallel depth} (span) using near-linear total work, rather than
+    recomputing the static $O(n\log n)$ algorithm from scratch after every change.
+  \end{block}
+  \begin{itemize}
+    \item The core reuse of this week's idea: the same ``strip near the dividing line''
+    argument still bounds how much local structure a single update can disturb -- it
+    is generalized, not discarded.
+    \item ``Batch-dynamic'' means: update $b$ points at once in
+    $O\!\left(\log^2 n + \frac{b}{p}\log^2 n\right)$-style parallel time with $p$
+    processors, rather than paying a full sequential pass per point.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{A 48-year conjecture, closed:} Harvey \& van der Hoeven (2021) built an
+    exact, $O(n\log n)$ integer-multiplication algorithm, confirming Schönhage \&
+    Strassen's 1971 guess -- by pushing this week's ``FFT over an exact ring instead of
+    $\mathbb{C}$'' idea further.
+    \item \textbf{Optimal in theory, irrelevant in practice (so far):} its crossover
+    point, $2^{1729^{12}}$ bits, dwarfs any number a computer will ever multiply --
+    real libraries still run tuned Karatsuba/Toom--Cook/Schönhage--Strassen hybrids.
+    \item \textbf{An open loop:} unlike Union-Find (Week 3), no one has proven a general
+    $\Omega(n\log n)$ lower bound for the DFT -- only for restricted models, using (among
+    other tools) the same cell-probe technique from Week 3.
+    \item \textbf{Static $\to$ dynamic \& parallel:} this week's closest-pair strip
+    argument extends to a 2021 parallel batch-dynamic data structure, the same upgrade
+    path Week 3's supplement traced for Union-Find/connectivity.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (Kleinberg \& Tardos, Ch.~6) turns from divide-and-conquer's ``split,
+    recurse, combine'' to \textbf{dynamic programming}'s ``solve every subproblem once,
+    reuse the answers'' -- a different way of taming an exponential search space.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

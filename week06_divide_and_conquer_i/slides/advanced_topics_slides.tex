@@ -1,0 +1,230 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{mathtools}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{The Matrix Multiplication Exponent Race}
+\subtitle{From Strassen (1969) to a 2026 Machine-Assisted Bound -- and Why Big-O Still
+Hides the Truth\\
+\small Week 6 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation: Can Matrix Multiplication Beat \texorpdfstring{$n^3$}{n cubed}?}
+% =================================================================
+
+\begin{frame}{A question the lecture already half-answers}
+  \begin{itemize}
+    \item This week's Master Theorem example for ``grade-school multiply (D\&C)'' is a
+    cautionary tale: splitting an $n$-digit multiplication into $4$ half-size
+    sub-multiplications gives $T(n) = 4T(n/2) + \Theta(n)$, and Case 1 says this is
+    $\Theta(n^2)$ -- \textbf{no better than the naive algorithm}. Karatsuba's insight was
+    to cut $4$ sub-multiplications down to $3$.
+    \item The obvious next question: \textbf{multiplying two $n \times n$ matrices} the
+    ``grade-school'' way (triple nested loop) costs $\Theta(n^3)$. If we split each matrix
+    into four $(n/2)\times(n/2)$ blocks, the naive block recursion also needs $8$
+    sub-multiplications: $T(n) = 8T(n/2) + \Theta(n^2)$, and $\log_2 8 = 3$, so again
+    \textbf{no improvement} -- exactly the same trap.
+    \item Is there a ``Karatsuba trick'' for matrices too -- a way to shave sub-multiplications
+    and beat $n^3$? Yes -- and the race to find the \emph{best possible} such trick has been
+    running for over 55 years, with a new record set as recently as this month.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Strassen's Algorithm (1969): The First Sub-Cubic Trick}
+% =================================================================
+
+\begin{frame}{Setup: block recursion}
+  \begin{itemize}
+    \item Split each $n\times n$ matrix into four $(n/2)\times(n/2)$ blocks:
+    $A = \begin{psmallmatrix} A_{11} & A_{12} \\ A_{21} & A_{22} \end{psmallmatrix}$,
+    $B = \begin{psmallmatrix} B_{11} & B_{12} \\ B_{21} & B_{22} \end{psmallmatrix}$.
+    \item The defining identity of block matrix multiplication needs \textbf{8} products
+    of half-size blocks (e.g.\ $C_{11} = A_{11}B_{11} + A_{12}B_{21}$, and similarly for
+    $C_{12}, C_{21}, C_{22}$) plus $\Theta(n^2)$ additions to combine them.
+    \item $T(n) = 8T(n/2) + \Theta(n^2)$, $\log_2 8 = 3 = d+1$... by the Master Theorem
+    (Case 1, $\log_2 8 = 3 > 2$): $\Theta(n^{\log_2 8}) = \Theta(n^3)$. Same as naive.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Strassen's trick: 7 products instead of 8}
+  \begin{itemize}
+    \item Volker Strassen (1969) found \textbf{seven} cleverly-chosen linear combinations
+    of the blocks whose products (plus $\Theta(n^2)$ extra additions/subtractions) can be
+    recombined into all four quadrants of $C$ -- one fewer multiplication than the obvious
+    approach, at the cost of more (but still linear-in-$n^2$) addition work.
+    \item New recurrence: $T(n) = 7T(n/2) + \Theta(n^2)$.
+    \item Master Theorem: $\log_2 7 \approx 2.807 > 2$, so Case 1 gives
+    $T(n) = \Theta\!\left(n^{\log_2 7}\right) \approx \Theta(n^{2.807})$.
+  \end{itemize}
+  \begin{alertblock}{Why this was a big deal}
+    For over a century, $\Theta(n^3)$ was assumed to be the best possible. Strassen's
+    algorithm was the \textbf{first proof that matrix multiplication is not
+    cubic} -- exactly the same kind of shock Karatsuba's algorithm gave integer
+    multiplication, six years earlier.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{The Fifty-Year Race Beneath 2.807}
+% =================================================================
+
+\begin{frame}{The exponent $\omega$: how low can it go?}
+  \small
+  Define $\omega$ as the infimum exponent such that $n\times n$ matrices can be multiplied
+  in $O(n^{\omega+\epsilon})$ time for every $\epsilon > 0$. Strassen showed $\omega \le
+  \log_2 7 \approx 2.807$; the true value of $\omega$ is a major open problem (it is known
+  $\omega \ge 2$, trivially). Since 1969, a long sequence of results has driven the upper
+  bound down:
+  \begin{center}
+  \begin{tabular}{@{}llc@{}}
+    \toprule
+    Year & Result & Bound on $\omega$ \\
+    \midrule
+    1969 & Strassen & $2.807$ \\
+    1990 & Coppersmith \& Winograd & $2.376$ \\
+    2023 & Duan, Wu \& Zhou (FOCS) & $2.371866$ \\
+    2024 & Vassilevska Williams, Xu, Xu \& Zhou (SODA) & $2.371552$ \\
+    2025 & Alman, Duan, Vassilevska Williams, Xu, Xu \& Zhou (SODA) & $2.371339$ \\
+    2026 & modern-optimization + AlphaEvolve search (arXiv 2608.16884) & $2.371177$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Every one of these (2023 onward) is a refinement of the same underlying technique --
+  the \emph{laser method} applied to powers of a combinatorial object (the
+  Coppersmith--Winograd tensor) -- pushed further each time by a sharper loss analysis.
+\end{frame}
+
+\begin{frame}{What actually moved between 2023 and 2026}
+  \small
+  \begin{itemize}
+    \item \textbf{2023 (Duan, Wu, Zhou, FOCS):} identified that earlier analyses of powers
+    of the Coppersmith--Winograd tensor suffered from an avoidable ``combination loss,'' and
+    fixed it -- $\omega < 2.371866$.
+    \item \textbf{2024 (Vassilevska Williams, Xu, Xu, Zhou, SODA, ``From Alpha to Omega''):}
+    a refined laser-method analysis, also improving the related \emph{rectangular} exponent
+    $\alpha$ -- $\omega \le 2.371552$.
+    \item \textbf{2025 (Alman, Duan, Vassilevska Williams, Xu, Xu, Zhou, SODA, ``More
+    Asymmetry Yields Faster Matrix Multiplication''):} deliberately \emph{unbalancing} the
+    analysis (treating the tensor's three dimensions asymmetrically) squeezes out more --
+    $\omega < 2.371339$.
+    \item \textbf{2026 (arXiv 2608.16884):} the same optimization problem these papers solve
+    by hand is reformulated and handed to a machine-learning-guided search
+    (Google DeepMind's AlphaEvolve) over a larger search space -- $\omega < 2.371177$.
+  \end{itemize}
+  \begin{exampleblock}{The pattern}
+    Four papers, three years, the fifth decimal place -- this is what ``chasing a constant''
+    looks like at the frontier of theoretical computer science.
+  \end{exampleblock}
+\end{frame}
+
+% =================================================================
+\section{Galactic Algorithms: Theory vs.\ Practice}
+% =================================================================
+
+\begin{frame}{Why your laptop's BLAS library still uses Strassen, not $\omega < 2.372$}
+  \begin{itemize}
+    \item Strassen's algorithm \emph{is} used in practice, but only above a
+    \textbf{crossover point}: the constant-factor overhead of its extra additions only pays
+    off once matrices are large enough (empirically, roughly $n$ in the tens to low
+    hundreds, and highly hardware-dependent) -- below that, plain $\Theta(n^3)$ wins.
+    \item Every algorithm since Coppersmith--Winograd (1990) is what Richard Lipton called a
+    \textbf{``galactic algorithm''}: asymptotically faster, but with hidden constants (and
+    exponents on those constants) so large that the crossover point exceeds any matrix size
+    that could ever exist in a real computation.
+    \item This is a direct, concrete instance of the warning from Week 2's supplement:
+    ``textbook algorithm'' does not mean ``final answer'' -- and here, ``asymptotically
+    optimal'' does not even mean ``ever useful.''
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Why the Exponent Still Matters}
+% =================================================================
+
+\begin{frame}{Even a galactic bound has real consequences}
+  \begin{itemize}
+    \item Many other problems' \emph{best known} running times are stated \emph{in terms
+    of} $\omega$ -- e.g.\ Boolean matrix multiplication (used for transitive closure and
+    some graph reachability algorithms), certain all-pairs-shortest-path methods, and
+    context-free grammar parsing all inherit an $O(n^{\omega})$-flavoured bound.
+    \item Every time $\omega$'s upper bound drops, \emph{all of those} bounds improve too,
+    even though nobody re-proves each one by hand -- the improvement propagates through the
+    literature automatically.
+    \item So while you will never see a $\Theta(n^{2.371})$ matrix multiply run on real
+    hardware, the \emph{pursuit} of $\omega$ is not idle: it is calibrating exactly how much
+    headroom is theoretically left in dozens of other algorithms you might build later in
+    this course and beyond.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \footnotesize
+  \begin{enumerate}
+    \item The same ``count the sub-multiplications, apply the Master Theorem'' analysis
+    this week uses for integer multiplication applies verbatim to matrix multiplication --
+    $8$ sub-products gives $\Theta(n^3)$ (no gain), Strassen's $7$ gives
+    $\Theta(n^{2.807})$ (a real gain).
+    \item The exponent $\omega$ has been pushed from $2.807$ (1969) to $2.371177$ (Aug
+    2026) through a sequence of genuinely real, citable papers -- most of them from the
+    last three years, the newest from this very month.
+    \item Every algorithm below Coppersmith--Winograd's 1990 bound is ``galactic'': correct,
+    asymptotically superior, and never actually run -- a sharp reminder that Big-$O$
+    describes a \emph{limit}, not a \emph{promise about your input size}.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (Divide \& Conquer II) revisits integer multiplication one level deeper:
+    Harvey and van der Hoeven's true $O(n \log n)$ algorithm (2019--2021) -- the actual
+    endpoint of the road Karatsuba started Week 1 on.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

@@ -1,0 +1,234 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\title{Beyond the Syllabus}
+\subtitle{Sharper Hardness, Solvers That Work Anyway, and Why Lower Bounds Are
+Hard to Prove\\
+\small Week 12 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \small
+  \begin{itemize}
+    \item This week you learned that \textsc{3-SAT}, \textsc{Vertex Cover},
+    \textsc{Clique}, \textsc{Hamiltonian Cycle}, \textsc{Subset Sum}, and
+    \textsc{3-Coloring} are all NP-complete -- and a poly.\ algorithm for one would give
+    one for \emph{all} of them.
+    \item ``NP-complete'' is not the end of the story -- it raises three sharper
+    questions, all active research right now:
+    \begin{enumerate}
+      \item \textbf{How exponential, exactly?} $2^{0.001n}$ and $2^{n}$ are both
+      ``non-polynomial,'' but wildly different in practice.
+      \item \textbf{If it's exponential in theory, why do real SAT solvers routinely
+      solve formulas with millions of variables?}
+      \item \textbf{Why is it so hard to even \emph{prove} these lower bounds?} We have
+      overwhelming \emph{evidence} P $\neq$ NP, but no proof -- and a precise reason our
+      current techniques cannot supply one.
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{The throughline}
+    Reductions do more than classify problems as ``hard'' -- they let a hardness
+    \emph{assumption} about one problem (like 3-SAT) transfer precise, quantitative
+    consequences to every problem it reduces to.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{How Exponential, Exactly? The Exponential Time Hypothesis}
+% =================================================================
+
+\begin{frame}{Recap: what NP-completeness does \emph{not} tell you}
+  \begin{itemize}
+    \item Cook--Levin plus this week's reductions prove: \emph{if} P $=$ NP, \emph{then}
+    3-SAT (and Vertex Cover, Clique, \dots) has a polynomial algorithm.
+    \item They say nothing about \emph{how exponential} the best algorithm is if
+    P $\neq$ NP. Brute-force 3-SAT is $O(2^n)$; is that close to necessary, or could a
+    clever algorithm reach $O(1.01^n)$, or even $O(2^{\sqrt{n}})$?
+    \item This is exactly the kind of question this course trains you to ask about
+    \emph{every} algorithm's running time -- we are just asking it about the
+    \emph{lower} bound side now.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The Exponential Time Hypothesis (Impagliazzo \& Paturi)}
+  \begin{block}{Impagliazzo \& Paturi, ``On the Complexity of $k$-SAT'' (CCC 1999;
+  \emph{J.\ Comput.\ Syst.\ Sci.}, 2001)}
+    For $k \ge 3$, let $s_k = \inf\{\delta : k\text{-SAT solvable in } O(2^{\delta n})
+    \text{ time}\}$. The \textbf{Exponential Time Hypothesis (ETH)} conjectures
+    $s_3 > 0$: 3-SAT has \emph{no} $2^{o(n)}$ algorithm.
+  \end{block}
+  \begin{itemize}
+    \item A companion \textbf{Sparsification Lemma} (Impagliazzo, Paturi \& Zane, 2001)
+    shows any $k$-SAT instance can be re-expressed as $2^{\varepsilon n}$ instances with
+    only $O(n)$ clauses each -- the technical engine that makes ETH a \emph{robust},
+    reduction-friendly assumption rather than a fact about one particular encoding.
+    \item ETH is \emph{stronger} than P $\neq$ NP (it rules out sub-exponential time,
+    not just polynomial time) and is now a standard assumption for proving
+    \textbf{quantitative} lower bounds via this week's reduction technique.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why this matters for problems from this week's lecture}
+  \begin{itemize}
+    \item ETH-based reductions give lower bounds like: \textsc{Vertex Cover} on an
+    $n$-vertex graph has no $2^{o(n)}$ algorithm, and \textsc{Independent Set} /
+    \textsc{Clique} inherit the same bound through the reductions you proved this week
+    (Lemma: Independent Set $\equiv$ Vertex Cover; Independent Set $\le_p$ Clique).
+    \item For \textsc{Subset Sum}: the pseudo-polynomial $O(nW)$ DP you may see next
+    week is \emph{not} an accident of a weak algorithm -- fine-grained results (building
+    on this same ETH/SETH line) show truly-polynomial-in-$n$-and-$\log W$ algorithms
+    would violate standard hardness assumptions.
+    \item \textbf{The upshot:} once you have proved $X$ is NP-complete this week, ETH
+    lets you say something much sharper than ``no poly algorithm'' -- it predicts
+    \emph{how much} exponential blow-up is unavoidable, which is exactly the number you
+    need to decide whether brute force, or the FPT/branch-and-bound tools of Week 13,
+    is the realistic plan.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{NP-Complete in Theory, Solved in Practice: Modern SAT Solvers}
+% =================================================================
+
+\begin{frame}{The puzzle: exponential worst case, routine industrial use}
+  \begin{itemize}
+    \item ETH says 3-SAT has no sub-exponential \emph{worst-case} algorithm. And yet
+    modern SAT solvers are used daily in hardware verification, software model
+    checking, and scheduling, on formulas with \textbf{millions} of variables.
+    \item The resolution: worst-case exponential and \emph{practically fast on the
+    instances that actually arise} are compatible. Conflict-Driven Clause Learning
+    (CDCL) solvers combine backtracking search (this week's topic) with learned
+    clauses that prune huge parts of the search space the moment a conflict repeats a
+    pattern.
+    \item Progress on this engineering problem is measured every year at the
+    \textbf{SAT Competition} -- a genuine, ongoing benchmark of how far practice has
+    outrun the worst-case theory.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{SAT Competition 2024--2025: who is winning, and how}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}l l p{5.4cm}@{}}
+    \toprule
+    Year & Main sequential track winner & Note \\
+    \midrule
+    2024 & \textbf{Kissat} & a from-scratch C port/redesign of CaDiCaL \\
+    2025 & \textbf{CaDiCaL-SC2025} & PAR-2 $2327.00$, $161$ solved; Kissat-VSA 2nd
+    ($2335.54$, $160$ solved) \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item Source: SAT Competition 2025 official results
+    (\texttt{satcompetition.github.io/2025}) and the SAT Competition 2024 medal table
+    (\texttt{cca.informatik.uni-freiburg.de}).
+    \item Striking detail: \emph{all three} medalists in the 2025 main sequential track
+    were Kissat-based variants (augmented with extra heuristics) -- the CDCL
+    architecture from this week's backtracking discussion, refined for 25+ years, is
+    still the state of the art.
+    \item This is the same lesson as the exercises you just did: brute-force
+    backtracking plus the \emph{right} pruning rule is the difference between
+    ``theoretically exponential'' and ``solves the instance in milliseconds.''
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Why Is Proving These Lower Bounds So Hard?}
+% =================================================================
+
+\begin{frame}{We believe P $\neq$ NP. Why can't we prove it?}
+  \begin{itemize}
+    \item Every standard technique for proving a Boolean function is \emph{hard to
+    compute with small circuits} has, historically, worked by exhibiting a
+    \textbf{property} of hard functions that is: (i) \emph{constructive} (checkable in
+    time polynomial in the function's truth table), (ii) \emph{large} (true for most
+    functions), and (iii) \emph{useful} (false for the easy functions you're separating
+    from).
+    \item \textbf{Razborov \& Rudich (1994/1997), ``Natural Proofs.''} Any proof
+    technique with all three properties would, as a side effect, break standard
+    pseudorandom generators / one-way functions -- objects that cryptography needs to
+    exist. So either cryptography is broken, or \emph{no ``natural'' proof can ever
+    separate P from NP.} This is the \textbf{natural proofs barrier}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{2026: the same barrier, for data structures}
+  \begin{block}{Loff, Kouck\'{y}, Molli \& Saks, ``The Natural Proofs Barrier against
+  Data-Structure Lower-Bounds'' (STOC 2026; DOI: 10.1145/3798129.3800843)}
+    The natural-proofs obstruction is not special to circuit complexity: the same
+    style of argument shows that ``natural'' techniques are also insufficient to prove
+    strong \textbf{data-structure} lower bounds (e.g.\ for dynamic connectivity-style
+    problems closely related to this week's reductions), under analogous
+    cryptographic-hardness assumptions.
+  \end{block}
+  \begin{itemize}
+    \item Why this belongs in a week on NP-completeness: it is a direct descendant of
+    the verification-vs-search asymmetry this week is built on -- it says the
+    \emph{proof techniques themselves} face a search-vs-verify-style obstacle,
+    one level up.
+    \item Practical upshot for you: when an exercise asks you to prove a lower bound,
+    ``try harder with the natural strategy'' sometimes has a hard mathematical ceiling
+    -- this is an active 2020s research frontier, not a solved problem.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Sharper hardness.} The Exponential Time Hypothesis (Impagliazzo \&
+    Paturi, 1999/2001) upgrades ``no polynomial algorithm'' to a quantitative
+    $2^{\Omega(n)}$ prediction, transferred to Vertex Cover/Clique/Subset Sum by exactly
+    the reductions you proved this week.
+    \item \textbf{Theory vs.\ practice.} Worst-case exponential and
+    ``routinely solves million-variable industrial instances'' coexist: SAT
+    Competition 2024--2025 medalists (Kissat, CaDiCaL) are still backtracking search
+    plus learned-clause pruning -- this week's idea, engineered for 25 years.
+    \item \textbf{Why lower-bound proofs are themselves hard.} The natural proofs
+    barrier (Razborov--Rudich, 1994/1997) blocks the standard circuit-lower-bound
+    recipe unless cryptography is broken; a STOC 2026 result (Loff, Kouck\'{y}, Molli,
+    Saks) shows the same obstruction reaches data-structure lower bounds.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Week 13 (Kleinberg \& Tardos, Ch.\ 10) takes NP-completeness as a
+    \textbf{starting point} rather than a dead end: fixed-parameter tractable
+    algorithms confine the exponential blow-up to a small parameter $k$, PSPACE
+    captures games and quantified logic, and branch-and-bound turns today's
+    backtracking into a principled search strategy with provable pruning.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

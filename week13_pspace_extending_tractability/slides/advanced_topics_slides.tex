@@ -1,0 +1,260 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\title{Beyond the Syllabus}
+\subtitle{PSPACE, Games, and Fixed-Parameter Tractability: From Quantum Provers to the
+Frontiers of FPT\\
+\small Week 13 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \begin{itemize}
+    \item This week you saw that two-player games are naturally
+    \textbf{PSPACE-complete} (the $\exists\forall\exists\forall\cdots$ structure of
+    QSAT mirrors minimax), and that even though \textbf{Vertex Cover} is NP-hard, a
+    \emph{bounded search tree} makes it \textbf{fixed-parameter tractable}: $O(2^k n)$.
+    \item Three questions a curious student should ask next:
+    \begin{enumerate}
+      \item A single all-powerful prover convinces a verifier of a PSPACE claim (that
+      is what a game \emph{is}). What happens if you add a \textbf{second prover} who
+      cannot talk to the first -- does that make the verifier \emph{more} powerful, or
+      does it not matter?
+      \item Vertex Cover's branching trick rescued an NP-hard problem via FPT. Does the
+      \emph{same} kind of trick always rescue a hard \textbf{game}, parameterized by
+      how many moves are left?
+      \item Is FPT theory a finished 1990s toolbox, or are genuinely new FPT algorithms
+      still being discovered today?
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{How this supplement is different from a survey}
+    Every claim below is sourced to a specific, verifiable paper (arXiv id / DOI /
+    venue), not a vague ``recent research shows.''
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Games at the Edge of Computability: From PSPACE to RE}
+% =================================================================
+
+\begin{frame}{Recap: a single prover is exactly PSPACE}
+  \begin{itemize}
+    \item An \textbf{interactive proof}: a verifier (polynomial time, can flip coins)
+    exchanges messages with a computationally unbounded \textbf{prover} who is trying
+    to convince it that a claim is true. This is precisely the shape of a two-player
+    game with the verifier as one player probing the prover's ``winning strategy.''
+    \item \textbf{Theorem (Shamir, 1992):} $\mathbf{IP} = \mathbf{PSPACE}$. A single
+    prover, interacting with a randomized polynomial-time verifier, can prove
+    \emph{exactly} the claims decidable in polynomial space -- no more, no less.
+    \item This is exactly this week's QSAT/minimax intuition, made formal: the
+    prover plays the role of ``the side trying to prove the formula true,'' and the
+    verifier's questions play the role of the alternating quantifiers.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Add a second, non-communicating prover: jump to NEXP}
+  \begin{itemize}
+    \item Now give the verifier \textbf{two} provers, kept in separate rooms so they
+    cannot coordinate their answers once questioning starts (they may agree on a
+    strategy beforehand, but cannot communicate \emph{during} the protocol).
+    \item \textbf{Theorem (Babai, Fortnow \& Lund, 1991):} $\mathbf{MIP} =
+    \mathbf{NEXP}$. Cross-examining two provers who cannot coordinate turns out to be
+    \emph{strictly more powerful} than one prover alone -- it captures nondeterministic
+    \emph{exponential}-time claims, believed to be far beyond PSPACE.
+    \item Intuition: the verifier can ask the two provers \emph{correlated} questions
+    and catch any inconsistency between their answers, effectively forcing them to
+    commit to a single, globally consistent exponentially-large object -- something one
+    prover alone can bluff around, but two isolated provers cannot.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Now let the provers share quantum entanglement: $\text{MIP}^*=\text{RE}$}
+  \small
+  \begin{itemize}
+    \item Keep the two provers unable to communicate, but let them share
+    \textbf{quantum entanglement} prepared before the protocol starts (entanglement
+    cannot transmit information, so this seems like it should not help).
+    \item \textbf{Theorem (Ji, Natarajan, Vidick, Wright \& Yuen, 2020):}
+    $\mathbf{MIP}^{*} = \mathbf{RE}$. Astonishingly, entangled provers push the class
+    all the way up to \textbf{RE} -- exactly the languages decidable by the
+    \emph{Halting Problem}. There exist quantum multi-prover games that encode
+    \emph{``does this Turing machine halt?''} in whether the verifier accepts.
+    \item arXiv:2001.04383; published as \emph{MIP* = RE}, \textbf{Communications of
+    the ACM}, 2021. As a corollary, the paper \textbf{refutes} the 1976 Connes
+    Embedding Problem (an open question in operator-algebra theory) and resolves
+    Tsirelson's problem in quantum information theory -- a rare case of a complexity
+    proof settling open problems in pure mathematics and physics.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The hierarchy, at a glance}
+  \small
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Protocol & Power & What changed \\
+    \midrule
+    1 prover & $\mathbf{PSPACE}$ & this week's games (Shamir, 1992) \\
+    2 provers, classical, isolated & $\mathbf{NEXP}$ & cross-examine for consistency
+    (BFL, 1991) \\
+    2 provers, quantum-entangled & $\mathbf{RE}$ & entanglement, paradoxically,
+    \emph{helps} (JNVWY, 2020) \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{exampleblock}{The lesson}
+    ``How many provers'' and ``can they share entanglement'' are not footnotes -- they
+    are knobs that move the power of a game-like protocol from \emph{this week's}
+    PSPACE all the way to \emph{undecidable}. The game-theoretic flavor you learned
+    this week is the same flavor driving one of the deepest results in 21st-century
+    theoretical computer science.
+  \end{exampleblock}
+\end{frame}
+
+% =================================================================
+\section{When FPT Hits a Wall: W{[}1{]}-Hardness in Game Complexity}
+% =================================================================
+
+\begin{frame}{Recap: the bounded search tree that rescued Vertex Cover}
+  \begin{itemize}
+    \item This week's FPT algorithm for Vertex Cover: pick any uncovered edge
+    $(u,v)$, branch on ``$u\in C$'' or ``$v\in C$'', decrement the budget $k$. Depth
+    $\le k$, branching factor $2$ $\Rightarrow O(2^k\,n)$.
+    \item The trick generalizes to many NP-hard problems: \emph{find a small, local
+    branching rule whose depth depends only on $k$}, and the exponential blow-up is
+    confined to $f(k)$, however you slice the input size $n$.
+    \item Natural question: if a \textbf{game} is parameterized by ``how many moves
+    remain,'' does an analogous branching trick always give an FPT algorithm?
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{No: Short Generalized Hex is provably \emph{not} FPT}
+  \begin{itemize}
+    \item \textbf{Short Generalized Hex:} given a Hex position on an arbitrary graph
+    and an integer $k$, does the player to move have a winning strategy using at most
+    $k$ more moves?
+    \item \textbf{Theorem (Bonnet, Gaspers, Lambilliotte, R\"ummele \& Saffidine,
+    ICALP 2017):} Short Generalized Hex is $\mathbf{W[1]}$\textbf{-complete}
+    parameterized by $k$ -- resolving an open problem posed by Downey \& Fellows in
+    1999.
+    \item $\mathbf{W[1]}$ is the parameterized-complexity analogue of NP: a
+    $\mathbf{W[1]}$-hardness proof is a reduction-based lower bound showing that
+    \emph{no} $f(k)\cdot\mathrm{poly}(n)$ algorithm can exist, for \emph{any} function
+    $f$, unless the widely-believed conjecture $\mathbf{FPT} \neq \mathbf{W[1]}$ is
+    false (the parameterized analogue of $\mathbf{P} \neq \mathbf{NP}$).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why Vertex Cover's trick does not transfer}
+  \begin{itemize}
+    \item In Vertex Cover, branching on an edge's two endpoints \emph{strictly
+    shrinks} the remaining instance in a way that depends \emph{only} on $k$: after
+    $k$ branches, either you have covered everything or you have failed -- the
+    branching factor and depth never depend on $n$.
+    \item In Short Generalized Hex, the $k$ ``moves left'' interact with the
+    \emph{entire board} at every step: a move's consequences can ripple through
+    connections that scale with $n$, so no local branching rule can be found whose
+    cost depends on $k$ alone -- the $\mathbf{W[1]}$-hardness reduction makes this
+    rigorous by encoding an arbitrary $\mathbf{W[1]}$-hard instance's $n$-dependence
+    \emph{into} the $k$ moves themselves.
+    \item \textbf{Takeaway:} ``parameterize by a small number'' is necessary but not
+    sufficient for FPT -- you still need a genuine structural reason the exponential
+    cost can be confined to that parameter, and sometimes (as here) it provably cannot.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{FPT Is Still Advancing: Hedge Cut (SODA 2025)}
+% =================================================================
+
+\begin{frame}{FPT is not a finished 1990s toolbox}
+  \begin{itemize}
+    \item Bounded search trees, kernelization, and color-coding are decades old, but
+    \textbf{new FPT algorithms for new problems} are still appearing at top venues
+    every year -- including problems motivated by very recent applications.
+    \item \textbf{Hedge Cut:} a generalization of graph cut where edges are grouped
+    into \emph{hedges}; cutting a hedge means removing \emph{all} of its edges at
+    once, at a single unit cost -- modeling, e.g., a fiber-optic conduit whose failure
+    severs many logical network links simultaneously.
+    \item Prior work had shown Hedge Cut has \textbf{no polynomial-time algorithm}
+    under the Exponential Time Hypothesis, and separately that it is
+    \textbf{quasi-polynomial-time} solvable -- leaving its fixed-parameter status open.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Hedge Cut is FPT (Fomin, Golovach, Korhonen, Lokshtanov \& Saurabh, SODA 2025)}
+  \begin{itemize}
+    \item \textbf{Theorem:} Hedge Cut is fixed-parameter tractable, parameterized by
+    the solution size $k$ (the number of hedges cut). arXiv:2410.17641; appeared at
+    SODA 2025.
+    \item Unlike Vertex Cover's single-edge branching rule, a hedge can bundle
+    arbitrarily many graph edges together, so the ``pick an edge, branch on its two
+    endpoints'' idea does not directly apply -- the authors needed genuinely new
+    combinatorial machinery (built on submodular-function and representative-set
+    techniques from the FPT literature) to confine the exponential blow-up to $k$
+    alone.
+    \item This is the same overall \emph{shape} of result as this week's Vertex
+    Cover -- ``NP-hard in general, FPT in the natural parameter'' -- obtained for a
+    problem that is structurally harder, using research published in the year before
+    this course ran.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \small
+  \begin{enumerate}
+    \item \textbf{Games scale far past PSPACE:} one prover gives PSPACE (this week);
+    two isolated classical provers give NEXP (Babai--Fortnow--Lund, 1991); two
+    quantum-entangled provers give \textbf{RE} -- the power of the Halting Problem
+    (Ji--Natarajan--Vidick--Wright--Yuen, 2020), incidentally refuting a 1976 open
+    problem in pure mathematics.
+    \item \textbf{FPT's branching trick is not automatic:} it rescues Vertex Cover,
+    but Short Generalized Hex is provably $\mathbf{W[1]}$-complete (Bonnet et al.,
+    ICALP 2017) -- some parameterizations of some games can never be made FPT, absent
+    a collapse of $\mathbf{FPT}$ and $\mathbf{W[1]}$.
+    \item \textbf{FPT research is active right now:} Hedge Cut's fixed-parameter
+    tractability (Fomin, Golovach, Korhonen, Lokshtanov \& Saurabh, SODA 2025) needed
+    new ideas beyond this week's bounded-search-tree template, published the year
+    before this course ran.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (Kleinberg \& Tardos, Chapters 11--12) turns from \emph{exact}
+    algorithms for hard problems to \textbf{approximation} and \textbf{local search}
+    -- trading the exponential cost of exactness for a provable closeness to optimal
+    in polynomial time.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

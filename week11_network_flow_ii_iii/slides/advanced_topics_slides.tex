@@ -1,0 +1,216 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\title{Beyond the Syllabus}
+\subtitle{How Fast Can Matching Go? Continuous Methods, Combinatorial Counterattacks,
+and Online Arrivals\\
+\small Week 11 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Motivation}
+% =================================================================
+
+\begin{frame}{Why look beyond the syllabus?}
+  \small
+  \begin{itemize}
+    \item This week you reduced \textbf{maximum bipartite matching} to a max-flow
+    computation: build $s\to X \to Y \to t$ with unit capacities, run Edmonds--Karp,
+    read off the matching. Since Edmonds--Karp augments along shortest paths, this
+    reduction runs in $O(VE)$ -- and for bipartite graphs specifically, the classic
+    Hopcroft--Karp algorithm (a smarter augmenting-path schedule) gets this down to
+    $O(E\sqrt{V})$, a bound that stood as the best known for almost \textbf{fifty years}
+    (1973--2020).
+    \item Three questions a curious student should ask next:
+    \begin{enumerate}
+      \item Can matching beat $O(E\sqrt{V})$ at all -- and if so, how?
+      \item Does beating it \emph{require} heavy continuous-optimization machinery, or
+      can pure combinatorics get there too?
+      \item Everything above assumes the whole graph is known upfront. What if vertices
+      of $Y$ (jobs, ads, riders) \textbf{arrive online}, one at a time, and you must
+      match them irrevocably as they come?
+    \end{enumerate}
+  \end{itemize}
+  \begin{alertblock}{How this supplement is different from a survey}
+    Every section is grounded in a specific, verifiable paper (with arXiv/DOI); none of
+    the bounds below are approximate folklore.
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Question 1: Breaking the 1973 Barrier}
+% =================================================================
+
+\begin{frame}{Fifty years of $O(E\sqrt{V})$}
+  \begin{itemize}
+    \item Hopcroft \& Karp (1973) showed that after $O(\sqrt{V})$ phases of
+    \emph{shortest-augmenting-path} search, a bipartite matching is maximum; each
+    phase costs $O(E)$, giving $O(E\sqrt{V})$ total.
+    \item Dinic (1970) and Karzanov (1973) proved essentially the same bound
+    independently, via blocking flows -- three different derivations of the same wall.
+    \item For dense graphs ($E = \Theta(V^2)$), $O(E\sqrt{V}) = O(V^{2.5})$: at
+    $V=10^5$, that is $\sim 3\times10^{12}$ operations -- far too slow.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{The break: continuous optimization enters combinatorics}
+  \begin{block}{van den Brand, Lee, Nanongkai, Peng, Saranurak, Sidford, Song \& Wang
+  (FOCS 2020)}
+    \emph{``Bipartite Matching in Nearly-linear Time on Moderately Dense Graphs.''}
+    arXiv:2009.01802. A randomized algorithm solving maximum bipartite matching (and
+    several relatives: transshipment, negative-weight shortest paths, optimal
+    transport) in $\tilde{O}(m + n^{1.5})$ time.
+  \end{block}
+  \begin{itemize}
+    \item For moderately dense graphs ($m = \Omega(n^{1.5})$), this is
+    \textbf{nearly linear in the input size} -- the first improvement over
+    Dinic/Hopcroft--Karp/Karzanov's $O(m\sqrt{n})$ in 47 years.
+    \item \textbf{How:} recast matching as a linear program, solve it with an
+    \textbf{interior-point method} (IPM). Each IPM iteration reduces to solving a
+    \textbf{Laplacian linear system} on the graph -- and those have had
+    nearly-linear-time solvers since Spielman \& Teng (2004). Dynamic graph data
+    structures avoid recomputing each Laplacian solve from scratch as the IPM
+    progresses.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Putting numbers on it}
+  \small
+  At $n = 10^6$, $m = n^{1.5} \approx 10^9$:
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Algorithm & Bound & Rough op.\ count \\
+    \midrule
+    Hopcroft--Karp / Dinic (1970s) & $O(m\sqrt{n})$ & $\sim 10^{12}$ \\
+    van den Brand et al.\ (FOCS 2020) & $\tilde{O}(m + n^{1.5})$ & $\sim 10^9$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Three orders of magnitude, from a fifty-year-old wall, by importing a tool
+  (Laplacian solvers) that this week's lecture never mentions -- matching is not just
+  a graph problem once you let continuous optimization in.
+\end{frame}
+
+% =================================================================
+\section{Question 2: Do You Actually Need All That Machinery?}
+% =================================================================
+
+\begin{frame}{A combinatorial counterattack}
+  \begin{block}{Chuzhoy \& Khanna (SODA 2024 / STOC 2024)}
+    \emph{``A Faster Combinatorial Algorithm for Maximum Bipartite Matching''}
+    (arXiv:2312.12584, SODA 2024, $\tilde O(m^{1/3}n^{5/3})$-time) and
+    \emph{``Maximum Bipartite Matching in $n^{2+o(1)}$ Time via a Combinatorial
+    Algorithm''} (arXiv:2405.20861, STOC 2024).
+  \end{block}
+  \begin{itemize}
+    \item Both results match or beat the IPM-based bound above -- using \textbf{no}
+    interior-point methods, \textbf{no} Laplacian solvers, only combinatorial
+    augmenting-path ideas pushed further than Hopcroft--Karp's.
+    \item The lesson: the 2020 breakthrough proved \emph{that} $O(m\sqrt n)$ could be
+    beaten, but it did \textbf{not} prove that continuous machinery was
+    \emph{necessary}. That is a separate, harder question -- and as of 2024 the answer
+    leans ``no, elbow grease still works too.''
+  \end{itemize}
+  \begin{exampleblock}{Why this matters pedagogically}
+    Two independent, correct routes to the same destination is exactly the kind of
+    thing worth noticing: a faster \emph{bound} does not tell you the \emph{only} way
+    to achieve it.
+  \end{exampleblock}
+\end{frame}
+
+% =================================================================
+\section{Question 3: What If the Graph Arrives Online?}
+% =================================================================
+
+\begin{frame}{The online model: Karp--Vazirani--Vazirani (1990)}
+  \begin{itemize}
+    \item Everything above assumes $X$, $Y$, and all edges are known before you start.
+    In \textbf{online bipartite matching}, $X$ is fixed but vertices of $Y$ arrive one
+    at a time, each revealing its edges to $X$ on arrival; you must match it
+    immediately (or leave it unmatched) with \textbf{no take-backs}.
+    \item Karp, Vazirani \& Vazirani (STOC 1990) proved the \textsc{Ranking}
+    algorithm -- pick one random permutation of $X$ up front, always match an
+    arriving $y$ to its \emph{earliest-ranked} available neighbor -- achieves
+    competitive ratio $1 - 1/e \approx 0.632$ against the offline optimum, and that no
+    online algorithm can beat $1-1/e$ in the worst case. A genuinely tight bound,
+    open for `` how do we do better'' ever since -- \emph{if} the adversary is fully
+    unconstrained.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Beating $1-1/e$ with (untrusted) predictions}
+  \begin{block}{Choo, Gouleakis, Ling \& Bhattacharyya (ICML 2024)}
+    \emph{``Online bipartite matching with imperfect advice.''} PMLR 235:8762--8781,
+    arXiv:2405.09784.
+  \end{block}
+  \begin{itemize}
+    \item Setting: before the online phase, the algorithm is handed a
+    \textbf{prediction} of the arrival sequence -- possibly wrong, possibly
+    adversarially wrong.
+    \item Idea: use a \textbf{prefix} of the actual arrivals as a statistical test of
+    whether the prediction looks trustworthy; if it does, follow it (and beat
+    $1-1/e$ when it is accurate); if not, fall back to a \textsc{Ranking}-style
+    worst-case-safe baseline.
+    \item This is the \textbf{algorithms-with-predictions} paradigm (Mitzenmacher \&
+    Vassilvitskii): a \emph{consistency} guarantee (near-optimal if predictions are
+    good) traded against a \emph{robustness} guarantee (never worse than $1-1/e$-ish
+    even if predictions are adversarial) -- both guarantees proven, not just
+    empirically observed.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary}
+  \small
+  \begin{enumerate}
+    \item \textbf{The 1973 barrier fell in 2020:} van den Brand et al.\ (FOCS 2020)
+    solve bipartite matching in $\tilde O(m+n^{1.5})$ by routing through Laplacian
+    solvers and interior-point methods -- continuous mathematics inside a purely
+    combinatorial problem.
+    \item \textbf{Machinery is not mandatory:} Chuzhoy \& Khanna (SODA/STOC 2024) reach
+    a comparable bound with a purely combinatorial algorithm -- there is more than one
+    road to a faster algorithm.
+    \item \textbf{``Known upfront'' is a strong assumption:} once arrivals are online,
+    even the optimal worst-case algorithm (Karp--Vazirani--Vazirani, 1990) is stuck at
+    $1-1/e$ -- and only a genuinely new resource, untrusted \emph{predictions}
+    (Choo et al., ICML 2024), lets you provably beat that wall while staying safe when
+    the predictions are wrong.
+  \end{enumerate}
+  \begin{alertblock}{Looking ahead}
+    Next week (Kleinberg \& Tardos, Ch.\ 8) asks \emph{which problems provably have no
+    polynomial-time exact algorithm} -- NP-completeness. ``Optimal Account Balancing,''
+    this week's Hard problem, is already a preview: minimizing the transaction
+    \emph{count} has no known polynomial algorithm.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

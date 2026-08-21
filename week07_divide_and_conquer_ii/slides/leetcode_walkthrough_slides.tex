@@ -1,0 +1,466 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{From First Instinct to Optimal Algorithm: Big-Integer Multiplication and Binary
+Search on the Answer\\
+\small Week 7 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+\begin{frame}
+  \titlepage
+\end{frame}
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{The Four-Step Process (Recap)}
+% =================================================================
+
+\begin{frame}{The process, recapped from Week 3}
+  \begin{enumerate}
+    \item \textbf{First instinct.} The algorithm that follows most directly from
+    re-reading the problem statement.
+    \item \textbf{Measure why it hurts.} Plug the problem's real constraints into the
+    complexity and watch it blow up.
+    \item \textbf{Find the structural insight.} The property of the problem that lets
+    you avoid redoing work.
+    \item \textbf{Implement the optimal algorithm}, trace it by hand, then look for the
+    \emph{programming-level} tricks that make the implementation itself correct and fast.
+  \end{enumerate}
+  \begin{alertblock}{This week}
+    Both problems below are, at heart, \textbf{this week's} lecture ideas wearing a
+    LeetCode costume: grade-school multiplication (Section~2 of the notes) and
+    ``two representations, pick the cheap one to search in'' (the same
+    divide-and-conquer instinct that drives the FFT).
+  \end{alertblock}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Multiply Strings}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 43 -- Multiply Strings (\textcolor{blue!50!black}{Medium})}
+    Given two non-negative integers \texttt{num1} and \texttt{num2} represented as
+    strings, return the product, also as a string. You may \textbf{not} convert the
+    inputs to a built-in big-integer type and multiply directly.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $1 \le |\texttt{num1}|, |\texttt{num2}| \le 200$, both
+    contain only digits, no leading zeros unless the number itself is \texttt{"0"}.
+    \item This is exactly this week's ``grade-school recurrence'' (Section 2 of the
+    lecture notes), with the ``no built-in bigint'' rule forcing you to actually
+    implement it.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \texttt{num1 = "123"}, \texttt{num2 = "456"}.
+  \begin{itemize}
+    \item By hand: $123 \times 456 = 56{,}088$.
+    \item The grade-school algorithm builds this digit by digit, exactly the way you
+    were taught in primary school: multiply \texttt{123} by each digit of
+    \texttt{456} (ones, tens, hundreds), shift, and add.
+    \item We will trace the array-based version of this below and confirm it produces
+    \texttt{"56088"}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: multiplication as repeated addition}
+  \begin{block}{Most direct reading of ``multiply''}
+    Multiplication is repeated addition: to compute $a \times b$, add $a$ to itself,
+    $b$ times.
+  \end{block}
+  \begin{algorithmic}[1]
+    \Function{Multiply}{$a, b$}
+      \State $result \gets 0$
+      \For{$k \gets 1$ \textbf{to} $b$} \Comment{$b$ = the \emph{value} of num2}
+        \State $result \gets \Call{StringAdd}{result, a}$
+      \EndFor
+    \EndFunction
+  \end{algorithmic}
+  Each \Call{StringAdd}{} is cheap ($O(n)$ on $n$-digit numbers) -- but you repeat it
+  $b$ times, where $b$ is the \emph{value} of \texttt{num2}, not its \emph{length}.
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item \texttt{num2} can have up to 200 digits, i.e.\ a value up to $10^{200}-1$.
+    \item Repeated addition costs $O(b \cdot n)$ where $b \approx 10^{200}$ -- utterly
+    infeasible; even one operation per nanosecond would need vastly longer than the age
+    of the universe.
+    \item The bug in the instinct: it treats the input's \emph{numeric value} as the
+    size parameter, when the real size parameter is the \emph{number of digits}. This is
+    the same trap as confusing $n$ with $2^n$.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    Whenever ``how many times do I repeat this'' is tied to a \emph{value} rather than
+    an \emph{input length}, the algorithm is almost certainly exponential in the actual
+    input size (the number of digits).
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item Grade-school long multiplication never repeats work proportional to the
+    \emph{value} -- it repeats work proportional to the number of \emph{digit pairs},
+    exactly $|\texttt{num1}| \times |\texttt{num2}|$.
+    \item Every digit pair $(\texttt{num1}[i], \texttt{num2}[j])$ contributes to
+    \emph{exactly one} pair of positions in the result: a units position
+    $i+j+1$ and a carry position $i+j$ (using 0-indexing from the left of each string).
+    \item So the whole algorithm is: allocate a result array of size $|\texttt{num1}| +
+    |\texttt{num2}|$, and for every digit pair, add its contribution directly into those
+    two positions -- no repetition tied to the numbers' \emph{values} at all.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{Multiply}{num1, num2}
+      \If{num1 $=$ ``0'' \textbf{or} num2 $=$ ``0''} \Return ``0'' \EndIf
+      \State $n, m \gets |\texttt{num1}|, |\texttt{num2}|$
+      \State $result \gets$ array of $n+m$ zeros
+      \For{$i \gets n-1$ \textbf{downto} $0$}
+        \For{$j \gets m-1$ \textbf{downto} $0$}
+          \State $mul \gets \texttt{num1}[i] \times \texttt{num2}[j]$
+          \Comment{as digits}
+          \State $p_1, p_2 \gets i+j,\ i+j+1$
+          \State $total \gets mul + result[p_2]$
+          \State $result[p_2] \gets total \bmod 10$
+          \State $result[p_1] \gets result[p_1] + \lfloor total / 10 \rfloor$
+        \EndFor
+      \EndFor
+      \State \Return $result$ joined to a string, with leading zeros stripped
+    \EndFunction
+  \end{algorithmic}
+  $O(nm)$ total -- exactly this week's $\Theta(n^2)$ grade-school bound (here $n\ne m$ in
+  general, so $O(nm)$).
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{num1 = "123"} ($i=0,1,2 \to$ digits $1,2,3$), \texttt{num2 = "456"}
+  ($j=0,1,2 \to$ digits $4,5,6$). Result array has indices $0..5$, all start at $0$.
+  \begin{center}
+  \begin{tabular}{@{}cl@{}}
+    \toprule
+    after processing & result array (index $0\to5$) \\
+    \midrule
+    $i=2$ (digit $3$) against all of num2 & $[0,0,1,3,6,8]$ \\
+    $i=1$ (digit $2$) against all of num2 & $[0,1,0,4,8,8]$ \\
+    $i=0$ (digit $1$) against all of num2 & $[0,5,6,0,8,8]$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Strip the leading zero: \texttt{"56088"} -- matches $123 \times 456 = 56{,}088$ exactly.
+  Note position $0$ never overflows past a single digit: it is written \emph{once},
+  by the single pair $i{=}j{=}0$, receiving at most one carry.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $|\texttt{num2}|=200$ \\
+    \midrule
+    Repeated addition & $O(b \cdot n)$, $b\approx 10^{200}$ & astronomically infeasible \\
+    \textbf{Grade-school digit array} & $\boldsymbol{O(nm)}$ & $\le 200\times200=40{,}000$
+    ops \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{alertblock}{Why not Karatsuba or the FFT here?}
+    This week's faster methods (Karatsuba $\Theta(n^{1.585})$, FFT-based
+    $O(n\log n)$) exist precisely for \emph{this} problem in general -- but at
+    $n,m\le 200$, $O(nm)=40{,}000$ is already instant, and the constant-factor overhead
+    of Karatsuba/FFT would make the code slower in practice. Matching the algorithm to
+    the actual input size, not just the asymptotic label, is itself an engineering skill.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py,aboveskip=0pt,belowskip=0pt]
+def multiply(num1: str, num2: str) -> str:
+    if num1 == "0" or num2 == "0":
+        return "0"
+    n, m = len(num1), len(num2)
+    result = [0] * (n + m)
+    for i in range(n - 1, -1, -1):
+        d1 = ord(num1[i]) - ord('0')
+        for j in range(m - 1, -1, -1):
+            d2 = ord(num2[j]) - ord('0')
+            mul = d1 * d2
+            p1, p2 = i + j, i + j + 1
+            total = mul + result[p2]
+            result[p2] = total % 10
+            result[p1] += total // 10
+    idx = 0
+    while idx < len(result) - 1 and result[idx] == 0:
+        idx += 1
+    return ''.join(map(str, result[idx:]))
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Never build the result with string concatenation in the inner loop.}
+    Python strings are immutable, so \texttt{s = s + digit} inside an $O(nm)$ double loop
+    would silently turn the algorithm into $O(nm \cdot (n+m))$. Accumulate into a mutable
+    list of integers (\texttt{result}) and \texttt{join} exactly once at the end.
+    \item \textbf{\texttt{result[p1] += total // 10}, not \texttt{=}.} Using \texttt{+=}
+    lets a position accumulate carries from \emph{multiple} digit pairs across different
+    $(i,j)$ before it is finally read; overwriting it would silently drop a carry.
+    \item \textbf{Handle \texttt{"0"} as a special case up front.} Without it, multiplying
+    by \texttt{"0"} still produces a technically-correct all-zero array, but you would
+    then need extra logic to avoid returning a string of multiple zeros.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Median of Two Sorted Arrays}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 4 -- Median of Two Sorted Arrays (\textcolor{red!60!black}{Hard})}
+    Given two sorted arrays \texttt{nums1} (size $m$) and \texttt{nums2} (size $n$),
+    return the median of the combined sorted array, in $O(\log(m+n))$ time.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $0 \le m, n \le 1000$, $1 \le m+n \le 2000$.
+    \item Merging the two arrays is only $O(m+n)$ -- fast enough in practice. The point
+    of demanding $O(\log(m+n))$ is to force the ``two representations, search in the
+    cheap one'' idea this week's FFT section teaches, applied to \emph{position} instead
+    of \emph{value}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \texttt{nums1 = [1, 3, 8]} ($m=3$), \texttt{nums2 = [7, 9, 10, 11]} ($n=4$).
+  \begin{itemize}
+    \item Merged: $[1,3,7,8,9,10,11]$ -- $7$ elements (odd), so the median is the
+    \textbf{4th smallest}: $8$.
+    \item We will find this \emph{without merging}, by binary-searching for a
+    ``partition'' of both arrays directly.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: merge, then index}
+  \begin{block}{Most direct reading of ``median of the combined array''}
+    Merge \texttt{nums1} and \texttt{nums2} (the merge step from last week's mergesort),
+    then read off the middle element(s).
+  \end{block}
+  \begin{algorithmic}[1]
+    \Function{MedianNaive}{nums1, nums2}
+      \State $merged \gets$ merge nums1 and nums2 (two-pointer, $O(m+n)$)
+      \State \Return the middle element (or average of the two middle elements)
+    \EndFunction
+  \end{algorithmic}
+  This is \emph{correct} and even reasonably fast -- but it is $\Theta(m+n)$, not
+  $O(\log(m+n))$, and it materializes an entire merged array just to read one or two
+  values from it.
+\end{frame}
+
+\begin{frame}{Why this is bad (for the bound the problem actually asks for)}
+  \begin{itemize}
+    \item At $m+n=2000$, $\Theta(m+n)$ is 2000 steps -- utterly fine in practice. So why
+    does the problem insist on $O(\log(m+n)) \approx 11$ steps?
+    \item Because the \emph{technique} matters more than these particular numbers: in a
+    setting where \texttt{nums1} and \texttt{nums2} are two huge sorted shards (e.g.\
+    on different machines, or too large to ever fully scan), $O(m+n)$ means reading
+    \emph{everything}, while $O(\log(m+n))$ means a handful of random-access probes.
+  \end{itemize}
+  \begin{alertblock}{The smell to notice}
+    ``Merge everything, then look at one position'' throws away almost all of the
+    work you just did. If you only need \emph{one} answer, ask whether you can binary
+    search directly for \emph{it}, the same way this week's FFT searches for the right
+    representation instead of computing every intermediate value.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight}
+  \begin{itemize}
+    \item The median splits the combined array into a left half and a right half of
+    (almost) equal size, where \textbf{every} element on the left is $\le$ \textbf{every}
+    element on the right.
+    \item That split is really a choice of \emph{how many elements come from each
+    array}: if $i$ elements of \texttt{nums1} are on the left, exactly
+    $half - i$ elements of \texttt{nums2} must be too, where
+    $half = \lfloor (m+n+1)/2 \rfloor$.
+    \item As $i$ increases, \texttt{nums1}'s left-boundary value only increases and
+    \texttt{nums2}'s left-boundary value only decreases -- \textbf{monotonic}, so binary
+    search on $i \in [0, m]$ finds the unique correct split in $O(\log m)$ (search the
+    \emph{shorter} array, so this is $O(\log \min(m,n))$).
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{FindMedian}{A, B} \Comment{assume $|A| \le |B|$ (swap first otherwise)}
+      \State $m, n \gets |A|, |B|$;\ $half \gets \lfloor (m+n+1)/2 \rfloor$
+      \State $lo, hi \gets 0, m$
+      \While{$lo \le hi$}
+        \State $i \gets \lfloor (lo+hi)/2 \rfloor$;\ $j \gets half - i$
+        \State $A_L \gets A[i-1]$ if $i{>}0$ else $-\infty$;\ $A_R \gets A[i]$ if $i{<}m$
+        else $+\infty$
+        \State $B_L \gets B[j-1]$ if $j{>}0$ else $-\infty$;\ $B_R \gets B[j]$ if $j{<}n$
+        else $+\infty$
+        \If{$A_L \le B_R$ \textbf{and} $B_L \le A_R$}
+          \If{$(m+n)$ is odd} \Return $\max(A_L, B_L)$
+          \Else\ \Return $(\max(A_L,B_L) + \min(A_R,B_R))/2$ \EndIf
+        \ElsIf{$A_L > B_R$} $hi \gets i-1$
+        \Else\ $lo \gets i+1$ \EndIf
+      \EndWhile
+    \EndFunction
+  \end{algorithmic}
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  $A=\texttt{[1,3,8]}$ ($m=3$), $B=\texttt{[7,9,10,11]}$ ($n=4$), $half = \lceil
+  7/2\rceil = 4$. Binary search $i \in [0,3]$.
+  \begin{center}
+  \begin{tabular}{@{}cccccccl@{}}
+    \toprule
+    step & $i$ & $j$ & $A_L$ & $A_R$ & $B_L$ & $B_R$ & verdict \\
+    \midrule
+    1 & $1$ & $3$ & $1$ & $3$ & $10$ & $11$ & $B_L{>}A_R$ ($10{>}3$): need larger $i$ \\
+    2 & $2$ & $2$ & $3$ & $8$ & $9$ & $10$ & $B_L{>}A_R$ ($9{>}8$): need larger $i$ \\
+    3 & $3$ & $1$ & $8$ & $+\infty$ & $7$ & $9$ & both hold: \textbf{done} \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  $m+n=7$ is odd, so median $=\max(A_L,B_L)=\max(8,7)=\boxed{8}$ -- matches the merged
+  array's 4th-smallest element, found in only 3 probes instead of merging all 7.
+\end{frame}
+
+\begin{frame}{Complexity: naive vs.\ optimal}
+  \begin{center}
+  \begin{tabular}{@{}lll@{}}
+    \toprule
+    Approach & Time & At $m=n=1000$ \\
+    \midrule
+    Sort the concatenation & $O((m{+}n)\log(m{+}n))$ & $\sim 2000 \times 11 \approx 22{,}000$ \\
+    Merge, then index & $O(m+n)$ & $2000$ steps \\
+    \textbf{Binary search on the partition} & $\boldsymbol{O(\log\min(m,n))}$ &
+    $\le 10$ steps \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py,aboveskip=0pt,belowskip=0pt]
+def findMedianSortedArrays(nums1, nums2):
+    A, B = (nums1, nums2) if len(nums1) <= len(nums2) else (nums2, nums1)
+    m, n = len(A), len(B)
+    half = (m + n + 1) // 2
+    lo, hi = 0, m
+    while lo <= hi:
+        i = (lo + hi) // 2
+        j = half - i
+        a_left = A[i - 1] if i > 0 else float('-inf')
+        a_right = A[i] if i < m else float('inf')
+        b_left = B[j - 1] if j > 0 else float('-inf')
+        b_right = B[j] if j < n else float('inf')
+        if a_left <= b_right and b_left <= a_right:
+            if (m + n) % 2:
+                return max(a_left, b_left)
+            return (max(a_left, b_left) + min(a_right, b_right)) / 2
+        elif a_left > b_right:
+            hi = i - 1
+        else:
+            lo = i + 1
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{Always binary search on the \emph{shorter} array.} Searching on the
+    longer one still terminates correctly, but the bound becomes $O(\log\max(m,n))$
+    instead of $O(\log\min(m,n))$ -- a real, measurable difference when the two inputs
+    are very different sizes.
+    \item \textbf{Use $\pm\infty$ sentinels for out-of-range partitions} rather than
+    scattering \texttt{if i == 0} / \texttt{if i == m} special cases through the
+    comparison logic -- it collapses four edge cases into the same two comparisons
+    used in the general case.
+    \item \textbf{Binary search bounds are $[0, m]$, not $[0, m{-}1]$.} There are
+    $m+1$ possible ways to split $A$ (from ``take none of $A$'' to ``take all of
+    $A$''), so \texttt{hi} must start at $m$ -- an easy off-by-one to get wrong.
+    \item \textbf{Python's \texttt{/} already returns a float,} so the even-length
+    average needs no explicit cast -- unlike languages with C-style integer division,
+    where forgetting to cast before dividing silently truncates the result.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: two problems, one lesson}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Multiply Strings} is this week's grade-school $\Theta(nm)$
+    multiplication, forced into code -- the naive trap was confusing a number's
+    \emph{value} with its \emph{length} as the real input size.
+    \item \textbf{Median of Two Sorted Arrays} reuses this week's ``two
+    representations, search the cheap one'' idea (the same instinct behind evaluating a
+    polynomial at roots of unity): instead of materializing the merged array, binary
+    search directly for the one partition you actually need.
+    \item Both times, the naive instinct was \emph{correct but did unnecessary work} --
+    repeating additions tied to a value, or building a whole merged array to read one
+    entry. The fix was the same shape: find the invariant (digit-pair independence;
+    partition monotonicity) that lets you compute only what the answer needs.
+    \item The implementation tricks (accumulate-then-join, $\pm\infty$ sentinels,
+    binary-search-the-shorter-array) are a second, independent layer on top of an
+    already-optimal algorithm.
+  \end{enumerate}
+  \begin{alertblock}{Keep practicing}
+    \texttt{LEETCODE.md} lists six more Week 7 problems (\emph{Search a 2D Matrix II},
+    \emph{Kth Smallest Element in a Sorted Matrix}, \emph{The Skyline Problem},
+    \emph{Count of Range Sum}, \emph{Find K-th Smallest Pair Distance}, \emph{Super
+    Pow}) -- try the same four-step process on each.
+  \end{alertblock}
+\end{frame}
+
+\end{document}

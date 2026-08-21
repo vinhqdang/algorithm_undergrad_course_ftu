@@ -1,0 +1,429 @@
+\documentclass[11pt,aspectratio=169]{beamer}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb}
+\usepackage{algpseudocode}
+\usepackage{algorithmicx}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,backgrounds}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+\lstdefinestyle{py}{
+  language=Python,
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{gray},
+  stringstyle=\color{green!40!black},
+  showstringspaces=false,
+  breaklines=true,
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  frame=single,
+  xleftmargin=1.5em,
+  aboveskip=0.3em,
+  belowskip=0.3em
+}
+
+\title{LeetCode Deep Dive}
+\subtitle{Assignment Problems: When Bitmask DP Beats (and When It Secretly Is) Flow\\
+\small Week 10 Supplement -- TOAE209/TOAH209: Design and Analysis of Algorithms}
+\author{Foreign Trade University}
+\date{}
+
+\begin{document}
+
+% ---------------------------------------------------------------
+\begin{frame}
+  \titlepage
+\end{frame}
+% ---------------------------------------------------------------
+
+\begin{frame}{Outline}
+  \tableofcontents
+\end{frame}
+
+% =================================================================
+\section{Why These Two Problems}
+% =================================================================
+
+\begin{frame}{Why these two problems}
+  \begin{itemize}
+    \item This week's official LeetCode list is Hard-heavy for a reason:
+    \texttt{LEETCODE.md} notes ``pure max-flow problems are uncommon on LeetCode.''
+    Instead, the list is full of \textbf{assignment}-flavored problems -- bipartite
+    point-to-point matching with a cost to minimize -- which is exactly what the
+    Max-Flow Min-Cut Theorem was built to solve.
+    \item We pick one \textcolor{blue!50!black}{\textbf{Medium}} (\emph{Campus Bikes
+    II}) and one \textcolor{red!60!black}{\textbf{Hard}} (\emph{Minimum Cost to Connect
+    Two Groups of Points}) -- both look like ``bipartite cost-minimization,'' but only
+    \emph{one} of them is actually a flow problem in disguise.
+    \item That distinction -- when the beautiful flow/cut theorem applies, and when it
+    quietly does not -- is the real lesson of this deck.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 1 (Medium): Campus Bikes II}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 1066 -- Campus Bikes II (\textcolor{blue!50!black}{Medium})}
+    Given $n$ workers and $m$ bikes ($n \le m$) as 2D coordinates, assign each worker a
+    \textbf{distinct} bike so as to minimize the \textbf{sum} of Manhattan distances
+    between each worker and their assigned bike. Return that minimum sum.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $n, m \le 10$, coordinates in $[0,100)$.
+    \item This is the textbook \textbf{assignment problem}: a perfect matching in a
+    weighted bipartite graph, minimizing total edge weight -- exactly the kind of
+    problem Kleinberg \& Tardos Ch.\ 7 reduces to min-cost \emph{flow}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \small
+  \texttt{workers = [[0,0],[2,1]]}, \quad \texttt{bikes = [[1,2],[3,3]]}
+  \begin{center}
+  \begin{tabular}{@{}lcc@{}}
+    \toprule
+     & bike 0 $=(1,2)$ & bike 1 $=(3,3)$ \\
+    \midrule
+    worker 0 $=(0,0)$ & $|0{-}1|{+}|0{-}2|=3$ & $|0{-}3|{+}|0{-}3|=6$ \\
+    worker 1 $=(2,1)$ & $|2{-}1|{+}|1{-}2|=2$ & $|2{-}3|{+}|1{-}3|=3$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  \begin{itemize}
+    \item Assign $w_0\!\to\! b_0$ ($3$) and $w_1\!\to\! b_1$ ($3$): total $=6$.
+    \item Assign $w_0\!\to\! b_1$ ($6$) and $w_1\!\to\! b_0$ ($2$): total $=8$ -- worse.
+    \item \textbf{Answer: } $6$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: try every assignment}
+  \begin{block}{Most direct reading of the problem}
+    ``Assign each worker a distinct bike'' $\Rightarrow$ enumerate every way to pick
+    $n$ distinct bikes out of $m$ and assign them to the $n$ workers, keep the
+    cheapest.
+  \end{block}
+  \begin{itemize}
+    \item Number of assignments: $\dfrac{m!}{(m-n)!}$ (a permutation, not just a
+    combination -- \emph{which} worker gets \emph{which} bike matters).
+    \item At the LeetCode-legal maximum $n=m=10$: $10! = 3{,}628{,}800$ -- survives
+    only because the constraints are tiny. Relax $n,m$ to $20$: $20!/10! \approx
+    6.7\times10^{13}$ -- gone.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item Brute-force assignment is factorial in $\min(n,m)$ -- it explodes long
+    before ordinary polynomial algorithms would even notice the input size.
+    \item It also re-derives, from scratch, a fact that decades of combinatorial
+    optimization already solved in polynomial time: minimum-cost \emph{perfect}
+    bipartite matching is exactly an instance of min-cost flow (source $\to$ every
+    worker $\to$ every bike $\to$ sink, unit capacities, edge cost $=$ distance).
+  \end{itemize}
+  \begin{alertblock}{The insight to notice}
+    Whenever a problem says ``assign distinct items on the left to distinct items on
+    the right, minimizing total cost,'' that is the assignment problem -- a
+    \emph{special case} of min-cost flow with all capacities equal to 1, solvable in
+    polynomial time. You never need to enumerate permutations.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The structural insight, made practical}
+  \begin{itemize}
+    \item In principle: build the flow network above and run a min-cost-flow
+    algorithm -- polynomial time, and (per this week's supplement on advances) as fast
+    as $m^{1+o(1)}$ with 2022--2025's algorithms.
+    \item In practice, at $n,m \le 10$: the state needed to describe ``which bikes are
+    already used'' fits in a single machine word -- a \textbf{bitmask} over $m\le 10$
+    bikes. That turns the assignment problem into a tiny dynamic program, simpler to
+    code than a flow solver and just as optimal at this size.
+    \item $dp[i][\text{mask}] = $ minimum cost to have assigned the first $i$ workers,
+    using exactly the bikes in \texttt{mask}.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{CampusBikesII}{workers, bikes}
+      \State $n \gets |\text{workers}|,\ m \gets |\text{bikes}|$
+      \State $dp[0][\mathbf{0}] \gets 0$; all other $dp[0][\cdot] \gets \infty$
+      \For{$i \gets 0 \textbf{ to } n-1$}
+        \For{each mask with $dp[i][\text{mask}] < \infty$}
+          \For{$j \gets 0 \textbf{ to } m-1$ with bit $j$ \textbf{not} in mask}
+            \State $\text{mask}' \gets \text{mask} \cup \{j\}$
+            \State $dp[i{+}1][\text{mask}'] \gets \min\big(dp[i{+}1][\text{mask}'],\;
+            dp[i][\text{mask}] + \text{dist}(w_i, b_j)\big)$
+          \EndFor
+        \EndFor
+      \EndFor
+      \State \Return $\min_{\text{mask}:\ |\text{mask}|=n} dp[n][\text{mask}]$
+    \EndFunction
+  \end{algorithmic}
+  Cost: $O(n \cdot 2^m \cdot m)$ -- at $n,m\le 10$, about $10\times1024\times10 \approx
+  10^5$ operations.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  Bits: bit $0=$ bike0, bit $1=$ bike1. $dp[0][00_2]=0$.
+  \begin{center}
+  \begin{tabular}{@{}clll@{}}
+    \toprule
+    step & transition & new state & value \\
+    \midrule
+    1 & $w_0\to b_0$ (cost 3) & $dp[1][01_2]$ & $0+3=3$ \\
+    2 & $w_0\to b_1$ (cost 6) & $dp[1][10_2]$ & $0+6=6$ \\
+    3 & from $dp[1][01_2]{=}3$: $w_1\to b_1$ (cost 3) & $dp[2][11_2]$ & $3+3=6$ \\
+    4 & from $dp[1][10_2]{=}6$: $w_1\to b_0$ (cost 2) & $dp[2][11_2]$ & $\min(6,\,6{+}2)=6$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Answer: $dp[2][11_2] = 6$ -- matches the worked example exactly.
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py,aboveskip=0pt,belowskip=0pt]
+def assignBikes(workers, bikes):
+    n, m = len(workers), len(bikes)
+    INF = float('inf')
+    dp = [INF] * (1 << m)
+    dp[0] = 0
+    for i in range(n):
+        new_dp = [INF] * (1 << m)
+        wx, wy = workers[i]
+        for mask in range(1 << m):
+            if dp[mask] == INF:
+                continue
+            for j in range(m):
+                if mask & (1 << j):
+                    continue
+                bx, by = bikes[j]
+                d = abs(wx - bx) + abs(wy - by)
+                new_mask = mask | (1 << j)
+                new_dp[new_mask] = min(new_dp[new_mask], dp[mask] + d)
+        dp = new_dp
+    return min(dp[mask] for mask in range(1 << m)
+               if bin(mask).count('1') == n)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{A fresh \texttt{new\_dp} array per worker, not in-place updates.}
+    Because worker $i$'s transitions read $dp[i][\cdot]$ and write $dp[i{+}1][\cdot]$,
+    updating one flat array in place would let worker $i$'s own writes leak into the
+    values it still needs to read in the same pass -- a classic 0/1-knapsack-style bug.
+    \item \textbf{Skip $dp[\text{mask}]=\infty$ states early.} With $n<m$, most masks at
+    an early $i$ are unreachable; the \texttt{continue} prunes them for free instead of
+    doing wasted distance computations.
+    \item \textbf{\texttt{bin(mask).count('1')}} is a clear, if not the fastest, way to
+    filter final masks by population count; for larger $m$ prefer precomputing
+    popcounts or Python's \texttt{int.bit\_count()} (3.10+) to avoid repeated string
+    conversion in a hot loop.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Problem 2 (Hard): Minimum Cost to Connect Two Groups of Points}
+% =================================================================
+
+\begin{frame}{Problem statement}
+  \begin{block}{LeetCode 1595 -- Minimum Cost to Connect Two Groups of Points
+  (\textcolor{red!60!black}{Hard})}
+    Given a \texttt{size1}$\times$\texttt{size2} cost matrix, connect every point of
+    group 1 to \textbf{at least one} point of group 2, and every point of group 2 to
+    \textbf{at least one} point of group 1 (a point may use \emph{multiple} edges).
+    Minimize the total cost of the edges used.
+  \end{block}
+  \begin{itemize}
+    \item Constraints (LeetCode): $\text{size1}, \text{size2} \le 12$.
+    \item This \emph{looks} like Campus Bikes II's twin -- but ``may connect to
+    multiple points'' breaks the one-to-one structure that made Campus Bikes II a flow
+    problem.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Worked example}
+  \small
+  \texttt{cost = [[15,96],[36,2]]} \quad (size1$=$size2$=2$)
+  \begin{itemize}
+    \item Connect $g1_0 \to g2_0$ (cost $15$) and $g1_1 \to g2_1$ (cost $2$): every
+    point on both sides has $\ge 1$ edge. Total $=17$.
+    \item Any other single-edge-per-point choice costs more (e.g.\ $g1_0\to g2_1$
+    ($96$) is already worse than the whole answer by itself).
+    \item \textbf{Answer: } $17$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{First instinct: it looks like the same flow problem}
+  \begin{block}{The tempting (and \emph{wrong}) shortcut}
+    ``This is bipartite, has costs, and needs coverage on both sides -- just build the
+    same min-cost-flow network as Campus Bikes II and run it.''
+  \end{block}
+  \begin{itemize}
+    \item That shortcut fails: min-cost flow (and ordinary bipartite matching) enforces
+    a fixed \emph{degree} at each node via edge capacities -- exactly $1$ connection per
+    node in the assignment problem. Here a point may be connected to \emph{several}
+    points on the other side, and the goal is only ``at least one,'' not ``exactly
+    one.'' There is no flow-conservation structure to exploit the same way.
+    \item So what \emph{is} the honest first instinct? Try every subset of the
+    $\text{size1}\times\text{size2}$ possible edges, keep the cheapest subset that
+    covers both sides.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Why this is bad}
+  \begin{itemize}
+    \item Number of edge subsets: $2^{\text{size1}\cdot\text{size2}}$.
+    \item At the maximum legal size, $\text{size1}=\text{size2}=12$: that is
+    $2^{144} \approx 2.2\times10^{43}$ subsets -- about $10^{19}$ times the roughly
+    $10^{24}$ grains of sand estimated to exist on Earth.
+    \item Checking ``does this subset cover both sides'' is itself $O(\text{size1}
+    \cdot\text{size2})$, making the total cost of brute force utterly hopeless even
+    for size1$=$size2$=4$.
+  \end{itemize}
+  \begin{alertblock}{The lesson}
+    Recognizing that a problem is \emph{not} a clean instance of a theorem you already
+    know (here: max-flow min-cut) is just as important a skill as recognizing when it
+    \emph{is} -- the structural insight has to come from somewhere else.
+  \end{alertblock}
+\end{frame}
+
+\begin{frame}{The real structural insight}
+  \begin{itemize}
+    \item Process group-1 points one at a time, $i = 0, \dots, \text{size1}-1$. Track,
+    in a bitmask over the (smaller, $\le 12$-bit) group-2 side, \textbf{which group-2
+    points have already been covered} by some earlier group-1 point.
+    \item After all of group 1 is processed, any group-2 point still uncovered
+    \emph{must} get an edge from \emph{some} group-1 point -- and the cheapest way to
+    cover group-2 point $j$ on its own is $\text{minCost2}[j] = \min_i \text{cost}[i][j]$,
+    precomputed once.
+    \item This gives a DP over (group-1 index, group-2 coverage mask) with only
+    $\text{size1}\times2^{\text{size2}}$ states -- turning $2^{144}$ into
+    $12\times4096 \approx 5\times10^4$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}{Optimal algorithm: pseudocode}
+  \footnotesize
+  \begin{algorithmic}[1]
+    \Function{ConnectTwoGroups}{cost}
+      \State $s_1, s_2 \gets$ size1, size2
+      \State $\text{minCost2}[j] \gets \min_i \text{cost}[i][j]$ for each $j$
+      \Function{Solve}{$i$, mask} \Comment{memoized over $(i,\text{mask})$}
+        \If{$i = s_1$}
+          \State \Return $\sum_{j \notin \text{mask}} \text{minCost2}[j]$
+          \Comment{cover leftover group-2 points on their own}
+        \EndIf
+        \State \Return $\min_j \big(\text{cost}[i][j] + \Call{Solve}{i{+}1,\ \text{mask}
+        \cup \{j\}}\big)$
+      \EndFunction
+      \State \Return \Call{Solve}{$0$, $\emptyset$}
+    \EndFunction
+  \end{algorithmic}
+  Cost: $O(s_1 \cdot 2^{s_2} \cdot s_2)$ -- at $s_1{=}s_2{=}12$, about $6\times10^5$
+  operations.
+\end{frame}
+
+\begin{frame}{Trace on the worked example}
+  \small
+  \texttt{cost = [[15,96],[36,2]]}. $\text{minCost2}[0]=\min(15,36)=15$;\ \
+  $\text{minCost2}[1]=\min(96,2)=2$.
+  \begin{center}
+  \begin{tabular}{@{}clll@{}}
+    \toprule
+    call & meaning & computation & value \\
+    \midrule
+    Solve$(2,\{0,1\})$ & base, nothing left & $0$ & $0$ \\
+    Solve$(2,\{0\})$ & base, bit $1$ open & $\text{minCost2}[1]$ & $2$ \\
+    Solve$(2,\{1\})$ & base, bit $0$ open & $\text{minCost2}[0]$ & $15$ \\
+    Solve$(1,\{0\})$ & connect $g1_1$ & $\min(36{+}2,\,2{+}0)$ & $2$ \\
+    Solve$(1,\emptyset)$ & connect $g1_1$ & $\min(36{+}2,\,2{+}15)$ & $17$ \\
+    Solve$(0,\emptyset)$ & connect $g1_0$ & $\min(15{+}2,\,96{+}17)$ & $\mathbf{17}$ \\
+    \bottomrule
+  \end{tabular}
+  \end{center}
+  Matches the worked example's answer of $17$.
+\end{frame}
+
+\begin{frame}[fragile]{Python implementation}
+  \begin{lstlisting}[style=py]
+from functools import lru_cache
+
+def connectTwoGroups(cost):
+    size1, size2 = len(cost), len(cost[0])
+    min_cost2 = [min(cost[i][j] for i in range(size1))
+                 for j in range(size2)]
+
+    @lru_cache(maxsize=None)
+    def solve(i, mask):
+        if i == size1:
+            return sum(min_cost2[j] for j in range(size2)
+                        if not (mask & (1 << j)))
+        return min(cost[i][j] + solve(i + 1, mask | (1 << j))
+                    for j in range(size2))
+
+    return solve(0, 0)
+  \end{lstlisting}
+\end{frame}
+
+\begin{frame}{Implementation tips \& tricks (the programming side)}
+  \small
+  \begin{itemize}
+    \item \textbf{\texttt{@lru\_cache} needs hashable arguments.} \texttt{(i, mask)} --
+    two integers -- is hashable for free; if you were tempted to pass a \texttt{set} or
+    \texttt{list} of covered points instead of a bitmask, memoization would silently
+    stop working (mutable types aren't hashable), which is one more reason the bitmask
+    encoding is the right implementation choice here, not just a space trick.
+    \item \textbf{\texttt{maxsize=None}} disables the LRU eviction; with only
+    $s_1\times2^{s_2}\le 12\times4096$ distinct states, correctness (never recomputing,
+    never evicting a state you still need) matters far more than bounding cache memory.
+    \item \textbf{Precompute \texttt{min\_cost2} once, outside the recursion.}
+    Recomputing $\min_i \text{cost}[i][j]$ inside every base-case call would silently
+    turn an $O(s_2)$ base case into an $O(s_1 s_2)$ one, multiplying the total cost by
+    up to $s_1$.
+  \end{itemize}
+\end{frame}
+
+% =================================================================
+\section{Summary}
+% =================================================================
+
+\begin{frame}{Summary: two lookalikes, one real lesson}
+  \footnotesize
+  \begin{enumerate}
+    \item \textbf{Campus Bikes II} is a genuine instance of the assignment problem --
+    a special case of min-cost flow with unit capacities -- solvable by the flow
+    machinery this week's lecture builds toward (in practice, a tiny bitmask DP suffices
+    at $n,m\le10$).
+    \item \textbf{Minimum Cost to Connect Two Groups of Points} looks identical on the
+    surface, but ``connect to possibly many'' breaks the fixed-degree structure that
+    flow relies on -- it needs a different tool (coverage-bitmask DP), not a bigger
+    flow solver.
+    \item The skill this week is building is not just ``run Ford-Fulkerson'' -- it is
+    recognizing \emph{when} a problem's structure matches the Max-Flow Min-Cut Theorem
+    and when a superficially similar problem does not.
+  \end{enumerate}
+  \begin{alertblock}{Keep practicing}
+    \texttt{LEETCODE.md} lists several more Hard flow-flavored problems for this week
+    (\emph{Maximum Students Taking Exam}, \emph{Pizza With 3n Slices}, \emph{Escape the
+    Spreading Fire}) -- for each one, ask first: is this really a flow problem, or does
+    it only look like one?
+  \end{alertblock}
+\end{frame}
+
+\end{document}
